@@ -81,8 +81,8 @@ func (b *IsoArtifactsStore) cleanUp() error {
 	return nil
 }
 
-func containsGrubNoPrefix(filePaths []string) (bool, error) {
-	_, bootFilesConfig, err := getBootArchConfig()
+func containsGrubNoPrefix(filePaths []string, distroHandler DistroHandler) (bool, error) {
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return false, err
 	}
@@ -218,7 +218,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		return nil, fmt.Errorf("failed to scan /boot folder:\n%w", err)
 	}
 
-	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths)
+	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		// in them (i.e. user files that we do not manipulate - but copy as-is).
 		scheduleAdditionalFile := true
 
-		_, bootFilesConfig, err := getBootArchConfig()
+		bootFilesConfig, err := distroHandler.GetBootArchConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +367,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		}
 	}
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -448,7 +448,50 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
 	filesStore.kdumpBootFiles = make(map[string]*KdumpBootFiles)
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	// Resolve the distro from the ISO's initrd. Which initrd to read depends on the ISO's initramfsType.
+	squashfsPath := filepath.Join(artifactsDir, liveOSImagePath)
+	squashfsExists, err := file.PathExists(squashfsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
+	}
+	if squashfsExists {
+		filesStore.squashfsImagePath = squashfsPath
+	}
+
+	var initrdPath string
+	switch initramfsTypeFromFilesStore(filesStore) {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		// Any of the per-kernel dracut initrds is fine for distro detection since they're all from the same OS.
+		for _, f := range isoFiles {
+			base := filepath.Base(f)
+			isInitrd := strings.HasPrefix(base, initramfsPrefix) || strings.HasPrefix(base, initrdPrefix)
+			if isInitrd && strings.HasSuffix(base, ".img") {
+				initrdPath = f
+				break
+			}
+		}
+		if initrdPath == "" {
+			return nil, fmt.Errorf("bootstrap ISO has no per-kernel initrd")
+		}
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
+		initrdExists, err := file.PathExists(initrdPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check for initrd at (%s):\n%w", initrdPath, err)
+		}
+		if !initrdExists {
+			return nil, fmt.Errorf("full OS ISO has no initrd at expected path (%s)", initrdPath)
+		}
+	default:
+		return nil, fmt.Errorf("unrecognized initramfs image type for ISO image")
+	}
+
+	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect distro from initrd (%s):\n%w", initrdPath, err)
+	}
+
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}

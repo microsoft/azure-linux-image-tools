@@ -28,6 +28,14 @@ type LiveOSConfig struct {
 	bootstrapFileUrl  string
 }
 
+// initramfsTypeFromFilesStore detects the initramfs type based on the files in the provided file store.
+func initramfsTypeFromFilesStore(filesStore *IsoFilesStore) imagecustomizerapi.InitramfsImageType {
+	if filesStore == nil || filesStore.squashfsImagePath == "" {
+		return imagecustomizerapi.InitramfsImageTypeFullOS
+	}
+	return imagecustomizerapi.InitramfsImageTypeBootstrap
+}
+
 func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramfsType imagecustomizerapi.InitramfsImageType,
 	defaultInitramfsType imagecustomizerapi.InitramfsImageType) (
 	resolvedInitramfsType imagecustomizerapi.InitramfsImageType, convertingInitramfsType bool,
@@ -36,11 +44,7 @@ func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramf
 	// , then we should follow the input image.
 	var inputInitramfsType imagecustomizerapi.InitramfsImageType
 	if inputArtifactsStore != nil {
-		if inputArtifactsStore.files.squashfsImagePath != "" {
-			inputInitramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
-		} else {
-			inputInitramfsType = imagecustomizerapi.InitramfsImageTypeFullOS
-		}
+		inputInitramfsType = initramfsTypeFromFilesStore(inputArtifactsStore.files)
 	}
 
 	resolvedInitramfsType = outputInitramfsType

@@ -543,7 +543,7 @@ func getInstalledTargetOsFromPartitionLayout(diskPartitions []diskutils.Partitio
 			return targetos.TargetOs{}, err
 		}
 
-		targetOs, err := targetos.GetInstalledTargetOsFromEnvFields(fields)
+		targetOs, err := targetos.GetInstalledTargetOsFromEnvFields(fields, "os-release")
 		if err != nil {
 			return targetos.TargetOs{}, err
 		}

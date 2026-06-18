@@ -498,7 +498,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	if rc.Uki != nil {
-		err = createUki(ctx, rc)
+		err = createUki(ctx, rc, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}

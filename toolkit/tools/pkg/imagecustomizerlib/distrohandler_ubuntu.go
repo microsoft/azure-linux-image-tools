@@ -242,3 +242,7 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
 	return false
 }
+
+func (d *ubuntuDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfig)
+}
