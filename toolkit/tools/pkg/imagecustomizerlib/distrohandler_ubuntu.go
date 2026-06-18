@@ -31,6 +31,11 @@ const (
 	grubEfiPackageDebianArm64 = "grub-efi-arm64"
 )
 
+var (
+	ErrUbuntuUnsupportedBootloaderHardReset   = NewImageCustomizerError("Validation:UbuntuUnsupportedBootloaderHardReset", "bootloader hard-reset API is not supported yet for Ubuntu images")
+	ErrUbuntuUnsupportedDisableBaseImageRepos = NewImageCustomizerError("Validation:UbuntuUnsupportedDisableBaseImageRepos", "disabling base image package repositories is not supported yet for Ubuntu images")
+)
+
 func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
 	logger.Log.Debugf("Distro handler: Ubuntu (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
 
@@ -72,7 +77,7 @@ func (d *ubuntuDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 	// Check if Ubuntu is being used with bootloader hard-reset.
 	// Ubuntu bootloader config logic is not yet fully implemented.
 	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
-		return fmt.Errorf("bootloader hard-reset API is not yet supported for Ubuntu images")
+		return ErrUbuntuUnsupportedBootloaderHardReset
 	}
 
 	if len(rc.Options.RpmsSources) > 0 {
@@ -83,7 +88,7 @@ func (d *ubuntuDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 	// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
 	// them is not meaningful and likely indicates a configuration mistake.
 	if !rc.Options.UseBaseImageRpmRepos {
-		return fmt.Errorf("disabling base image package repositories is not supported yet for Ubuntu images")
+		return ErrUbuntuUnsupportedDisableBaseImageRepos
 	}
 
 	if rc.HasPackageSnapshotTime() {
@@ -202,7 +207,7 @@ func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return fmt.Errorf("bootloader hard-reset API is not yet supported for Ubuntu images")
+	return ErrUbuntuUnsupportedBootloaderHardReset
 }
 
 func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {

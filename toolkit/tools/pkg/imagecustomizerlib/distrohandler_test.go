@@ -190,7 +190,7 @@ func testCustomizeImageUnsupportedPackageSnapshotTimeHelper(t *testing.T, baseIm
 }
 
 func TestCustomizeImageUnsupportedRpmSources(t *testing.T) {
-	for _, baseImageInfo := range slices.Concat(baseImageUbuntuAll) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageUnsupportedRpmSourcesHelper(t, baseImageInfo)
 		})
