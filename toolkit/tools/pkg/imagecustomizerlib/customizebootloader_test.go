@@ -110,6 +110,73 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 	}
 }
 
+// TestCustomizeImageBootLoaderResetGrubDefault verifies the grub default and grubenv files that a
+// bootloader hard-reset writes. The bundled templates these files come from are Azure Linux 4.0
+// specific, so this asserts against the 4.0 base image only (validate-image.sh checked the grub
+// files for the 4.0 images only as well). This is the output-side, in-tree replacement for
+// validate-image.sh's grub content check.
+func TestCustomizeImageBootLoaderResetGrubDefault(t *testing.T) {
+	baseImageInfo := testBaseImageAzl4CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBootLoaderResetGrubDefault")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			BootLoader: imagecustomizerapi.BootLoader{
+				ResetType: imagecustomizerapi.ResetBootLoaderTypeHard,
+			},
+		},
+	}
+
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	rootDir := imageConnection.Chroot().RootDir()
+
+	// A bootloader hard-reset rewrites /etc/default/grub from the bundled azurelinux-4.0 template. Its
+	// GRUB_CMDLINE_LINUX* lines vary with the image's SELinux state and extraCommandLine (empty here),
+	// so assert the stable settings plus the console=ttyS0 rd.shell=0 reset baseline rather than an
+	// exact match.
+	defaultGrubContents, err := file.Read(filepath.Join(rootDir, "etc/default/grub"))
+	if assert.NoError(t, err, "read /etc/default/grub") {
+		expectedSettings := []string{
+			`GRUB_ENABLE_BLSCFG=true`,
+			`GRUB_GFXMODE=auto`,
+			`GRUB_TERMINAL_INPUT="console"`,
+			`GRUB_TERMINAL_OUTPUT="gfxterm"`,
+			`GRUB_TIMEOUT=0`,
+			`GRUB_DEFAULT=saved`,
+		}
+		for _, expectedSetting := range expectedSettings {
+			assert.Containsf(t, defaultGrubContents, expectedSetting,
+				"/etc/default/grub should contain %q after bootloader hard-reset:\n%s", expectedSetting, defaultGrubContents)
+		}
+		assert.Regexp(t, `GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0 rd\.shell=0`, defaultGrubContents,
+			"/etc/default/grub kernel command line should start with the reset baseline:\n%s", defaultGrubContents)
+	}
+
+	// A bootloader hard-reset also restores the bundled grub environment block.
+	grubEnvContents, err := file.Read(filepath.Join(rootDir, "boot/grub2/grubenv"))
+	if assert.NoError(t, err, "read /boot/grub2/grubenv") {
+		assert.Containsf(t, grubEnvContents, "# GRUB Environment Block",
+			"/boot/grub2/grubenv should be the bundled grub environment block after bootloader hard-reset:\n%s", grubEnvContents)
+	}
+}
+
 func TestFindRootMountPoint_DirectFilesystem_Pass(t *testing.T) {
 	fileSystems := []imagecustomizerapi.FileSystem{
 		{
