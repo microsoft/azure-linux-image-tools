@@ -204,14 +204,14 @@ func goStartCmdHelper(cmd *exec.Cmd, capabilities []uintptr, selinuxContext stri
 	// Lock the OS thread to avoid affecting other goroutines.
 	// Note: Dropping capabilities cannot be undone. Hence, the OS thread needs to be thrown away.
 	// Hence, UnlockOSThread is not called and a goroutine is used.
-	// Also, setting the SELinux context can be technically be undone. But its less code to just throw away the OS
+	// Also, setting the SELinux context can technically be undone. But it's less code to just throw away the OS
 	// thread.
 	runtime.LockOSThread()
 
 	if selinuxContext != "" {
 		err := setSELinuxExecContext(selinuxContext)
 		if err != nil {
-			return fmt.Errorf("failed to set process SELinux exec context (%s)\n%w", selinuxContext, err)
+			return fmt.Errorf("failed to set process SELinux exec context (%s):\n%w", selinuxContext, err)
 		}
 	}
 

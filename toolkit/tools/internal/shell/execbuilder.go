@@ -81,7 +81,7 @@ func (b ExecBuilder) Chroot(chrootDir string) ExecBuilder {
 	return b
 }
 
-// Capabilities sets capabilities the command will be be restricted to.
+// Capabilities sets capabilities the command will be restricted to.
 func (b ExecBuilder) Capabilities(capabilities []uintptr) ExecBuilder {
 	b.capabilities = capabilities
 	return b
