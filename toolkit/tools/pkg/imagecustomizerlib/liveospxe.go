@@ -45,7 +45,7 @@ func getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl string) (string,
 func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType,
 	initramfsType imagecustomizerapi.InitramfsImageType, artifactsStore *IsoArtifactsStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	bootstrapBaseUrl, bootstrapFileUrl, outputPath string) (err error) {
+	bootstrapBaseUrl, bootstrapFileUrl, outputPath string, distroHandler DistroHandler) (err error) {
 	logger.Log.Infof("Creating PXE output at (%s)", outputPath)
 
 	outputPXEArtifactsDir := ""
