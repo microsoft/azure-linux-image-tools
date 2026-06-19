@@ -23,7 +23,7 @@ type ImageCreateOptions struct {
 	BuildDir            string
 	Distro              targetos.Distro
 	DistroVersion       string
-	ToolsTar            string
+	ToolsDir            string
 	RpmsSources         []string
 	OutputImageFile     string
 	OutputImageFormat   imagecustomizerapi.ImageFormatType
@@ -107,7 +107,7 @@ func CreateImage(ctx context.Context, baseConfigPath string, config imagecustomi
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)
 
-	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, options.ToolsTar,
+	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, options.ToolsDir,
 		distroHandler)
 	if err != nil {
 		return err

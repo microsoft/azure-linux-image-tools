@@ -102,16 +102,18 @@ func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, dist
 	return downloadedRpmsDir
 }
 
-func GetDownloadedToolsFile(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
+func GetDownloadedToolsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
 ) string {
-	toolsFileName := fmt.Sprintf("tools-%s-%s.tar.gz", distro, distroVersion)
-	toolsFilePath := filepath.Join(testutilsDir, "testrpms/build", toolsFileName)
-	if _, err := os.Stat(toolsFilePath); os.IsNotExist(err) {
-		t.Skipf("test requires downloaded tools file: %s;\n"+
+	toolsDirName := fmt.Sprintf("tools-%s-%s-dir", distro, distroVersion)
+	toolsDirPath := filepath.Join(testutilsDir, "testrpms/build", toolsDirName)
+
+	if _, err := os.Stat(toolsDirPath); os.IsNotExist(err) {
+		t.Skipf("test requires downloaded tools dir: %s;\n"+
 			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			toolsFilePath, distro, distroVersion, createImage)
+			toolsDirPath, distro, distroVersion, createImage)
 	}
-	return toolsFilePath
+
+	return toolsDirPath
 }
 
 func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, distro string, distroVersion string, withGpgKey bool,

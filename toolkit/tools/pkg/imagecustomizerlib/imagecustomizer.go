@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
@@ -94,7 +95,6 @@ const (
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
 	toolsRootImageDir            = "_imageroot"
-	toolsRoot                    = "toolsroot"
 
 	OtelTracerName = "imagecustomizerlib"
 )
@@ -673,8 +673,28 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
+	// Use the user-supplied tools directory directly as the tools chroot to avoid
+	// the cost of copying it into the build directory. The resolv.conf override
+	// is restored on exit so the directory remains reusable across invocations.
+	var toolsChroot *ToolsChroot
+	mountBaseDir := rc.BuildDirAbs
+	mountPointName := "imageroot"
+	if rc.Options.ToolsDir != "" {
+		if err := validateToolsDir(rc.Options.ToolsDir); err != nil {
+			return nil, nil, nil, "", err
+		}
+		var err error
+		toolsChroot, err = initToolsChroot(ctx, rc.Options.ToolsDir)
+		if err != nil {
+			return nil, nil, nil, "", err
+		}
+		defer toolsChroot.Close()
+		mountBaseDir = rc.Options.ToolsDir
+		mountPointName = toolsRootImageDir
+	}
+
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
+		ctx, rc.RawImageFile, mountBaseDir, mountPointName, true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -708,7 +728,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler)
+	var toolsChrootInner *safechroot.Chroot
+	if toolsChroot != nil {
+		toolsChrootInner = toolsChroot.Chroot()
+	}
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChrootInner)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -727,6 +751,13 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, nil, nil, "", err
+	}
+
+	if toolsChroot != nil {
+		err = toolsChroot.CleanClose()
+		if err != nil {
+			return nil, nil, nil, "", err
+		}
 	}
 
 	return partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil

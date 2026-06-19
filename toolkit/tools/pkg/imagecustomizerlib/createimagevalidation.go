@@ -4,8 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"os"
@@ -83,7 +81,7 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 	}
 
 	// Validate mandatory fields for creating a seed image
-	err = validateCreateImageMandatoryFields(baseConfigPath, config, options.RpmsSources, options.ToolsTar)
+	err = validateCreateImageMandatoryFields(baseConfigPath, config, options.RpmsSources, options.ToolsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +112,7 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 }
 
 func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config,
-	rpmsSources []string, toolsTar string,
+	rpmsSources []string, toolsDir string,
 ) error {
 	// check if storage disks is not empty for creating a seed image
 	if len(config.Storage.Disks) == 0 {
@@ -126,7 +124,10 @@ func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecust
 		return fmt.Errorf("rpm sources must be specified for creating a seed image")
 	}
 
-	err := validateToolsTarFile(toolsTar)
+	if toolsDir == "" {
+		return fmt.Errorf("tools directory is required for image creation")
+	}
+	err := validateToolsDir(toolsDir)
 	if err != nil {
 		return err
 	}
@@ -134,46 +135,17 @@ func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecust
 	return nil
 }
 
-func validateToolsTarFile(toolsTar string) error {
-	// Check if the tools tar file exists
-	if toolsTar == "" {
-		return fmt.Errorf("tools tar file is required for image creation")
+func validateToolsDir(toolsDir string) error {
+	info, err := os.Stat(toolsDir)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("tools directory (%s) does not exist", toolsDir)
 	}
-	if _, err := os.Stat(toolsTar); os.IsNotExist(err) {
-		return fmt.Errorf("tools tar file (%s) does not exist", toolsTar)
-	}
-	// Check if the tools tar file is a valid tar file
-	isValid, err := isValidTarGz(toolsTar)
 	if err != nil {
-		return fmt.Errorf("failed to validate tools tar file (%s): %w", toolsTar, err)
+		return fmt.Errorf("failed to stat tools directory (%s):\n%w", toolsDir, err)
 	}
-	if !isValid {
-		return fmt.Errorf("tools tar file (%s) is not a valid tar.gz file", toolsTar)
+	if !info.IsDir() {
+		return fmt.Errorf("tools path (%s) is not a directory", toolsDir)
 	}
 
 	return nil
-}
-
-func isValidTarGz(path string) (bool, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return false, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	// Check gzip header
-	gzReader, err := gzip.NewReader(file)
-	if err != nil {
-		return false, fmt.Errorf("not a valid gzip file: %w", err)
-	}
-	defer gzReader.Close()
-
-	// Check tar structure
-	tarReader := tar.NewReader(gzReader)
-	_, err = tarReader.Next()
-	if err != nil {
-		return false, fmt.Errorf("not a valid tar archive: %w", err)
-	}
-
-	return true, nil
 }

@@ -266,3 +266,21 @@ You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v1.1.
+
+## --tools-dir=DIRECTORY-PATH
+
+Optional.
+
+Specifies the path to a directory that provides an external package manager (tdnf/dnf).
+Required when performing package operations on images that do not include a package
+manager in the base image.
+
+When provided, the directory is copied into a separate chroot environment. The image is
+mounted inside that chroot at `/_imageroot`, and tdnf is invoked with
+`--installroot=/_imageroot`. Images that already include tdnf (e.g. standard Azure
+Linux images) do not need this flag.
+
+For instructions on how to create this directory, see:
+[How to create the tools directory](../../how-to/create-tools-dir.md)
+
+Added in v1.5.

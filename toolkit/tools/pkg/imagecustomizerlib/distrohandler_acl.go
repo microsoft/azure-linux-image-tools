@@ -77,7 +77,10 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
 			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
 			pkgs.UpdateExistingPackages {
-			return fmt.Errorf("package operations are not yet supported for ACL")
+			if rc.Options.ToolsDir == "" {
+				return fmt.Errorf("ACL package operations require --tools-dir: " +
+					"ACL images do not include a package manager")
+			}
 		}
 
 		if os.Overlays != nil {

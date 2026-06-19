@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
 const (
@@ -26,6 +27,7 @@ var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
+	toolsChroot *safechroot.Chroot,
 ) error {
 	var err error
 
@@ -33,6 +35,9 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	buildTime := time.Now().Format(buildTimeFormat)
 
+	// The toolsChroot (when present) has its own resolv.conf overridden at chroot
+	// initialization time; here we override the imageChroot's so that user scripts
+	// (e.g. postCustomization) have network access.
 	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
@@ -78,7 +83,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
-			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
+			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
 			return err

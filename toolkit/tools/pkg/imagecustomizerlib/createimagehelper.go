@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -15,20 +14,18 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
-func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile string,
+func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
 	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
-	err := toolsChroot.Initialize(tarFile, nil, nil, true)
+	toolsChroot, err := initToolsChroot(ctx, toolsDir)
 	if err != nil {
 		return nil, "", err
 	}
-	defer toolsChroot.Close(false)
+	defer toolsChroot.Close()
 
-	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
+	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
 	if err != nil {
 		return nil, "", err
@@ -36,7 +33,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
+	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot.Chroot(), partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -56,8 +53,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile
 		return nil, "", err
 	}
 
-	// Close the tools chroot and image connection.
-	err = toolsChroot.Close(false)
+	err = toolsChroot.CleanClose()
 	if err != nil {
 		return nil, "", err
 	}
@@ -76,7 +72,10 @@ func doOsCustomizationsCreate(
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
 
-	resolvConf, err := overrideResolvConf(toolsChroot)
+	// Override resolv.conf inside the image chroot so user scripts and RPM
+	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own
+	// resolv.conf is handled separately by initToolsChroot.
+	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
 	}

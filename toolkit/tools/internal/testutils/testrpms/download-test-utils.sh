@@ -101,6 +101,12 @@ if [ "$CREATE_IMAGE" = "true" ]; then
   $SCRIPT_DIR/create-tools-file.sh "$CONTAINER_IMAGE" "$TOOLS_FILE"
   echo "Tools file created successfully."
 
+  TOOLS_DIR="${TOOLS_FILE%.tar.gz}-dir"
+  echo "Extracting tools dir: $TOOLS_DIR"
+  mkdir -p "$TOOLS_DIR"
+  tar -x -z -f "$TOOLS_FILE" -C "$TOOLS_DIR"
+  echo "Tools dir extracted successfully."
+
   # Check for python3 availability
   if ! command -v python3 >/dev/null 2>&1; then
     echo "Error: python3 is required but not found in PATH"

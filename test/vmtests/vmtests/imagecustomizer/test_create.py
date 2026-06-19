@@ -127,7 +127,7 @@ def run_create_image_test(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources: List[Path],
-    tools_file: Path,
+    tools_dir: Path,
     config_path: Path,
     output_format: str,
     ssh_key: Tuple[str, Path],
@@ -152,7 +152,7 @@ def run_create_image_test(
     logging.debug("Test parameters:")
     logging.debug(f"- image_customizer_container_url = {image_customizer_container_url}")
     logging.debug(f"- rpm_sources                    = {rpm_sources}")
-    logging.debug(f"- tools_file                     = {tools_file}")
+    logging.debug(f"- tools_dir                      = {tools_dir}")
     logging.debug(f"- config_path                    = {config_path}")
     logging.debug(f"- output_format                  = {output_format}")
     logging.debug(f"- target_boot_type               = {target_boot_type}")
@@ -172,7 +172,7 @@ def run_create_image_test(
         output_format,
         initial_output_image_path,
         rpm_sources=rpm_sources,
-        tools_file=tools_file,
+        tools_dir=tools_dir,
         distro=distro,
         distro_version=version,
     )
@@ -289,7 +289,7 @@ def test_create_image_efi_qcow_output_azl3(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_azl3: Path,
-    tools_file_azl3: Path,
+    tools_dir_azl3: Path,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -301,7 +301,7 @@ def test_create_image_efi_qcow_output_azl3(
         image_customizer_container_url,
         docker_client,
         [rpm_sources_azl3],
-        tools_file_azl3,
+        tools_dir_azl3,
         TEST_CONFIGS_DIR.joinpath("create-minimal-os.yaml"),
         "qcow2",
         ssh_key,
@@ -319,7 +319,7 @@ def test_create_image_efi_qcow_output_azl4(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_azl4: Path,
-    tools_file_azl4: Path,
+    tools_dir_azl4: Path,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -336,7 +336,7 @@ def test_create_image_efi_qcow_output_azl4(
         image_customizer_container_url,
         docker_client,
         [rpm_sources_azl4],
-        tools_file_azl4,
+        tools_dir_azl4,
         config_path,
         "qcow2",
         ssh_key,
@@ -354,7 +354,7 @@ def test_create_image_efi_qcow_output_fedora(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_fedora42: Path,
-    tools_file_fedora42: Path,
+    tools_dir_fedora42: Path,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -371,7 +371,7 @@ def test_create_image_efi_qcow_output_fedora(
         image_customizer_container_url,
         docker_client,
         [rpm_sources_fedora42],
-        tools_file_fedora42,
+        tools_dir_fedora42,
         config_path,
         "qcow2",
         ssh_key,

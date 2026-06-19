@@ -29,7 +29,7 @@ def run_image_customizer(
     output_image_path: Path,
     image_file: Path | None = None,
     rpm_sources: List[Path] | None = None,
-    tools_file: Path | None = None,
+    tools_dir: Path | None = None,
     distro: str | None = None,
     distro_version: str | None = None,
     log_format: str | None = None,
@@ -78,12 +78,10 @@ def run_image_customizer(
             volumes.append(f"{rpm_source_abs}:{container_rpm_source_path}:z")
             args.extend(["--rpm-source", str(container_rpm_source_path)])
 
-    if tools_file:
-        tools_dir = tools_file.parent.absolute()
+    if tools_dir:
         container_tools_dir = Path("/container/tools")
-        container_tools_file = container_tools_dir.joinpath(tools_file.name)
-        args.extend(["--tools-file", str(container_tools_file)])
-        volumes.append(f"{tools_dir}:{container_tools_dir}:z")
+        args.extend(["--tools-dir", str(container_tools_dir)])
+        volumes.append(f"{tools_dir.absolute()}:{container_tools_dir}:z")
 
     if distro:
         args.extend(["--distro", distro])

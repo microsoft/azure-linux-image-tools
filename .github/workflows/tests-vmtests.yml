@@ -182,9 +182,9 @@ jobs:
           RPM_SOURCES_AZL3="$TEST_RPMS_DIR/downloadedrpms/azurelinux/3.0" \
           RPM_SOURCES_AZL4="$TEST_RPMS_DIR/downloadedrpms/azurelinux/4.0" \
           RPM_SOURCES_FEDORA42="$TEST_RPMS_DIR/downloadedrpms/fedora/42" \
-          TOOLS_FILE_AZL3="$TEST_RPMS_DIR/build/tools-azurelinux-3.0.tar.gz" \
-          TOOLS_FILE_AZL4="$TEST_RPMS_DIR/build/tools-azurelinux-4.0.tar.gz" \
-          TOOLS_FILE_FEDORA42="$TEST_RPMS_DIR/build/tools-fedora-42.tar.gz" \
+          TOOLS_DIR_AZL3="$TEST_RPMS_DIR/build/tools-azurelinux-3.0-dir" \
+          TOOLS_DIR_AZL4="$TEST_RPMS_DIR/build/tools-azurelinux-4.0-dir" \
+          TOOLS_DIR_FEDORA42="$TEST_RPMS_DIR/build/tools-fedora-42-dir" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
