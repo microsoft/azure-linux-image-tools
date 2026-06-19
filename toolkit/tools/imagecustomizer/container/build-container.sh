@@ -81,7 +81,6 @@ stagingLibDir="${containerStagingFolder}/usr/lib/imagecustomizer"
 stagingLicensesDir="${containerStagingFolder}/usr/share/licenses"
 
 dockerFile="$scriptDir/imagecustomizer.Dockerfile"
-runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
@@ -89,7 +88,6 @@ mkdir -p "${stagingLibDir}"
 mkdir -p "${stagingLicensesDir}"
 
 cp "$exeFile" "${stagingBinDir}"
-cp "$runScriptPath" "${stagingLibDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
 cp "$telemetryScript" "${stagingLibDir}"
 cp "$entrypointScript" "${stagingLibDir}"
