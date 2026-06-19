@@ -122,7 +122,7 @@ func TestAclValidateConfigPackageOpsRequireToolsDir(t *testing.T) {
 
 	rc := &ResolvedConfig{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureAzureContainerLinux,
+			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
 		ConfigChain: []*ConfigWithBasePath{
 			{
