@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
@@ -27,7 +28,7 @@ var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
-	toolsChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot, createImage bool,
 ) error {
 	var err error
 
@@ -87,6 +88,16 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			snapshotTime)
 		if err != nil {
 			return err
+		}
+	}
+
+	if createImage {
+		// Clear systemd state files that should be unique to each instance.
+		// For the create subcommand, we disable systemd firstboot by default since Azure Linux
+		// has traditionally not used firstboot mechanisms.
+		err = installutils.ClearSystemdState(imageChroot, false)
+		if err != nil {
+			return fmt.Errorf("failed to clear systemd state:\n%w", err)
 		}
 	}
 
@@ -162,7 +173,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false, distroHandler)
+	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, createImage, distroHandler)
 	if err != nil {
 		return err
 	}

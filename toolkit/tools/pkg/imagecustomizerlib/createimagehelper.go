@@ -6,12 +6,8 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
 func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
@@ -25,6 +21,8 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	}
 	defer toolsChroot.Close()
 
+	// TODO: Online package install test
+
 	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
 	if err != nil {
@@ -33,7 +31,8 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot.Chroot(), partitionsLayout, distroHandler)
+	err = doOsCustomizations(ctx, rc, imageConnection, false /*partitionsCustomized*/, partitionsLayout, distroHandler,
+		toolsChroot.Chroot(), true /*createImage*/)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -59,84 +58,4 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	}
 
 	return partitionsLayout, osRelease, nil
-}
-
-func doOsCustomizationsCreate(
-	ctx context.Context,
-	rc *ResolvedConfig,
-	imageConnection *imageconnection.ImageConnection,
-	toolsChroot *safechroot.Chroot,
-	partitionsLayout []fstabEntryPartNum,
-	distroHandler DistroHandler,
-) error {
-	imageChroot := imageConnection.Chroot()
-	buildTime := time.Now().Format(buildTimeFormat)
-
-	// Override resolv.conf inside the image chroot so user scripts and RPM
-	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own
-	// resolv.conf is handled separately by initToolsChroot.
-	resolvConf, err := overrideResolvConf(imageChroot)
-	if err != nil {
-		return err
-	}
-
-	for _, configWithBase := range rc.ConfigChain {
-		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
-		if rc.Options.PackageSnapshotTime != "" {
-			snapshotTime = rc.Options.PackageSnapshotTime
-		}
-
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
-			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
-			snapshotTime)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err = UpdateHostname(ctx, rc.Hostname, imageChroot); err != nil {
-		return err
-	}
-
-	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
-		return err
-	}
-
-	if err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, true, distroHandler); err != nil {
-		return err
-	}
-
-	// Clear systemd state files that should be unique to each instance
-	// For the create subcommand, we disable systemd firstboot by default since Azure Linux
-	// has traditionally not used firstboot mechanisms.
-	err = installutils.ClearSystemdState(imageChroot, false)
-	if err != nil {
-		return fmt.Errorf("failed to clear systemd state:\n%w", err)
-	}
-
-	for _, configWithBase := range rc.ConfigChain {
-		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.PostCustomization,
-			"postCustomization", imageChroot)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err = restoreResolvConf(ctx, resolvConf, imageChroot); err != nil {
-		return err
-	}
-
-	if err = checkForInstalledKernel(ctx, imageChroot); err != nil {
-		return err
-	}
-
-	for _, configWithBase := range rc.ConfigChain {
-		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.FinalizeCustomization,
-			"finalizeCustomization", imageChroot)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

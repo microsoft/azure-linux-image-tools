@@ -732,7 +732,8 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	if toolsChroot != nil {
 		toolsChrootInner = toolsChroot.Chroot()
 	}
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChrootInner)
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler,
+		toolsChrootInner, false /*createImage*/)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
