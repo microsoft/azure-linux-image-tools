@@ -162,7 +162,7 @@ def run_create_image_test(
     username = get_username()
 
     final_config_path = config_path
-    if distro.lower() == "fedora":
+    if is_preview_distro_version:
         final_config_path = add_preview_features_to_config(config_path, "preview-distro-version", close_list)
 
     run_image_customizer(
