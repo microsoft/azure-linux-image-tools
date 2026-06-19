@@ -55,7 +55,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 		return
 	}
 
-	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, false)
+	espFiles := verifyAndSignOutputtedArtifacts(t, baseImageInfo, outputArtifactsDir, false)
 
 	// Use new buildDir to ensure the buildDir is created if it doesn't exist.
 	buildDirInject := filepath.Join(buildDir, "inject")
@@ -163,7 +163,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		return
 	}
 
-	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, true)
+	espFiles := verifyAndSignOutputtedArtifacts(t, baseImageInfo, outputArtifactsDir, true)
 
 	// Inject artifacts into image.
 	options := InjectFilesOptions{
@@ -305,7 +305,19 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		"root", buildDir, "", "restart-on-corruption", false /*inlineVerity*/)
 }
 
-func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, expectVerityHash bool) []string {
+func verifyAndSignOutputtedArtifacts(t *testing.T, baseImageInfo testBaseImageInfo, outputArtifactsDir string, expectVerityHash bool) []string {
+	// Resolve the distro-version's boot file layout so artifact destinations can be checked against the distro's
+	// actual ESP paths. The boot file names differ per distro-version (for example, Azure Linux 4 uses the Fedora-style
+	// uppercase BOOTX64.EFI shim, while Azure Linux 3 uses lowercase bootx64.efi).
+	distroHandler, err := NewDistroHandler(baseImageInfo.TargetOs())
+	if !assert.NoError(t, err) {
+		return nil
+	}
+	bootConfig, err := distroHandler.GetBootArchConfig()
+	if !assert.NoError(t, err) {
+		return nil
+	}
+
 	// Confirm inject-files.yaml was generated
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 	exists, err := file.PathExists(injectConfigPath)
@@ -333,15 +345,15 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 
 		switch entry.Type {
 		case imagecustomizerapi.OutputArtifactsItemShim:
-			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/BOOT/boot"), "Expected shim destination to start with /EFI/BOOT/boot")
-			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected shim destination to end with .efi")
+			expectedShimDestination := filepath.Join("/", bootConfig.espBootBinaryPath)
+			assert.Equal(t, expectedShimDestination, entry.Destination, "Expected shim destination to match the distro ESP boot binary path")
 			assert.True(t, strings.HasPrefix(entry.Source, "./shim/"), "Expected shim source to be in shim/ subdirectory")
 			hasShim = true
 			espFiles = append(espFiles, entry.Destination)
 
 		case imagecustomizerapi.OutputArtifactsItemBootloader:
-			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/BOOT/grub"), "Expected bootloader destination to start with /EFI/BOOT/grub")
-			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected bootloader destination to end with .efi")
+			expectedBootloaderDestination := filepath.Join("/", bootConfig.espGrubBinaryPath)
+			assert.Equal(t, expectedBootloaderDestination, entry.Destination, "Expected bootloader destination to match the distro ESP grub binary path")
 			assert.True(t, strings.HasPrefix(entry.Source, "./bootloader/"), "Expected bootloader source to be in bootloader/ subdirectory")
 			hasBootloader = true
 			espFiles = append(espFiles, entry.Destination)
