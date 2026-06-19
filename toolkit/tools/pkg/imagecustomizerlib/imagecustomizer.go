@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
@@ -683,13 +684,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 			return nil, nil, nil, "", err
 		}
 		var err error
-		toolsChroot, err = initToolsChroot(rc.Options.ToolsDir)
+		toolsChroot, err = initToolsChroot(ctx, rc.Options.ToolsDir)
 		if err != nil {
 			return nil, nil, nil, "", err
 		}
-		// Close must run AFTER imageConnection.Close so the image unmounts
-		// before the tools chroot directory is torn down.
-		defer toolsChroot.Close(ctx)
+		defer toolsChroot.Close()
 		mountBaseDir = rc.Options.ToolsDir
 		mountPointName = toolsRootImageDir
 	}
@@ -729,7 +728,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChroot.Chroot())
+	var toolsChrootInner *safechroot.Chroot
+	if toolsChroot != nil {
+		toolsChrootInner = toolsChroot.Chroot()
+	}
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChrootInner)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -751,7 +754,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	if toolsChroot != nil {
-		err = toolsChroot.CleanClose(ctx)
+		err = toolsChroot.CleanClose()
 		if err != nil {
 			return nil, nil, nil, "", err
 		}

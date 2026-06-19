@@ -19,11 +19,11 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChroot, err := initToolsChroot(toolsDir)
+	toolsChroot, err := initToolsChroot(ctx, toolsDir)
 	if err != nil {
 		return nil, "", err
 	}
-	defer toolsChroot.Close(ctx)
+	defer toolsChroot.Close()
 
 	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
@@ -53,7 +53,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", err
 	}
 
-	err = toolsChroot.CleanClose(ctx)
+	err = toolsChroot.CleanClose()
 	if err != nil {
 		return nil, "", err
 	}

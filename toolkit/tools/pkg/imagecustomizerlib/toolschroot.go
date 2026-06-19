@@ -14,73 +14,75 @@ import (
 // ToolsChroot wraps a safechroot used to run tdnf/dnf against a target image
 // via --installroot. It owns the resolv.conf override on the tools chroot.
 type ToolsChroot struct {
+	ctx        context.Context
 	chroot     *safechroot.Chroot
-	resolvConf resolvConfInfo
+	resolvConf *resolvConfInfo
 	toolsDir   string
-	closed     bool
 }
 
-func initToolsChroot(toolsDir string) (*ToolsChroot, error) {
-	chroot := safechroot.NewChroot(toolsDir, true)
-	if err := chroot.Initialize("", nil, nil, true); err != nil {
-		return nil, fmt.Errorf("failed to initialize tools chroot from %s:\n%w", toolsDir, err)
+func initToolsChroot(ctx context.Context, toolsDir string) (*ToolsChroot, error) {
+	t := &ToolsChroot{
+		ctx:      ctx,
+		toolsDir: toolsDir,
 	}
 
-	resolvConf, err := overrideResolvConf(chroot)
+	err := t.initToolsChroot()
 	if err != nil {
-		if closeErr := chroot.Close(false); closeErr != nil {
-			logger.Log.Warnf("Failed to close tools chroot (%s) after resolv.conf override failure: %v",
-				toolsDir, closeErr)
-		}
-		return nil, fmt.Errorf("failed to override resolv.conf in tools chroot:\n%w", err)
+		t.Close()
+		return nil, err
 	}
 
-	return &ToolsChroot{
-		chroot:     chroot,
-		resolvConf: resolvConf,
-		toolsDir:   toolsDir,
-	}, nil
+	return t, nil
 }
 
-// Chroot returns the underlying safechroot. Nil-safe.
-func (t *ToolsChroot) Chroot() *safechroot.Chroot {
-	if t == nil {
-		return nil
+func (t *ToolsChroot) initToolsChroot() error {
+	t.chroot = safechroot.NewChroot(t.toolsDir, true)
+	if err := t.chroot.Initialize("", nil, nil, true); err != nil {
+		return fmt.Errorf("failed to initialize tools chroot from %s:\n%w", t.toolsDir, err)
 	}
+
+	resolvConf, err := overrideResolvConf(t.chroot)
+	if err != nil {
+		return fmt.Errorf("failed to override resolv.conf in tools chroot:\n%w", err)
+	}
+	t.resolvConf = &resolvConf
+
+	return nil
+}
+
+// Chroot returns the underlying safechroot.
+func (t *ToolsChroot) Chroot() *safechroot.Chroot {
 	return t.chroot
 }
 
 // CleanClose restores resolv.conf and closes the chroot, returning the first
-// error. Use this in the success path. Safe to call multiple times.
-func (t *ToolsChroot) CleanClose(ctx context.Context) error {
-	if t == nil || t.closed {
-		return nil
-	}
-	t.closed = true
-
-	if err := restoreResolvConf(ctx, t.resolvConf, t.chroot); err != nil {
-		// Still attempt to close so the chroot mount is not leaked.
-		if closeErr := t.chroot.Close(false); closeErr != nil {
-			logger.Log.Warnf("Failed to close tools chroot (%s) after restoreResolvConf failure: %v",
-				t.toolsDir, closeErr)
-		}
+// error. Use this in the success path.
+func (t *ToolsChroot) CleanClose() error {
+	if err := restoreResolvConf(t.ctx, *t.resolvConf, t.chroot); err != nil {
 		return fmt.Errorf("failed to restore resolv.conf in tools chroot:\n%w", err)
 	}
-	return t.chroot.Close(false)
+	t.resolvConf = nil
+
+	if err := t.chroot.Close(true); err != nil {
+		return fmt.Errorf("failed to close tools chroot (%s):\n%w", t.toolsDir, err)
+	}
+
+	return nil
 }
 
-// Close is a best-effort cleanup intended for `defer`. Errors are logged. Safe
-// to call multiple times.
-func (t *ToolsChroot) Close(ctx context.Context) {
-	if t == nil || t.closed {
-		return
+// Close is a best-effort cleanup intended for `defer`. Errors are logged.
+// Safe to call on a partially constructed or partially deconstructed instance.
+func (t *ToolsChroot) Close() {
+	if t.resolvConf != nil {
+		if err := restoreResolvConf(t.ctx, *t.resolvConf, t.chroot); err != nil {
+			logger.Log.Warnf("Failed to restore resolv.conf in tools chroot (%s): %v", t.toolsDir, err)
+		}
+		t.resolvConf = nil
 	}
-	t.closed = true
 
-	if err := restoreResolvConf(ctx, t.resolvConf, t.chroot); err != nil {
-		logger.Log.Warnf("Failed to restore resolv.conf in tools chroot (%s): %v", t.toolsDir, err)
-	}
-	if err := t.chroot.Close(false); err != nil {
-		logger.Log.Warnf("Failed to close tools chroot (%s): %v", t.toolsDir, err)
+	if t.chroot != nil {
+		if err := t.chroot.Close(true); err != nil {
+			logger.Log.Warnf("Failed to close tools chroot (%s): %v", t.toolsDir, err)
+		}
 	}
 }
