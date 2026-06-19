@@ -50,13 +50,12 @@ func (d *azureLinux4DistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
-		return ErrPreviewDistroVersionFeatureRequired
-	}
-
 	switch d.targetOs.VersionId {
 	case "4.0":
 		// Supported versions
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
+			return ErrPreviewDistroVersionFeatureRequired
+		}
 
 	default:
 		err := handleUnsupportedDistroVersion(rc, d.targetOs)
