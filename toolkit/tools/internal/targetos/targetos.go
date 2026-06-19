@@ -81,6 +81,8 @@ var (
 	}
 
 	// initrdReleaseCandidates lists the in-initrd paths to probe for an os-release(5)-type file, in preference order.
+	// These are matched against cpio member names, which are stored relative to the archive root, so they must not have
+	// a leading slash.
 	//
 	// os-release is the canonical filename and is the only candidate present in full-OS initrds built by Image
 	// Customizer (which pack the source rootfs directly, in which initrd-release does not exist at all).
@@ -88,10 +90,10 @@ var (
 	// initrd-release is the dracut-runtime variant emitted by dracut's 99base module. os-release symlinks to this file
 	// in such cases, so it is a necessary fallback.
 	initrdReleaseCandidates = []string{
-		"/etc/os-release",
-		"/usr/lib/os-release",
-		"/etc/initrd-release",
-		"/usr/lib/initrd-release",
+		"etc/os-release",
+		"usr/lib/os-release",
+		"etc/initrd-release",
+		"usr/lib/initrd-release",
 	}
 )
 
