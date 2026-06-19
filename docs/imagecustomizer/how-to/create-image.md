@@ -241,7 +241,6 @@ As such, the example configuration files below must specify `create` in the [pre
     docker run \
       --rm \
       --privileged=true \
-      -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
       mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro azurelinux \
@@ -260,7 +259,6 @@ As such, the example configuration files below must specify `create` in the [pre
     docker run \
       --rm \
       --privileged=true \
-      -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
       mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro fedora \
@@ -276,15 +274,11 @@ As such, the example configuration files below must specify `create` in the [pre
     Docker options:
 
     - `run`: Runs the container.
-    
+
     - `--rm`: Cleans up the container once the program has completed.
 
     - `--privileged=true`: Gives the container root permissions, which is needed to mount
       loopback devices (i.e. disk files) and partitions.
-
-    - `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
-      device nodes to be populated under `/dev`. But the udevd service runs in the host not
-      the container. So, the container doesn't receive udev updates.
 
       This option maps in the host's version of `/dev` into the container, instead of the
       container getting its own `/dev`.
@@ -295,6 +289,12 @@ As such, the example configuration files below must specify `create` in the [pre
     - `mcr.microsoft.com/azurelinux/imagecustomizer:latest`: The container to run.
 
     - `create`: Specifies the subcommand to run within the container.
+
+    For v1.4 and below, you must also add the docker option:
+
+    - `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
+      device nodes to be populated under `/dev`. But the container only has a copy of
+      `/dev` at the time of the container's creation.
 
     Image Customizer options for the ([create subcommand](../api/cli/create.md)):
 

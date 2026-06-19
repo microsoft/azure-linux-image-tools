@@ -27,7 +27,6 @@ docker run --rm \
     --privileged=true \
     -v "$inputConfigDir":"$containerInputConfigDir":z \
     -v "$outputImageDir":"$containerOutputDir":z \
-    -v /dev:/dev \
     --entrypoint /usr/lib/imagecustomizer/run.sh \
     "$containerTag" \
         "3.0.latest" \

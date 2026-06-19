@@ -155,7 +155,6 @@ in front of any HTTP endpoints.
    docker run \
      --rm \
      --privileged=true \
-     -v /dev:/dev \
      -v "$STAGE_DIR:/mnt/staging:z" \
      "$IMG_CUSTOMIZER_TAG" \
        --image-file "/mnt/staging/image.vhd" \

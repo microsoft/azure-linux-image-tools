@@ -72,7 +72,6 @@ The container is published to both:
     docker run \
       --rm \
       --privileged=true \
-      -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
       mcr.microsoft.com/azurelinux/imagecustomizer:latest \
         --image-file "/mnt/staging/image.vhdx" \
@@ -90,10 +89,6 @@ The container is published to both:
     - `--privileged=true`: Gives the container root permissions, which is needed to mount
       loopback devices (i.e. disk files) and partitions.
 
-    - `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
-      device nodes to be populated under `/dev`. But the udevd service runs in the host not
-      the container. So, the container doesn't receive udev updates.
-
       This option maps in the host's version of `/dev` into the container, instead of the
       container getting its own `/dev`.
 
@@ -103,6 +98,12 @@ The container is published to both:
     - `mcr.microsoft.com/azurelinux/imagecustomizer:latest`: The container to run.
 
     - `imagecustomizer`: Specifies the executable to run within the container.
+
+    For v1.4 and below, you must also add the docker option:
+
+    - `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
+      device nodes to be populated under `/dev`. But the container only has a copy of
+      `/dev` at the time of the container's creation.
 
     Image Customizer options ([CLI API](../api/cli/cli.md)):
 

@@ -29,7 +29,6 @@ the flag `--disable-telemetry`. Here is a sample command:
 docker run \
    --rm \
    --privileged=true \
-   -v /dev:/dev \
    -v "$HOME/staging:/mnt/staging:z" \
    mcr.microsoft.com/azurelinux/imagecustomizer:latest \
      --image-file "/mnt/staging/image.vhdx" \
