@@ -43,6 +43,9 @@ func setSELinuxExecContext(context string) error {
 //
 // Note: This function should only be run under the runtime.LockOSThread() lock and on the same thread that called
 // setSELinuxExecContext().
+//
+// Future: This function could be used to optimize goStartCmdHelper() to avoid throwing away the OS thread in cases
+// where it isn't necessary.
 func resetSELinuxExecContext() error {
 	path := selinuxExecContextPath()
 
