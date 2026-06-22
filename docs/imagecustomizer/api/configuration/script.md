@@ -7,17 +7,13 @@ ancestor: Image Customizer
 
 Points to a script file (typically a Bash script) to be run during customization.
 
-Scripts are run with a limited set of
-[capabilities](https://man7.org/linux/man-pages/man7/capabilities.7.html). Specifically:
+Scripts are run within the chroot of the target OS. The working directory is set to the
+target OS's root directory (`/`).
 
-- `CAP_CHOWN`
-- `CAP_DAC_OVERRIDE`
-- `CAP_DAC_READ_SEARCH`
-- `CAP_FOWNER`
-- `CAP_SETFCAP`
-
-Restricting the set of capabilities helps prevent scripts from accidentally affecting
-the host kernel.
+When a script is running, there is a bind mount to the config file's parent directory
+mounted at `/_imageconfigs` within the target OS. This can be used to both access
+resources on the build host in the scripts, and to output information (by writing files)
+to the build host during customization.
 
 WARNING: Custom scripts are not considered to be on security boundary.
 Only use config files that you trust (or run image customizer in a security sandbox).
