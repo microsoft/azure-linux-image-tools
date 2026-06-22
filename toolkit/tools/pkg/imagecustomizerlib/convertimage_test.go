@@ -123,7 +123,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
 		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
 		// It will fail once this support is added.
-		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
+		assert.ErrorIs(t, err, ErrUbuntuUnsupportedBootloaderHardReset)
 		return
 	}
 	if !assert.NoError(t, err) {
@@ -197,7 +197,7 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
 		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
 		// It will fail once this support is added.
-		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
+		assert.ErrorIs(t, err, ErrUbuntuUnsupportedBootloaderHardReset)
 		return
 	}
 	if !assert.NoError(t, err) {

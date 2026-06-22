@@ -27,6 +27,10 @@ const (
 var (
 	ErrUnsupportedDistroVersion       = NewImageCustomizerError("Validation:UnsupportedDistroVersion", "base image has unsupported distro version")
 	ErrUnsupportedDistroVersionSuffix = fmt.Sprintf("preview feature '%s' may be specified to use unsupported versions", imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion)
+
+	ErrUnsupportedDistroApi           = NewImageCustomizerError("Validation:UnsupportedDistroApi", "unsupported API for distro")
+	ErrUnsupportedPackageSnapshotTime = NewImageCustomizerError("Validation:UnsupportedPackageSnapshotTime", "package snapshot time API is not supported")
+	ErrUnsupportedRpmSources          = NewImageCustomizerError("Validation:UnsupportedRpmSources", "RPM sources API is not supported")
 )
 
 // DistroHandler represents the interface for distribution-specific configuration

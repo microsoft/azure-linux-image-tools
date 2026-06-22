@@ -31,6 +31,11 @@ const (
 	grubEfiPackageDebianArm64 = "grub-efi-arm64"
 )
 
+var (
+	ErrUbuntuUnsupportedBootloaderHardReset   = NewImageCustomizerError("Validation:UbuntuUnsupportedBootloaderHardReset", "bootloader hard-reset API is not supported yet for Ubuntu images")
+	ErrUbuntuUnsupportedDisableBaseImageRepos = NewImageCustomizerError("Validation:UbuntuUnsupportedDisableBaseImageRepos", "disabling base image package repositories is not supported yet for Ubuntu images")
+)
+
 func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
 	logger.Log.Debugf("Distro handler: Ubuntu (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
 
@@ -59,10 +64,35 @@ func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 	}
 
+	err := d.checkForUnsupportedApis(rc)
+	if err != nil {
+		return fmt.Errorf("%w (distro='%s', versionid='%s'):\n%w", ErrUnsupportedDistroApi, d.targetOs.Distro,
+			d.targetOs.VersionId, err)
+	}
+
+	return nil
+}
+
+func (d *ubuntuDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	// Check if Ubuntu is being used with bootloader hard-reset.
 	// Ubuntu bootloader config logic is not yet fully implemented.
 	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
-		return ErrUbuntuBootLoaderHardReset
+		return ErrUbuntuUnsupportedBootloaderHardReset
+	}
+
+	if len(rc.Options.RpmsSources) > 0 {
+		return ErrUnsupportedRpmSources
+	}
+
+	// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
+	// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
+	// them is not meaningful and likely indicates a configuration mistake.
+	if !rc.Options.UseBaseImageRpmRepos {
+		return ErrUbuntuUnsupportedDisableBaseImageRepos
+	}
+
+	if rc.HasPackageSnapshotTime() {
+		return ErrUnsupportedPackageSnapshotTime
 	}
 
 	return nil
@@ -73,23 +103,6 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	if len(rpmsSources) > 0 {
-		return fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-	}
-
-	// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
-	// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
-	// them is not meaningful and likely indicates a configuration mistake.
-	if !useBaseImageRpmRepos {
-		return fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
-			ErrUnsupportedUbuntuFeature)
-	}
-
-	if config.Packages.SnapshotTime != "" {
-		return fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
-			ErrUnsupportedUbuntuFeature)
-	}
-
 	return managePackagesDeb(ctx, config, imageChroot)
 }
 
@@ -100,8 +113,7 @@ func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 
 func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
 ) (*PackageVersionInformation, error) {
-	return nil, fmt.Errorf("Getting package information is not supported yet for Ubuntu images:\n%w",
-		ErrUnsupportedUbuntuFeature)
+	return nil, fmt.Errorf("getting package information is not supported yet for Ubuntu images")
 }
 
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
@@ -194,7 +206,7 @@ func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return ErrUbuntuBootLoaderHardReset
+	return ErrUbuntuUnsupportedBootloaderHardReset
 }
 
 func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {

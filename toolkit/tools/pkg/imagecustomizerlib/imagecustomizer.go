@@ -42,8 +42,6 @@ var (
 	ErrFedoraPreviewFeatureRequired              = NewImageCustomizerError("Validation:FedoraPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora base image", imagecustomizerapi.PreviewFeatureFedora))
 	ErrUbuntuPreviewFeatureRequired              = NewImageCustomizerError("Validation:UbuntuPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu base image", imagecustomizerapi.PreviewFeatureUbuntu))
 	ErrAzureContainerLinuxPreviewFeatureRequired = NewImageCustomizerError("Validation:AzureContainerLinuxPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Azure Container Linux base image", imagecustomizerapi.PreviewFeatureAzureContainerLinux))
-	ErrUbuntuBootLoaderHardReset                 = NewImageCustomizerError("Validation:UbuntuBootLoaderHardReset", "bootloader hard-reset is not supported for Ubuntu images")
-	ErrUnsupportedUbuntuFeature                  = NewImageCustomizerError("Validation:UnsupportedUbuntuFeature", "unsupported feature for Ubuntu images")
 	ErrInputImageOciPreviewRequired              = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrConvertUnsupportedInputFormat             = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
 	ErrConvertBuildDirRequired                   = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")

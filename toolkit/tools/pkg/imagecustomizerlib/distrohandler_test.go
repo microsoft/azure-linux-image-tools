@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -142,4 +143,95 @@ func TestAclValidateConfigPackageOpsRequireToolsDir(t *testing.T) {
 	rc.Options.ToolsDir = "/some/tools/dir"
 	err = handler.ValidateConfig(rc)
 	assert.NoError(t, err)
+}
+
+func TestCustomizeImageUnsupportedPackageSnapshotTime(t *testing.T) {
+	for _, baseImageInfo := range slices.Concat([]testBaseImageInfo{testBaseImageAzl4CoreEfi}, baseImageUbuntuAll) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUnsupportedPackageSnapshotTimeHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageUnsupportedPackageSnapshotTimeHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUnsupportedPackageSnapshotTime_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	options := ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      "./out/image.vhdx",
+		OutputImageFormat:    "vhdx",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	}
+
+	config := &imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeaturePackageSnapshotTime},
+		OS:              &imagecustomizerapi.OS{},
+	}
+
+	options.PackageSnapshotTime = "2025-01-01"
+
+	err := CustomizeImage(t.Context(), testTmpDir, config, options)
+	assert.ErrorIs(t, err, ErrUnsupportedPackageSnapshotTime)
+	assert.ErrorIs(t, err, ErrUnsupportedDistroApi)
+
+	options.PackageSnapshotTime = ""
+	config.OS.Packages.SnapshotTime = "2025-01-01"
+
+	err = CustomizeImage(t.Context(), testTmpDir, config, options)
+	assert.ErrorIs(t, err, ErrUnsupportedPackageSnapshotTime)
+	assert.ErrorIs(t, err, ErrUnsupportedDistroApi)
+}
+
+func TestCustomizeImageUnsupportedRpmSources(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUnsupportedRpmSourcesHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageUnsupportedRpmSourcesHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUnsupportedRpmSources_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	err := os.MkdirAll(testTmpDir, os.ModePerm)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	repoFile := filepath.Join(testTmpDir, "a.repo")
+	err = os.WriteFile(repoFile, []byte{}, os.ModePerm)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	options := ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      "./out/image.vhdx",
+		OutputImageFormat:    "vhdx",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	}
+
+	config := &imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{},
+	}
+
+	options.RpmsSources = []string{repoFile}
+
+	err = CustomizeImage(t.Context(), testTmpDir, config, options)
+	assert.ErrorIs(t, err, ErrUnsupportedRpmSources)
+	assert.ErrorIs(t, err, ErrUnsupportedDistroApi)
 }

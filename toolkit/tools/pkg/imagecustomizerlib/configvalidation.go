@@ -48,7 +48,6 @@ var (
 	ErrAdditionalDirsSourceIsFile           = NewImageCustomizerError("Validation:AdditionalDirsSourceIsFile", "additionalDirs source exists but is a file")
 	ErrAdditionalDirsSourceNotFound         = NewImageCustomizerError("Validation:AdditionalDirsSourceNotFound", "additionalDirs source does not exist")
 	ErrInvalidPackageSnapshotTime           = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
-	ErrUnsupportedFedoraFeature             = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
 	ErrInvalidOutputSelinuxPolicyPathArg    = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
 	ErrOutputSelinuxPolicyPathIsFileArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is a file")
 	ErrInvalidOutputSelinuxPolicyPathConfig = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathConfig", "invalid config file property 'output.selinuxPolicyPath'")

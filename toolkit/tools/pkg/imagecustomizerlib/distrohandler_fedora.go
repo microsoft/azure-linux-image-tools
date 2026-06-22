@@ -66,8 +66,18 @@ func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 	}
 
+	err := d.checkForUnsupportedApis(rc)
+	if err != nil {
+		return fmt.Errorf("%w (distro='%s', versionid='%s'):\n%w", ErrUnsupportedDistroApi, d.targetOs.Distro,
+			d.targetOs.VersionId, err)
+	}
+
+	return nil
+}
+
+func (d *fedoraDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.HasPackageSnapshotTime() {
-		return fmt.Errorf("Package snapshotting API not supported for Fedora:\n%w", ErrUnsupportedFedoraFeature)
+		return ErrUnsupportedPackageSnapshotTime
 	}
 
 	return nil

@@ -29,7 +29,7 @@ import (
 // Azure Linux distro handler when ISO or PXE output is requested with
 // an Azure Linux 4.0 base image. ISO and PXE outputs are not supported
 // on Azure Linux 4.0; LiveOS tests expect this error in that case.
-const azl4IsoPxeUnsupportedError = "ISO and PXE output formats are not supported for Azure Linux 4.0"
+const azl4IsoPxeUnsupportedError = "ISO and PXE output formats are not supported yet for Azure Linux 4.0 images"
 
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,

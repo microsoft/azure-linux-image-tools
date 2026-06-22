@@ -60,10 +60,24 @@ func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 	}
 
+	err := d.checkForUnsupportedApis(rc)
+	if err != nil {
+		return fmt.Errorf("%w (distro='%s', versionid='%s'):\n%w", ErrUnsupportedDistroApi, d.targetOs.Distro,
+			d.targetOs.VersionId, err)
+	}
+
+	return nil
+}
+
+func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
+	if rc.HasPackageSnapshotTime() {
+		return ErrUnsupportedPackageSnapshotTime
+	}
+
 	switch rc.OutputImageFormat {
 	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir,
 		imagecustomizerapi.ImageFormatTypePxeTar:
-		return fmt.Errorf("ISO and PXE output formats are not supported for Azure Linux 4.0")
+		return fmt.Errorf("ISO and PXE output formats are not supported yet for Azure Linux 4.0 images")
 	}
 
 	return nil
