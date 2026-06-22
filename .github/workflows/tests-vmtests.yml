@@ -64,14 +64,15 @@ jobs:
       run: |
         set -eux
 
-        sudo apt update -y
-        sudo apt -y install python3-venv python3-pip python3-dev \
+        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than failing.
+        sudo apt -o DPkg::Lock::Timeout=600 update -y
+        sudo apt -o DPkg::Lock::Timeout=600 -y install python3-venv python3-pip python3-dev \
             libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
             qemu-kvm virt-manager
 
         # Install arm64 specific
         if [[ "$HOST_ARCH" == "arm64" ]]; then
-          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
+          sudo apt -o DPkg::Lock::Timeout=600 -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
         fi
 
         sudo apt list --installed
