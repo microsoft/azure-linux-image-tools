@@ -454,13 +454,14 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
 	}
+
+	// A bootstrap ISO carries a squashfs root plus per-kernel dracut initrds, while a full-OS ISO has no squashfs and
+	// instead packs the rootfs into a single initrd. Use the squashfs presence to pick which initrd to read for distro
+	// detection.
+	var initrdPath string
 	if squashfsExists {
 		filesStore.squashfsImagePath = squashfsPath
-	}
 
-	var initrdPath string
-	switch initramfsTypeFromFilesStore(filesStore) {
-	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		// Any of the per-kernel dracut initrds is fine for distro detection since they're all from the same OS.
 		for _, f := range isoFiles {
 			base := filepath.Base(f)
@@ -473,7 +474,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		if initrdPath == "" {
 			return nil, fmt.Errorf("bootstrap ISO has no per-kernel initrd")
 		}
-	case imagecustomizerapi.InitramfsImageTypeFullOS:
+	} else {
 		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
 		initrdExists, err := file.PathExists(initrdPath)
 		if err != nil {
@@ -482,8 +483,6 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		if !initrdExists {
 			return nil, fmt.Errorf("full OS ISO has no initrd at expected path (%s)", initrdPath)
 		}
-	default:
-		return nil, fmt.Errorf("unrecognized initramfs image type for ISO image")
 	}
 
 	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)

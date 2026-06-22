@@ -88,7 +88,7 @@ type BootFilesArchConfig struct {
 	ukiAddonStubBinaryPath      string
 }
 
-var bootloaderFilesConfig = map[string]BootFilesArchConfig{
+var bootloaderFilesConfigAzureLinux = map[string]BootFilesArchConfig{
 	"amd64": {
 		bootBinary:                  bootx64Binary,
 		grubBinary:                  grubx64Binary,

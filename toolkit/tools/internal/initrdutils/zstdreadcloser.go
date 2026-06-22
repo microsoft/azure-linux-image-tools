@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package targetos
+package initrdutils
 
 import (
 	"github.com/klauspost/compress/zstd"

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/initrdutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
 
@@ -114,6 +115,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 	var err error
 	var fields map[string]string
 
+	found := false
 	for _, candidate := range OsReleaseFileCandidates {
 		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, candidate))
 		if errors.Is(err, fs.ErrNotExist) {
@@ -123,14 +125,15 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOs{}, fmt.Errorf("failed to read os-release file (%s):\n%w", candidate, err)
 		}
 
+		found = true
 		break
 	}
 
-	if fields == nil {
+	if !found {
 		return TargetOs{}, fmt.Errorf("no os-release file found (candidates=%s):\n%w", OsReleaseFileCandidates, err)
 	}
 
-	targetOs, err := GetInstalledTargetOsFromEnvFields(fields, "os-release")
+	targetOs, err := GetInstalledTargetOsFromEnvFields(fields)
 	if err != nil {
 		return TargetOs{}, fmt.Errorf("failed to determine target OS from os-release file:\n%w", err)
 	}
@@ -143,7 +146,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 //
 // Returns an error wrapping fs.ErrNotExist when none of the candidates exist in the initrd.
 func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
-	content, foundPath, err := readFirstFileFromInitrd(initrdPath, initrdReleaseCandidates)
+	content, foundPath, err := initrdutils.ReadFirstFileFromInitrd(initrdPath, initrdReleaseCandidates)
 	if err != nil {
 		return TargetOs{}, err
 	}
@@ -153,7 +156,7 @@ func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
 		return TargetOs{}, fmt.Errorf("failed to read (%s) file from initrd (%s):\n%w", foundPath, initrdPath, err)
 	}
 
-	targetOs, err := GetInstalledTargetOsFromEnvFields(fields, "initrd-release")
+	targetOs, err := GetInstalledTargetOsFromEnvFields(fields)
 	if err != nil {
 		return TargetOs{}, fmt.Errorf("failed to determine target OS from initrd-release file:\n%w", err)
 	}
@@ -161,7 +164,7 @@ func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
 	return targetOs, nil
 }
 
-func GetInstalledTargetOsFromEnvFields(fields map[string]string, sourceLabel string) (TargetOs, error) {
+func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, error) {
 	distroId := fields["ID"]
 	versionId := fields["VERSION_ID"]
 
@@ -212,7 +215,7 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string, sourceLabel str
 		}, nil
 
 	default:
-		return TargetOs{}, fmt.Errorf("unknown ID (%s) in %s", distroId, sourceLabel)
+		return TargetOs{}, fmt.Errorf("unknown ID (%s)", distroId)
 	}
 }
 

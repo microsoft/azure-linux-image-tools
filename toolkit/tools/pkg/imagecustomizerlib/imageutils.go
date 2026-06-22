@@ -543,9 +543,9 @@ func getInstalledTargetOsFromPartitionLayout(diskPartitions []diskutils.Partitio
 			return targetos.TargetOs{}, err
 		}
 
-		targetOs, err := targetos.GetInstalledTargetOsFromEnvFields(fields, "os-release")
+		targetOs, err := targetos.GetInstalledTargetOsFromEnvFields(fields)
 		if err != nil {
-			return targetos.TargetOs{}, err
+			return targetos.TargetOs{}, fmt.Errorf("failed to determine target OS from os-release file:\n%w", err)
 		}
 
 		return targetOs, nil

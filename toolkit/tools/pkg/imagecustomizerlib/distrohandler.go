@@ -198,5 +198,11 @@ func NewDistroHandlerFromInitrd(initrdPath string) (DistroHandler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine the target OS from initrd (%s):\n%w", initrdPath, err)
 	}
-	return NewDistroHandler(targetOs)
+
+	distroHandler, err := NewDistroHandler(targetOs)
+	if err != nil {
+		return nil, err
+	}
+
+	return distroHandler, nil
 }

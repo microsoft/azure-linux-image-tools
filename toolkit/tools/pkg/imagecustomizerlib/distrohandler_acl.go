@@ -289,5 +289,5 @@ func (d *aclDistroHandler) RootMissingMountDirectories() bool {
 }
 
 func (d *aclDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
-	return bootArchConfigFromMap(bootloaderFilesConfig)
+	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
 }

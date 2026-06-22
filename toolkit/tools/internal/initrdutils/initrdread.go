@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package targetos
+package initrdutils
 
 import (
 	"bufio"
@@ -29,10 +29,10 @@ var (
 	longestMagicSize = len(magicZstd)
 )
 
-// readFirstFileFromInitrd scans an initramfs cpio archive once and returns the content of the first candidate path in
+// ReadFirstFileFromInitrd scans an initramfs cpio archive once and returns the content of the first candidate path in
 // the provided list that exists as a regular file. Returns an error wrapping fs.ErrNotExist if none of the candidates
 // is present.
-func readFirstFileFromInitrd(initrdPath string, candidates []string) (content []byte, foundPath string, err error) {
+func ReadFirstFileFromInitrd(initrdPath string, candidates []string) (content []byte, foundPath string, err error) {
 	f, err := os.Open(initrdPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to open initrd (%s):\n%w", initrdPath, err)

@@ -226,5 +226,5 @@ func (d *azureLinuxDistroHandler) RootMissingMountDirectories() bool {
 }
 
 func (d *azureLinuxDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
-	return bootArchConfigFromMap(bootloaderFilesConfig)
+	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
 }

@@ -244,5 +244,5 @@ func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
 }
 
 func (d *ubuntuDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
-	return bootArchConfigFromMap(bootloaderFilesConfig)
+	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
 }
