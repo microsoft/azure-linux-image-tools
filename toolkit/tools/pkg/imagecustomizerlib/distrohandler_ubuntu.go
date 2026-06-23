@@ -107,7 +107,10 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg-query.
-func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+// toolsChroot is unused: Ubuntu images ship dpkg in-image.
+func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) bool {
 	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
@@ -132,8 +135,10 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	return bootloaderType, err
 }
 
-func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, []string{systemdBootPackage})
 	return err
 }
 

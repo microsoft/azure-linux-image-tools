@@ -22,7 +22,10 @@ type rpmPackageManagerHandler interface {
 	// Package manager specific snapshot time support
 	supportsSnapshotTime() bool
 
-	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+	// isPackageInstalled reports whether packageName is installed. When toolsChroot is non-nil, the query is issued
+	// from inside toolsChroot against installroot=/_imageroot (the bind-mounted image root), so it works on images
+	// that ship no in-image package manager.
+	isPackageInstalled(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot, packageName string) bool
 
 	// getPackageInformation queries the package database for packageName and returns its parsed version,
 	// release, and distro fields.

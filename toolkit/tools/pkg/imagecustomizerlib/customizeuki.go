@@ -229,9 +229,9 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 }
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
-	imageChroot *safechroot.Chroot, distroHandler DistroHandler,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -240,7 +240,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 }
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
-	imageChroot *safechroot.Chroot, distroHandler DistroHandler,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
 	var err error
 
@@ -283,7 +283,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	defer span.End()
 
 	// Check UKI dependency packages.
-	err = distroHandler.ValidateUkiDependencies(imageChroot)
+	err = distroHandler.ValidateUkiDependencies(imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
@@ -364,9 +364,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
-	systemdBootPackages []string,
+	toolsChroot *safechroot.Chroot, systemdBootPackages []string,
 ) (string, error) {
-	detectedPackage, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	detectedPackage, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, toolsChroot, systemdBootPackages)
 	if err != nil {
 		return "", fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
 	}
@@ -374,11 +374,11 @@ func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot
 }
 
 func isSystemdBootPackageInstalled(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
-	systemdBootPackages []string,
+	toolsChroot *safechroot.Chroot, systemdBootPackages []string,
 ) (string, error) {
 	for _, pkg := range systemdBootPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+		if distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg) {
 			return pkg, nil
 		}
 	}

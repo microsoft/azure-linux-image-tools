@@ -164,10 +164,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		return
 	}
 
-	curlInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), "curl")
+	curlInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), nil, "curl")
 	assert.True(t, curlInstalled)
 
-	nginxInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), "nginx")
+	nginxInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), nil, "nginx")
 	assert.True(t, nginxInstalled)
 
 	// AZL4 uses dnf which does not support snapshot time, so versions are not pinned.
@@ -179,14 +179,14 @@ func TestBaseConfigsFullRun(t *testing.T) {
 			"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
 	}
 
-	sshdInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), "openssh-server")
+	sshdInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), nil, "openssh-server")
 	assert.True(t, sshdInstalled)
 
 	systemdBootPkgName := "systemd-boot"
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		systemdBootPkgName = "systemd-boot-unsigned"
 	}
-	systemdBootInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), systemdBootPkgName)
+	systemdBootInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), nil, systemdBootPkgName)
 	assert.True(t, systemdBootInstalled, "expected %s to be installed", systemdBootPkgName)
 
 	// AZL4 uses dnf which does not support snapshot time, so versions are not pinned.

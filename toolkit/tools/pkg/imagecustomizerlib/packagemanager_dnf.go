@@ -181,14 +181,25 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 	}
 }
 
-func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) bool {
 	// Use `rpm -q` rather than `dnf info --installed` here: it queries the local rpm database directly without
 	// opening any log files for writing, so it works on read-only chroots and avoids the security concerns of
 	// pointing dnf's logdir at a fixed, predictable path inside the chroot. `rpm` is guaranteed to be present in any
 	// chroot that has dnf5 installed because dnf5 takes a hard dependency on rpm.
-	err := shell.NewExecBuilder("rpm", "-q", "--", packageName).
+	args := []string{"-q", "--", packageName}
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+		// imageChroot has no in-image rpm.
+		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
+		chroot = toolsChroot
+	}
+
+	err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(imageChroot.ChrootDir()).
+		Chroot(chroot.ChrootDir()).
 		Execute()
 	if err != nil {
 		return false

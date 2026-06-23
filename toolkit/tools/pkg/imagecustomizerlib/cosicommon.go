@@ -606,11 +606,11 @@ func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.Ch
 ) (BootloaderType, string, error) {
 	for _, pkg := range grubEfiPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+		if distroHandler.IsPackageInstalled(imageChroot, nil, pkg) {
 			return BootloaderTypeGrub, pkg, nil
 		}
 	}
-	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, nil, systemdBootPackages)
 	if err == nil {
 		return BootloaderTypeSystemdBoot, pkg, nil
 	}

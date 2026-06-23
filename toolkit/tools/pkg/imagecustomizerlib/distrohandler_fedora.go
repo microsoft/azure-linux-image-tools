@@ -138,8 +138,10 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	)
 }
 
-func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -163,8 +165,10 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	return bootloaderType, err
 }
 
-func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, []string{systemdBootPackage})
 	return err
 }
 

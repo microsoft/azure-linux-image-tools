@@ -79,8 +79,10 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 }
 
 // IsPackageInstalled implements DistroHandler.
-func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -97,8 +99,10 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 	return bootloaderType, err
 }
 
-func (d *azureLinuxDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, systemdBootPackagesAzl3)
+func (d *azureLinuxDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, systemdBootPackagesAzl3)
 	return err
 }
 
