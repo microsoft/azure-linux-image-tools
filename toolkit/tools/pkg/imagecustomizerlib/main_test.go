@@ -50,16 +50,21 @@ const (
 	paramSetFilesContext               = "setfiles-context"
 )
 
-type testBaseImageInfo struct {
-	Name            string
+type testImageInfo struct {
+	ImageName       string
 	Distro          string
 	Version         string
-	Variant         string
-	ParamName       string
-	Param           *string
-	MountPoints     []testutils.MountPoint
 	DefaultShell    string
 	PreviewFeatures []imagecustomizerapi.PreviewFeature
+}
+
+type testBaseImageInfo struct {
+	testImageInfo
+	Name        string
+	Variant     string
+	ParamName   string
+	Param       *string
+	MountPoints []testutils.MountPoint
 }
 
 var (
@@ -97,68 +102,93 @@ var (
 		},
 	}
 
-	testBaseImageAzl2CoreEfi = testBaseImageInfo{
-		Name:         "AzureLinux2CoreEfi",
+	testImageAzl2 = testImageInfo{
+		ImageName:    "AzureLinux2",
 		Distro:       baseImageDistroAzureLinux,
 		Version:      baseImageVersionAzl2,
-		Variant:      baseImageAzureLinuxVariantCoreEfi,
-		ParamName:    paramBaseImageAzl2CoreEfi,
-		Param:        baseImageCoreEfiAzl2,
-		MountPoints:  azureLinuxCoreEfiMountPoints,
 		DefaultShell: defaultShellAzureLinux,
 	}
 
-	testBaseImageAzl3CoreEfi = testBaseImageInfo{
-		Name:         "AzureLinux3CoreEfi",
+	testImageAzl3 = testImageInfo{
+		ImageName:    "AzureLinux3",
 		Distro:       baseImageDistroAzureLinux,
 		Version:      baseImageVersionAzl3,
-		Variant:      baseImageAzureLinuxVariantCoreEfi,
-		ParamName:    paramBaseImageAzl3CoreEfi,
-		Param:        baseImageCoreEfiAzl3,
-		MountPoints:  azureLinuxCoreEfiMountPoints,
 		DefaultShell: defaultShellAzureLinux,
 	}
 
-	testBaseImageAzl4CoreEfi = testBaseImageInfo{
-		Name:         "AzureLinux4CoreEfi",
+	testImageAzl4 = testImageInfo{
+		ImageName:    "AzureLinux4",
 		Distro:       baseImageDistroAzureLinux,
 		Version:      baseImageVersionAzl4,
-		Variant:      baseImageAzureLinuxVariantCoreEfi,
-		ParamName:    paramBaseImageAzl4CoreEfi,
-		Param:        baseImageCoreEfiAzl4,
-		MountPoints:  azureLinuxCoreEfiMountPoints,
 		DefaultShell: defaultShellAzureLinux,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
 	}
 
-	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
-		Name:         "Ubuntu2204AzureCloud",
+	testImageUbuntu2204 = testImageInfo{
+		ImageName:    "Ubuntu2204",
 		Distro:       baseImageDistroUbuntu,
 		Version:      baseImageVersionUbuntu2204,
-		Variant:      baseImageVariantUbuntuAzureCloud,
-		ParamName:    paramBaseImageUbuntu2204AzureCloud,
-		Param:        baseImageUbuntuAzureCloud2204,
-		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2204,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
 	}
 
-	testBaseImageUbuntu2404AzureCloud = testBaseImageInfo{
-		Name:         "Ubuntu2404AzureCloud",
+	testImageUbuntu2404 = testImageInfo{
+		ImageName:    "Ubuntu2404",
 		Distro:       baseImageDistroUbuntu,
 		Version:      baseImageVersionUbuntu2404,
-		Variant:      baseImageVariantUbuntuAzureCloud,
-		ParamName:    paramBaseImageUbuntu2404AzureCloud,
-		Param:        baseImageUbuntuAzureCloud2404,
-		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2404,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
+	}
+
+	testBaseImageAzl2CoreEfi = testBaseImageInfo{
+		testImageInfo: testImageAzl2,
+		Name:          "AzureLinux2CoreEfi",
+		Variant:       baseImageAzureLinuxVariantCoreEfi,
+		ParamName:     paramBaseImageAzl2CoreEfi,
+		Param:         baseImageCoreEfiAzl2,
+		MountPoints:   azureLinuxCoreEfiMountPoints,
+	}
+
+	testBaseImageAzl3CoreEfi = testBaseImageInfo{
+		testImageInfo: testImageAzl3,
+		Name:          "AzureLinux3CoreEfi",
+		Variant:       baseImageAzureLinuxVariantCoreEfi,
+		ParamName:     paramBaseImageAzl3CoreEfi,
+		Param:         baseImageCoreEfiAzl3,
+		MountPoints:   azureLinuxCoreEfiMountPoints,
+	}
+
+	testBaseImageAzl4CoreEfi = testBaseImageInfo{
+		testImageInfo: testImageAzl4,
+		Name:          "AzureLinux4CoreEfi",
+		Variant:       baseImageAzureLinuxVariantCoreEfi,
+		ParamName:     paramBaseImageAzl4CoreEfi,
+		Param:         baseImageCoreEfiAzl4,
+		MountPoints:   azureLinuxCoreEfiMountPoints,
+	}
+
+	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
+		testImageInfo: testImageUbuntu2204,
+		Name:          "Ubuntu2204AzureCloud",
+		Variant:       baseImageVariantUbuntuAzureCloud,
+		ParamName:     paramBaseImageUbuntu2204AzureCloud,
+		Param:         baseImageUbuntuAzureCloud2204,
+		MountPoints:   ubuntuAzureCloudMountPoints,
+	}
+
+	testBaseImageUbuntu2404AzureCloud = testBaseImageInfo{
+		testImageInfo: testImageUbuntu2404,
+		Name:          "Ubuntu2404AzureCloud",
+		Variant:       baseImageVariantUbuntuAzureCloud,
+		ParamName:     paramBaseImageUbuntu2404AzureCloud,
+		Param:         baseImageUbuntuAzureCloud2404,
+		MountPoints:   ubuntuAzureCloudMountPoints,
 	}
 
 	baseImageAzureLinuxAll = []testBaseImageInfo{
@@ -302,6 +332,6 @@ func checkSkipForCustomizeDefaultImages(t *testing.T) []testBaseImageInfo {
 	return images
 }
 
-func (i *testBaseImageInfo) TargetOs() targetos.TargetOs {
+func (i *testImageInfo) TargetOs() targetos.TargetOs {
 	return targetos.New(targetos.Distro(i.Distro), i.Version)
 }

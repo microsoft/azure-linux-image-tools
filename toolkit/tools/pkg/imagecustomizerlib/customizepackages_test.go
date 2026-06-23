@@ -961,3 +961,11 @@ func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, p
 	versionOutput = strings.TrimSpace(out)
 	return versionOutput, nil
 }
+
+func ensurePackagesInstalled(t *testing.T, installedPackages []OsPackage, packages ...string) {
+	for _, packageName := range packages {
+		assert.Truef(t, sliceutils.ContainsFunc(installedPackages, func(installedPackage OsPackage) bool {
+			return packageName == installedPackage.Name
+		}), "package not installed (%s)", packageName)
+	}
+}
