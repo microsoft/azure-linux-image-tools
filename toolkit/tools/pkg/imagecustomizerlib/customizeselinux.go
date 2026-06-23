@@ -128,7 +128,7 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 }
 
 func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot,
-	selinuxConfigFile string,
+	selinuxConfigFile string, setFilesContext string,
 ) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
@@ -153,7 +153,8 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 	}
 
 	// Set the SELinux config file and relabel all the files.
-	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false, selinuxConfigFile)
+	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false, selinuxConfigFile,
+		setFilesContext)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSELinuxRelabelFiles, err)
 	}

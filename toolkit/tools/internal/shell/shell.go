@@ -164,7 +164,7 @@ func LookPathChroot(command string, rootDir string) (string, error) {
 	return chrootLookPath(command, rootDir, chrootPathDirs)
 }
 
-func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr) (err error) {
+func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr, selinuxContext string) (err error) {
 	logger.Log.Debugf("Executing: %v", cmd.Args)
 
 	if cmd.Env == nil && len(currentEnv) > 0 {
@@ -178,8 +178,8 @@ func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr) (err error) {
 
 	cmd.SysProcAttr.Setpgid = true
 
-	if capabilities != nil {
-		err = setCapabilitiesAndStartCmd(cmd, capabilities)
+	if capabilities != nil || selinuxContext != "" {
+		err = goStartCmd(cmd, capabilities, selinuxContext)
 	} else {
 		err = startCmd(cmd)
 	}
@@ -187,31 +187,42 @@ func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr) (err error) {
 	return
 }
 
-func setCapabilitiesAndStartCmd(cmd *exec.Cmd, capabilities []uintptr) error {
+func goStartCmd(cmd *exec.Cmd, capabilities []uintptr, selinuxContext string) error {
 	result := make(chan error)
-	go setCapabilitiesAndStartCmdWorker(cmd, capabilities, result)
+	go goStartCmdWorker(cmd, capabilities, selinuxContext, result)
 	err := <-result
 	return err
 }
 
-func setCapabilitiesAndStartCmdWorker(cmd *exec.Cmd, capabilities []uintptr, result chan<- error) {
-	err := setCapabilitiesAndStartCmdHelper(cmd, capabilities)
+func goStartCmdWorker(cmd *exec.Cmd, capabilities []uintptr, selinuxContext string, result chan<- error) {
+	err := goStartCmdHelper(cmd, capabilities, selinuxContext)
 	result <- err
 	close(result)
 }
 
-func setCapabilitiesAndStartCmdHelper(cmd *exec.Cmd, capabilities []uintptr) error {
-	// Lock the OS thread so that capabilities can be dropped without affecting other threads.
+func goStartCmdHelper(cmd *exec.Cmd, capabilities []uintptr, selinuxContext string) error {
+	// Lock the OS thread to avoid affecting other goroutines.
 	// Note: Dropping capabilities cannot be undone. Hence, the OS thread needs to be thrown away.
 	// Hence, UnlockOSThread is not called and a goroutine is used.
+	// Also, setting the SELinux context can technically be undone. But it's less code to just throw away the OS
+	// thread.
 	runtime.LockOSThread()
 
-	err := setOSThreadCapabilities(capabilities)
-	if err != nil {
-		return fmt.Errorf("failed to set process capabilities:\n%w", err)
+	if selinuxContext != "" {
+		err := setSELinuxExecContext(selinuxContext)
+		if err != nil {
+			return fmt.Errorf("failed to set process SELinux exec context (%s):\n%w", selinuxContext, err)
+		}
 	}
 
-	err = startCmd(cmd)
+	if capabilities != nil {
+		err := setOSThreadCapabilities(capabilities)
+		if err != nil {
+			return fmt.Errorf("failed to set process capabilities:\n%w", err)
+		}
+	}
+
+	err := startCmd(cmd)
 	if err != nil {
 		return err
 	}

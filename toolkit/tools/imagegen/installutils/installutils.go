@@ -807,8 +807,8 @@ func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safech
 	return
 }
 
-func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToFsTypeMap map[string]string, isRootFS bool,
-	selinuxConfigFile string,
+func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToFsTypeMap map[string]string,
+	isRootFS bool, selinuxConfigFile string, setFilesContext string,
 ) (err error) {
 	const selinuxFileContextsRelPath = "contexts/files/file_contexts"
 
@@ -875,24 +875,10 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 		}
 		defer bindMount.Close()
 
-		// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
-		files := 0
-		onStdout := func(line string) {
-			files++
-			if (files % 1000) == 0 {
-				logger.Log.Debugf("SELinux: labelled %d files", files)
-			}
-		}
-		err = shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
-			StdoutCallback(onStdout).
-			LogLevel(logrus.TraceLevel, logrus.WarnLevel).
-			ErrorStderrLines(1).
-			Chroot(installChroot.ChrootDir()).
-			Execute()
+		err = callSetFiles(targetRootPath, fileContextPath, targetPath, installChroot.ChrootDir(), setFilesContext)
 		if err != nil {
-			return fmt.Errorf("setfiles failed:\n%w", err)
+			return err
 		}
-		logger.Log.Debugf("SELinux: labelled %d files", files)
 
 		err = bindMount.CleanClose()
 		if err != nil {
@@ -909,6 +895,32 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	}
 
 	return
+}
+
+func callSetFiles(targetRootPath string, fileContextPath string, targetPath string, chrootDir string,
+	setFilesContext string,
+) error {
+	// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
+	files := 0
+	onStdout := func(line string) {
+		files++
+		if (files % 1000) == 0 {
+			logger.Log.Debugf("SELinux: labelled %d files", files)
+		}
+	}
+	err := shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
+		StdoutCallback(onStdout).
+		LogLevel(logrus.TraceLevel, logrus.WarnLevel).
+		ErrorStderrLines(1).
+		Chroot(chrootDir).
+		SELinuxContext(setFilesContext).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("setfiles failed:\n%w", err)
+	}
+
+	logger.Log.Debugf("SELinux: labelled %d files", files)
+	return nil
 }
 
 func sed(find, replace, delimiter, file string) (err error) {

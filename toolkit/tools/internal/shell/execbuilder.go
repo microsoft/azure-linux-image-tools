@@ -55,6 +55,7 @@ type ExecBuilder struct {
 	warnLogLines         int
 	chrootDir            string
 	capabilities         []uintptr
+	selinuxContext       string
 }
 
 // NewExecBuilder initializes a new execution builder object.
@@ -74,15 +75,21 @@ func (b ExecBuilder) WorkingDirectory(path string) ExecBuilder {
 	return b
 }
 
-// Chroot sets
+// Chroot sets the root directory to run the command under.
 func (b ExecBuilder) Chroot(chrootDir string) ExecBuilder {
 	b.chrootDir = chrootDir
 	return b
 }
 
-// Chroot sets
+// Capabilities sets capabilities the command will be restricted to.
 func (b ExecBuilder) Capabilities(capabilities []uintptr) ExecBuilder {
 	b.capabilities = capabilities
+	return b
+}
+
+// SELinuxContext sets the SELinux context to be set on the command.
+func (b ExecBuilder) SELinuxContext(selinuxContext string) ExecBuilder {
+	b.selinuxContext = selinuxContext
 	return b
 }
 
@@ -233,7 +240,7 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	defer stderrPipe.Close()
 
 	// Start process.
-	err = trackAndStartProcess(cmd, b.capabilities)
+	err = trackAndStartProcess(cmd, b.capabilities, b.selinuxContext)
 	if err != nil {
 		err = fmt.Errorf("failed to start process:\n%w", err)
 		return "", "", err

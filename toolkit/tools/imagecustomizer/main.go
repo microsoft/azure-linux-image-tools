@@ -45,6 +45,7 @@ type CustomizeCmd struct {
 	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 	ToolsDir                 string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
+	SetFilesContext          string   `name:"setfiles-context" help:"The SELinux label to use when calling setfiles."`
 }
 
 type InjectFilesCmd struct {
@@ -182,6 +183,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			ImageCacheDir:           cmd.ImageCacheDir,
 			CosiCompressionLevel:    cmd.CosiCompressionLevel,
 			ToolsDir:                cmd.ToolsDir,
+			SetFilesContext:         cmd.SetFilesContext,
 		})
 	if err != nil {
 		return err

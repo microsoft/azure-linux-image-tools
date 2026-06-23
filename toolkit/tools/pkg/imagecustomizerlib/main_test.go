@@ -47,6 +47,7 @@ const (
 	paramBaseImageUbuntu2204AzureCloud = "base-image-azure-cloud-ubuntu2204"
 	paramBaseImageUbuntu2404AzureCloud = "base-image-azure-cloud-ubuntu2404"
 	paramLogLevel                      = "log-level"
+	paramSetFilesContext               = "setfiles-context"
 )
 
 type testBaseImageInfo struct {
@@ -191,6 +192,7 @@ var (
 	baseImageUbuntuAzureCloud2204 = flag.String(paramBaseImageUbuntu2204AzureCloud, "", "An Ubuntu 22.04 Azure cloud image to use as a base image.")
 	baseImageUbuntuAzureCloud2404 = flag.String(paramBaseImageUbuntu2404AzureCloud, "", "An Ubuntu 24.04 Azure cloud image to use as a base image.")
 	logLevel                      = flag.String(paramLogLevel, "info", "The log level (error, warning, info, debug, or trace)")
+	setfilesContext               = flag.String(paramSetFilesContext, "", "The SELinux label to use when calling setfiles.")
 )
 
 var (
