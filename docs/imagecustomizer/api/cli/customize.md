@@ -298,13 +298,16 @@ This option is useful when running on a build system with SELinux enabled.
 
 Added in v1.5.
 
-### Fedora
+### selinux-policy (e.g. Fedora)
 
-When running on a Fedora system, use the value: `system_u:system_r:setfiles_mac_t:s0`
+When running on a build system with SELinux enabled and that uses the
+[selinux-policy](https://github.com/fedora-selinux/selinux-policy) policy (e.g. Fedora),
+use the value: `system_u:system_r:setfiles_mac_t:s0`
 
-The `setfiles_mac_t` label allows SELinux labels to be applied that aren't present in
-the build host's SELinux rules, which is super useful when customizing images that have
-a different distro / distro version than the build host.
+The `setfiles_mac_t` label is allowed to use the `CAP_MAC_ADMIN` capability, which
+permits SELinux labels to be applied that aren't present in the build host's SELinux
+rules. This is super useful when customizing images that have a different distro /
+distro version than the build host.
 
 Also, you need to run the commands:
 
@@ -315,3 +318,12 @@ Also, you need to run the commands:
 2. `sudo semanage permissive -a systemd_hwdb_t`
 
    `setfiles_mac_t` doesn't have the correct permissions to label `/etc/udev/hwdb.bin`.
+
+### refpolicy
+
+When running on a build system that uses the
+[refpolicy](https://github.com/SELinuxProject/refpolicy) policy (e.g. Azure Linux 3.0),
+the only thing you can do is disable SELinux.
+
+This SELinux policy does not have a label with permissions for the `CAP_MAC_ADMIN`
+capability.
