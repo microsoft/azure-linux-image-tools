@@ -408,7 +408,7 @@ var (
 	// The maximum version of mkfs.btrfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.btrfs default enabling new features.
 	// Ref: https://btrfs.readthedocs.io/en/latest/CHANGES.html
-	maxMkfsBtrfsVersion = version.Version{6, 19, 1}
+	maxMkfsBtrfsVersion = version.Version{7, 0, 0}
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
