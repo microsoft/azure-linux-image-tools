@@ -96,8 +96,10 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 		snapshotTime, d.packageManager)
 }
 
-func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -130,8 +132,10 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	return bootloaderType, nil
 }
 
-func (d *azureLinux4DistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	detectedSystemdBootPackage, err := validateUkiDependencies(d, imageChroot, systemdBootPackagesAzl4)
+func (d *azureLinux4DistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	detectedSystemdBootPackage, err := validateUkiDependencies(d, imageChroot, toolsChroot, systemdBootPackagesAzl4)
 	if err != nil {
 		return err
 	}

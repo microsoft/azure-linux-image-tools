@@ -23,7 +23,6 @@ require (
 	gonum.org/v1/gonum v0.17.0
 	gopkg.in/ini.v1 v1.67.3
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.53.0
 	oras.land/oras-go/v2 v2.6.1
 )
 

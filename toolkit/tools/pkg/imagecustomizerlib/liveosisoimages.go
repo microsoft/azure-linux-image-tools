@@ -167,7 +167,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	for _, requiredRpm := range requiredRpms {
 		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		if !distroHandler.IsPackageInstalled(chroot, requiredRpm) {
+		if !distroHandler.IsPackageInstalled(chroot, nil, requiredRpm) {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredRpm, requiredRpms)
 		}
 	}

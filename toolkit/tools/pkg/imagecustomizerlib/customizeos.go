@@ -182,7 +182,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		overlayUpdated = overlayUpdated || updated
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.BuildDirAbs, rc.Storage.Verity, imageChroot, distroHandler, rc.Uki)
+	verityUpdated, err := enableVerityPartition(ctx, rc.BuildDirAbs, rc.Storage.Verity, imageChroot, toolsChroot,
+		distroHandler, rc.Uki)
 	if err != nil {
 		return err
 	}
@@ -202,7 +203,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return err
 	}
