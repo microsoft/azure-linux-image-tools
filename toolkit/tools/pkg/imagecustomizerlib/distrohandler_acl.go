@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -20,6 +22,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
+
+	_ "modernc.org/sqlite" // registers the "sqlite" driver for IsPackageInstalled
 )
 
 // aclDistroHandler implements DistroHandler for Azure Container Linux (ACL).
@@ -110,8 +114,38 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		snapshotTime, d.packageManager)
 }
 
+// IsPackageInstalled checks the image's rpm database directly. ACL images
+// have no in-image tdnf/rpm binary, so the default chroot-shell-out
+// implementation cannot answer this query.
 func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+	rpmdbPath := filepath.Join(imageChroot.RootDir(), "var/lib/rpm/rpmdb.sqlite")
+	if _, err := os.Stat(rpmdbPath); err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			logger.Log.Warnf("ACL IsPackageInstalled: failed to stat rpmdb at (%s): %s", rpmdbPath, err)
+		}
+		return false
+	}
+
+	// immutable=1 prevents SQLite from creating journal/WAL sidecar files next to the read-only rpmdb.
+	dsn := fmt.Sprintf("file:%s?mode=ro&immutable=1", rpmdbPath)
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		logger.Log.Warnf("ACL IsPackageInstalled: failed to open rpmdb (%s): %s", rpmdbPath, err)
+		return false
+	}
+	defer db.Close()
+
+	var found int
+	// CAST is required: `key` is a BLOB, but the driver binds the parameter as TEXT.
+	err = db.QueryRow("SELECT 1 FROM Name WHERE CAST(key AS TEXT) = ? LIMIT 1", packageName).Scan(&found)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return false
+	case err != nil:
+		logger.Log.Warnf("ACL IsPackageInstalled: rpmdb query failed for package (%q): %s", packageName, err)
+		return false
+	}
+	return found == 1
 }
 
 func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
