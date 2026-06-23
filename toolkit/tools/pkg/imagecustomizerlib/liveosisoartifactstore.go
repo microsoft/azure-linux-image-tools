@@ -81,11 +81,17 @@ func (b *IsoArtifactsStore) cleanUp() error {
 	return nil
 }
 
-func containsGrubNoPrefix(filePaths []string) (bool, error) {
-	_, bootFilesConfig, err := getBootArchConfig()
+func containsGrubNoPrefix(filePaths []string, distroHandler DistroHandler) (bool, error) {
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return false, err
 	}
+
+	// Distros without a grub-noprefix binary leave grubNoPrefixBinary empty.
+	if bootFilesConfig.grubNoPrefixBinary == "" {
+		return false, nil
+	}
+
 	for _, filePath := range filePaths {
 		if filepath.Base(filePath) == bootFilesConfig.grubNoPrefixBinary {
 			return true, nil
@@ -218,7 +224,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		return nil, fmt.Errorf("failed to scan /boot folder:\n%w", err)
 	}
 
-	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths)
+	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +258,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		// in them (i.e. user files that we do not manipulate - but copy as-is).
 		scheduleAdditionalFile := true
 
-		_, bootFilesConfig, err := getBootArchConfig()
+		bootFilesConfig, err := distroHandler.GetBootArchConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -260,16 +266,17 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		osEspGrubBinaryPath := bootFilesConfig.osEspGrubBinaryPath
 		osEspGrubNoPrefixBinaryPath := bootFilesConfig.osEspGrubNoPrefixBinaryPath
 
-		switch relativeFilePath {
-		case osEspBootBinaryPath:
+		switch {
+		case relativeFilePath == osEspBootBinaryPath:
 			filesStore.bootEfiPath = targetPath
 			scheduleAdditionalFile = false // No additional file scheduling
 
-		case osEspGrubBinaryPath, osEspGrubNoPrefixBinaryPath:
+		case relativeFilePath == osEspGrubBinaryPath,
+			osEspGrubNoPrefixBinaryPath != "" && relativeFilePath == osEspGrubNoPrefixBinaryPath:
 			filesStore.grubEfiPath = targetPath
 			scheduleAdditionalFile = false // No additional file scheduling
 
-		case isoGrubCfgPath:
+		case relativeFilePath == isoGrubCfgPath:
 			if usingGrubNoPrefix {
 				// When using the grubx64-noprefix.efi, the 'prefix' grub
 				// variable is set to an empty string. When 'prefix' is an
@@ -277,7 +284,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 				// media, the bootloader defaults to looking for grub.cfg at
 				// <boot-media>/EFI/BOOT/grub.cfg.
 				// So, below, we ensure that grub.cfg file will be placed where
-				// grubx64-nopreifx.efi will be looking for it.
+				// grubx64-noprefix.efi will be looking for it.
 				//
 				// Note that this grub.cfg is the only file that needs to be
 				// copied to that EFI/BOOT location. The rest of the files (like
@@ -292,7 +299,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 			// We will place the pxe grub config next to the iso grub config.
 			filesStore.pxeGrubCfgPath = filepath.Join(filepath.Dir(filesStore.isoGrubCfgPath), pxeGrubCfg)
 			scheduleAdditionalFile = false
-		case isoInitrdPath:
+		case relativeFilePath == isoInitrdPath:
 			filesStore.initrdImagePath = targetPath
 			scheduleAdditionalFile = false
 		default:
@@ -367,7 +374,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		}
 	}
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -378,9 +385,13 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	}
 
 	if filesStore.grubEfiPath == "" {
-		return nil, fmt.Errorf("failed to find the grub efi file (%s or %s):\n"+
+		grubBinaryNames := bootFilesConfig.grubBinary
+		if bootFilesConfig.grubNoPrefixBinary != "" {
+			grubBinaryNames = fmt.Sprintf("%s or %s", bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary)
+		}
+		return nil, fmt.Errorf("failed to find the grub efi file (%s):\n"+
 			"this file is provided by the %s package",
-			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary,
+			grubBinaryNames,
 			distroHandler.GrubEfiPackage())
 	}
 
@@ -448,7 +459,49 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
 	filesStore.kdumpBootFiles = make(map[string]*KdumpBootFiles)
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	// Resolve the distro from the ISO's initrd. Which initrd to read depends on the ISO's initramfsType.
+	squashfsPath := filepath.Join(artifactsDir, liveOSImagePath)
+	squashfsExists, err := file.PathExists(squashfsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
+	}
+
+	// A bootstrap ISO carries a squashfs root plus per-kernel dracut initrds, while a full-OS ISO has no squashfs and
+	// instead packs the rootfs into a single initrd. Use the squashfs presence to pick which initrd to read for distro
+	// detection.
+	var initrdPath string
+	if squashfsExists {
+		filesStore.squashfsImagePath = squashfsPath
+
+		// Any of the per-kernel dracut initrds is fine for distro detection since they're all from the same OS.
+		for _, f := range isoFiles {
+			base := filepath.Base(f)
+			isInitrd := strings.HasPrefix(base, initramfsPrefix) || strings.HasPrefix(base, initrdPrefix)
+			if isInitrd && strings.HasSuffix(base, ".img") {
+				initrdPath = f
+				break
+			}
+		}
+		if initrdPath == "" {
+			return nil, fmt.Errorf("bootstrap ISO has no per-kernel initrd")
+		}
+	} else {
+		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
+		initrdExists, err := file.PathExists(initrdPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check for initrd at (%s):\n%w", initrdPath, err)
+		}
+		if !initrdExists {
+			return nil, fmt.Errorf("full OS ISO has no initrd at expected path (%s)", initrdPath)
+		}
+	}
+
+	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect distro from initrd (%s):\n%w", initrdPath, err)
+	}
+
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}

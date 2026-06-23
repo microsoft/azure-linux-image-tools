@@ -29,13 +29,57 @@ type fedoraDistroHandler struct {
 }
 
 const (
-	grubEfiPackageFedoraAmd64  = "grub2-efi-x64"
-	grubEfiPackageFedoraArm64  = "grub2-efi-aa64"
-	shimPackageFedoraAmd64     = "shim-x64"
-	shimPackageFedoraArm64     = "shim-aa64"
+	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
+	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
+	shimPackageFedoraAmd64    = "shim-x64"
+	shimPackageFedoraArm64    = "shim-aa64"
+
+	isoBootloaderDirFedora = "/EFI/BOOT"
+	bootx64BinaryFedora    = "BOOTX64.EFI"
+	bootAA64BinaryFedora   = "BOOTAA64.EFI"
+
 	grubToolsPackageFedora     = "grub2-tools"
 	grubPcModulesPackageFedora = "grub2-pc-modules"
 )
+
+// bootloaderFilesConfigFedora is the boot-files map for Fedora-style ESPs (Azure Linux 4 and Fedora).
+//
+// Fedora-style distros do not ship a grub-noprefix binary, so grubNoPrefixBinary and
+// osEspGrubNoPrefixBinaryPath are left empty.
+var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
+	"amd64": {
+		bootBinary:                  bootx64BinaryFedora,
+		grubBinary:                  grubx64Binary,
+		grubNoPrefixBinary:          "",
+		espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+		osEspGrubNoPrefixBinaryPath: "",
+		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootx64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubx64Binary,
+		ukiEfiStubBinary:            ukiEfiStubx64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
+		ukiAddonStubBinary:          ukiAddonStubx64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+	},
+	"arm64": {
+		bootBinary:                  bootAA64BinaryFedora,
+		grubBinary:                  grubAA64Binary,
+		grubNoPrefixBinary:          "",
+		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+		osEspGrubNoPrefixBinaryPath: "",
+		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootAA64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubAA64Binary,
+		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
+		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+	},
+}
 
 func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
 	logger.Log.Debugf("Distro handler: Fedora (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
@@ -235,4 +279,8 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 
 func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
 	return false
+}
+
+func (d *fedoraDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
 }

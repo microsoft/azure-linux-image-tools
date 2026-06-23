@@ -278,3 +278,7 @@ func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
 func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {
 	return false
 }
+
+func (d *azureLinux4DistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
+}

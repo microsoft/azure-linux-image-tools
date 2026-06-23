@@ -287,3 +287,7 @@ func (d *aclDistroHandler) GrubEfiPackage() string {
 func (d *aclDistroHandler) RootMissingMountDirectories() bool {
 	return true
 }
+
+func (d *aclDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
+}
