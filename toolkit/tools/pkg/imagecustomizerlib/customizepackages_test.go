@@ -541,7 +541,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 func installPackageDiskSpaceConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl2, baseImageVersionAzl3:
-		return "install-package-disk-space-azl3.yaml"
+		return fmt.Sprintf("install-package-disk-space-%s-azl3.yaml", runtime.GOARCH)
 	case baseImageVersionAzl4:
 		return fmt.Sprintf("install-package-disk-space-%s-azl4.yaml", runtime.GOARCH)
 	default:
