@@ -43,16 +43,19 @@ const (
 )
 
 // bootloaderFilesConfigFedora is the boot-files map for Fedora-style ESPs (Azure Linux 4 and Fedora).
+//
+// Fedora-style distros do not ship a grub-noprefix binary, so grubNoPrefixBinary and
+// osEspGrubNoPrefixBinaryPath are left empty.
 var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
 	"amd64": {
 		bootBinary:                  bootx64BinaryFedora,
 		grubBinary:                  grubx64Binary,
-		grubNoPrefixBinary:          grubx64NoPrefixBinary,
+		grubNoPrefixBinary:          "",
 		espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
 		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
 		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
 		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
-		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
+		osEspGrubNoPrefixBinaryPath: "",
 		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootx64BinaryFedora,
 		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubx64Binary,
 		ukiEfiStubBinary:            ukiEfiStubx64Binary,
@@ -63,12 +66,12 @@ var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
 	"arm64": {
 		bootBinary:                  bootAA64BinaryFedora,
 		grubBinary:                  grubAA64Binary,
-		grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+		grubNoPrefixBinary:          "",
 		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
 		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
 		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
 		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
-		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
+		osEspGrubNoPrefixBinaryPath: "",
 		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootAA64BinaryFedora,
 		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubAA64Binary,
 		ukiEfiStubBinary:            ukiEfiStubAA64Binary,

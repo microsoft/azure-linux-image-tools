@@ -86,6 +86,12 @@ func containsGrubNoPrefix(filePaths []string, distroHandler DistroHandler) (bool
 	if err != nil {
 		return false, err
 	}
+
+	// Distros without a grub-noprefix binary leave grubNoPrefixBinary empty.
+	if bootFilesConfig.grubNoPrefixBinary == "" {
+		return false, nil
+	}
+
 	for _, filePath := range filePaths {
 		if filepath.Base(filePath) == bootFilesConfig.grubNoPrefixBinary {
 			return true, nil
@@ -260,16 +266,17 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		osEspGrubBinaryPath := bootFilesConfig.osEspGrubBinaryPath
 		osEspGrubNoPrefixBinaryPath := bootFilesConfig.osEspGrubNoPrefixBinaryPath
 
-		switch relativeFilePath {
-		case osEspBootBinaryPath:
+		switch {
+		case relativeFilePath == osEspBootBinaryPath:
 			filesStore.bootEfiPath = targetPath
 			scheduleAdditionalFile = false // No additional file scheduling
 
-		case osEspGrubBinaryPath, osEspGrubNoPrefixBinaryPath:
+		case relativeFilePath == osEspGrubBinaryPath,
+			osEspGrubNoPrefixBinaryPath != "" && relativeFilePath == osEspGrubNoPrefixBinaryPath:
 			filesStore.grubEfiPath = targetPath
 			scheduleAdditionalFile = false // No additional file scheduling
 
-		case isoGrubCfgPath:
+		case relativeFilePath == isoGrubCfgPath:
 			if usingGrubNoPrefix {
 				// When using the grubx64-noprefix.efi, the 'prefix' grub
 				// variable is set to an empty string. When 'prefix' is an
@@ -277,7 +284,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 				// media, the bootloader defaults to looking for grub.cfg at
 				// <boot-media>/EFI/BOOT/grub.cfg.
 				// So, below, we ensure that grub.cfg file will be placed where
-				// grubx64-nopreifx.efi will be looking for it.
+				// grubx64-noprefix.efi will be looking for it.
 				//
 				// Note that this grub.cfg is the only file that needs to be
 				// copied to that EFI/BOOT location. The rest of the files (like
@@ -292,7 +299,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 			// We will place the pxe grub config next to the iso grub config.
 			filesStore.pxeGrubCfgPath = filepath.Join(filepath.Dir(filesStore.isoGrubCfgPath), pxeGrubCfg)
 			scheduleAdditionalFile = false
-		case isoInitrdPath:
+		case relativeFilePath == isoInitrdPath:
 			filesStore.initrdImagePath = targetPath
 			scheduleAdditionalFile = false
 		default:
@@ -378,9 +385,13 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	}
 
 	if filesStore.grubEfiPath == "" {
-		return nil, fmt.Errorf("failed to find the grub efi file (%s or %s):\n"+
+		grubBinaryNames := bootFilesConfig.grubBinary
+		if bootFilesConfig.grubNoPrefixBinary != "" {
+			grubBinaryNames = fmt.Sprintf("%s or %s", bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary)
+		}
+		return nil, fmt.Errorf("failed to find the grub efi file (%s):\n"+
 			"this file is provided by the %s package",
-			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary,
+			grubBinaryNames,
 			distroHandler.GrubEfiPackage())
 	}
 
