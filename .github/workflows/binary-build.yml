@@ -108,11 +108,16 @@ jobs:
       run: |
         set -eux
 
-        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than failing.
-        sudo apt -o DPkg::Lock::Timeout=600 -y update
+        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than
+        # failing. Set it globally so apt invocations inside the Azure CLI install script wait too.
+        # Create the apt.conf.d directory if missing; append so an existing config isn't clobbered.
+        sudo mkdir -p /etc/apt/apt.conf.d
+        echo 'DPkg::Lock::Timeout "600";' | sudo tee -a /etc/apt/apt.conf.d/99lock-timeout
+
+        sudo apt -y update
 
         # qemu-utils (qemu-img) is required to run tests later during the build
-        sudo apt -o DPkg::Lock::Timeout=600 -y install libvirt-dev qemu-utils
+        sudo apt -y install libvirt-dev qemu-utils
 
         pushd repo/test/vmtests
 
