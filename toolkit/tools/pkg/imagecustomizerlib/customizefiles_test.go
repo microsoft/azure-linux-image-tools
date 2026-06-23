@@ -349,12 +349,12 @@ func verifyFilePermissions(t *testing.T, expectedPermissions os.FileMode, path s
 
 func verifyFilePermissionsSame(t *testing.T, origPath string, newPath string) {
 	origStat, err := os.Stat(origPath)
-	if assert.NoErrorf(t, err, "stat original file (%s)", origPath) {
+	if !assert.NoErrorf(t, err, "stat original file (%s)", origPath) {
 		return
 	}
 
 	newStat, err := os.Stat(newPath)
-	if assert.NoErrorf(t, err, "stat new file (%s)", newPath) {
+	if !assert.NoErrorf(t, err, "stat new file (%s)", newPath) {
 		return
 	}
 
