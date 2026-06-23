@@ -81,12 +81,17 @@ jobs:
       run: |
         set -eux
 
-        # Install Image Customizer prerequisities.
-        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than failing.
-        sudo apt list --installed
-        sudo apt -o DPkg::Lock::Timeout=600 update -y
+        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than
+        # failing. Set it globally so apt invocations inside the Azure CLI install script wait too.
+        # Create the apt.conf.d directory if missing; append so an existing config isn't clobbered.
+        sudo mkdir -p /etc/apt/apt.conf.d
+        echo 'DPkg::Lock::Timeout "600";' | sudo tee -a /etc/apt/apt.conf.d/99lock-timeout
 
-        sudo apt -o DPkg::Lock::Timeout=600 -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+        # Install Image Customizer prerequisities.
+        sudo apt list --installed
+        sudo apt update -y
+
+        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
           xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
 
