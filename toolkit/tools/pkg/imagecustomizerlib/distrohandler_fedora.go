@@ -51,8 +51,8 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora) {
-		return ErrFedoraPreviewFeatureRequired
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
+		return ErrPreviewDistroVersionFeatureRequired
 	}
 
 	switch d.targetOs.VersionId {

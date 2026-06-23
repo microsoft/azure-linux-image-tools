@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -52,6 +53,9 @@ func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	switch d.targetOs.VersionId {
 	case "4.0":
 		// Supported versions
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
+			return ErrPreviewDistroVersionFeatureRequired
+		}
 
 	default:
 		err := handleUnsupportedDistroVersion(rc, d.targetOs)

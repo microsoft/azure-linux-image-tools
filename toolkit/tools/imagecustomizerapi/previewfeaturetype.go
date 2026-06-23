@@ -26,11 +26,9 @@ const (
 	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
 	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
 
-	// PreviewFeatureFedora enables support for Fedora images.
-	PreviewFeatureFedora PreviewFeature = "fedora"
-
-	// PreviewFeatureUbuntu enables support for Ubuntu images.
-	PreviewFeatureUbuntu PreviewFeature = "ubuntu"
+	// PreviewFeatureDistroVersion enables support for distros and distro versions that are still in
+	// preview (e.g. Fedora, Ubuntu, Azure Container Linux, and Azure Linux 4.0).
+	PreviewFeatureDistroVersion PreviewFeature = "preview-distro-version"
 
 	// PreviewFeatureBaseConfigs enables support for base configuration.
 	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
@@ -47,9 +45,6 @@ const (
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
 	PreviewFeatureCreate PreviewFeature = "create"
 
-	// PreviewFeatureAzureContainerLinux enables support for Azure Container Linux images.
-	PreviewFeatureAzureContainerLinux PreviewFeature = "azure-container-linux"
-
 	// PreviewFeatureUnsupportedDistroVersion allows distro versions that are not supported yet.
 	PreviewFeatureUnsupportedDistroVersion PreviewFeature = "unsupported-distro-version"
 )
@@ -57,11 +52,9 @@ const (
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora,
-		PreviewFeatureUbuntu, PreviewFeatureBaseConfigs,
-		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
-		PreviewFeatureBtrfs, PreviewFeatureCreate, PreviewFeatureAzureContainerLinux,
-		PreviewFeatureUnsupportedDistroVersion:
+		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
+		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
+		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

@@ -1,6 +1,7 @@
 # Differs from create-azl4-amd64 in its use of fedora-arm64-packages (not fedora-amd64-packages)
 previewFeatures:
 - create
+- preview-distro-version
 
 storage:
   disks:

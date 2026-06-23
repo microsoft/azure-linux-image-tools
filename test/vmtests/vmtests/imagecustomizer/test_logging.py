@@ -4,11 +4,19 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import (
+    List,
+    Optional,
+)
 
 from docker import DockerClient
 
 from ..conftest import TEST_CONFIGS_DIR
-from ..utils.imagecustomizer import run_image_customizer
+from ..utils.closeable import Closeable
+from ..utils.imagecustomizer import (
+    add_preview_features_to_config,
+    run_image_customizer,
+)
 
 
 def _run_json_logs_nochange_test(
@@ -16,11 +24,18 @@ def _run_json_logs_nochange_test(
     image_customizer_container_url: str,
     input_image: Path,
     test_temp_dir: Path,
+    close_list: Optional[List[Closeable]] = None,
+    preview_features: Optional[List[str]] = None,
 ) -> None:
     output_format = "qcow2"
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+
+    if preview_features is not None:
+        assert close_list is not None
+        for preview_feature in preview_features:
+            config_path = add_preview_features_to_config(config_path, preview_feature, close_list)
 
     _, stderr_lines = run_image_customizer(
         docker_client,
@@ -64,5 +79,13 @@ def test_json_logs_nochange_azl4(
     image_customizer_container_url: str,
     core_efi_azl4: Path,
     test_temp_dir: Path,
+    close_list: List[Closeable],
 ) -> None:
-    _run_json_logs_nochange_test(docker_client, image_customizer_container_url, core_efi_azl4, test_temp_dir)
+    _run_json_logs_nochange_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
+        test_temp_dir,
+        close_list=close_list,
+        preview_features=["preview-distro-version"],
+    )
