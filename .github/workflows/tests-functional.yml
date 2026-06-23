@@ -82,10 +82,11 @@ jobs:
         set -eux
 
         # Install Image Customizer prerequisities.
+        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than failing.
         sudo apt list --installed
-        sudo apt update -y
+        sudo apt -o DPkg::Lock::Timeout=600 update -y
 
-        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+        sudo apt -o DPkg::Lock::Timeout=600 -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
           xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
 

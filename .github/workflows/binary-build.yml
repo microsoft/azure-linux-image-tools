@@ -108,10 +108,11 @@ jobs:
       run: |
         set -eux
 
-        sudo apt -y update
+        # Wait for the dpkg lock (held by the runner's background unattended-upgrades) rather than failing.
+        sudo apt -o DPkg::Lock::Timeout=600 -y update
 
         # qemu-utils (qemu-img) is required to run tests later during the build
-        sudo apt -y install libvirt-dev qemu-utils
+        sudo apt -o DPkg::Lock::Timeout=600 -y install libvirt-dev qemu-utils
 
         pushd repo/test/vmtests
 
