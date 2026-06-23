@@ -99,10 +99,12 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	// ACL has no in-image package manager: every operation that needs to query or modify the rpm database has to
 	// happen through tdnf inside --tools-dir. That includes package ops (install/remove/update), UKI create
 	// (validates systemd-boot is installed), and verity (validates device-mapper is installed).
-	ukiCreate := rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeCreate
+	ukiCreate := rc.Uki != nil &&
+		rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough &&
+		rc.Uki.Mode != imagecustomizerapi.UkiModeModify
 	verityEnabled := len(rc.Storage.Verity) > 0
 	if (pkgOps || ukiCreate || verityEnabled) && rc.Options.ToolsDir == "" {
-		return fmt.Errorf("ACL requires --tools-dir for package, UKI 'create', or verity operations: " +
+		return fmt.Errorf("ACL requires --tools-dir for package, UKI 'create', and verity operations: " +
 			"ACL images do not include an in-image package manager")
 	}
 
@@ -122,13 +124,11 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 // in-image tdnf/rpm, so the check requires --tools-dir (enforced up-front in checkForUnsupportedApis).
 func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
-) bool {
+) (bool, error) {
 	if toolsChroot == nil {
-		logger.Log.Warnf("ACL IsPackageInstalled called without --tools-dir; cannot query rpmdb for package (%q)",
-			packageName)
-		return false
+		return false, fmt.Errorf("ACL cannot query rpmdb for package (%q) without --tools-dir", packageName)
 	}
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -168,7 +168,9 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	return packages, nil
 }
 
-func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (BootloaderType, error) {
 	// ACL always uses systemd-boot.
 	return BootloaderTypeSystemdBoot, nil
 }

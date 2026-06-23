@@ -81,8 +81,8 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 // IsPackageInstalled implements DistroHandler.
 func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
-) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
+) (bool, error) {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -94,8 +94,10 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
-func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	bootloaderType, _, err := detectBootloaderType(d, imageChroot, grubEfiPackagesAzl3, systemdBootPackagesAzl3)
+func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (BootloaderType, error) {
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, toolsChroot, grubEfiPackagesAzl3, systemdBootPackagesAzl3)
 	return bootloaderType, err
 }
 

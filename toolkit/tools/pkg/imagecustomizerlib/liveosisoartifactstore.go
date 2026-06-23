@@ -399,6 +399,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 }
 
 func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, distroHandler DistroHandler,
+	toolsChroot *safechroot.Chroot,
 ) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
@@ -427,7 +428,11 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	// Note the MIC allows the user to install other selinux policy packages.
 	// So, the absence of selinux-policy does not mean that there are no selinux
 	// policy packages.
-	if distroHandler.IsPackageInstalled(chroot, nil, "selinux-policy") {
+	selinuxPolicyInstalled, err := distroHandler.IsPackageInstalled(chroot, toolsChroot, "selinux-policy")
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if selinux-policy is installed under (%s):\n%w", imageRootDir, err)
+	}
+	if selinuxPolicyInstalled {
 		infoStore.selinuxPolicyPackageInfo, err = distroHandler.GetPackageInformation(chroot, "selinux-policy")
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", imageRootDir, err)
@@ -580,7 +585,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 }
 
 func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string,
-	storeDir string, distroHandler DistroHandler,
+	storeDir string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (artifactStore *IsoArtifactsStore, err error) {
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
@@ -595,7 +600,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler)
+	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler, toolsChroot)
 	if err != nil {
 		return nil, err
 	}

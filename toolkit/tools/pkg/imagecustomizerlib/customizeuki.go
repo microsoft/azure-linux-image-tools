@@ -378,7 +378,11 @@ func isSystemdBootPackageInstalled(distroHandler DistroHandler, imageChroot safe
 ) (string, error) {
 	for _, pkg := range systemdBootPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg) {
+		installed, err := distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
+		if err != nil {
+			return "", err
+		}
+		if installed {
 			return pkg, nil
 		}
 	}

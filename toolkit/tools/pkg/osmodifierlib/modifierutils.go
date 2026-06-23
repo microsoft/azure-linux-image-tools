@@ -57,7 +57,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 
 	// Add a check to make sure BootCustomizer can be initialized
-	bootloaderType, err := distroHandler.DetectBootloaderType(dummyChroot)
+	bootloaderType, err := distroHandler.DetectBootloaderType(dummyChroot, nil)
 	if err != nil {
 		return err
 	}

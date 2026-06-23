@@ -98,8 +98,8 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 
 func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
-) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
+) (bool, error) {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -113,6 +113,7 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
 ) (BootloaderType, error) {
 	var grubEfiPackages []string
 	switch runtime.GOARCH {
@@ -121,7 +122,7 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	default:
 		grubEfiPackages = []string{grubEfiPackageFedoraArm64}
 	}
-	bootloaderType, detectedPackage, err := detectBootloaderType(d, imageChroot, grubEfiPackages,
+	bootloaderType, detectedPackage, err := detectBootloaderType(d, imageChroot, toolsChroot, grubEfiPackages,
 		systemdBootPackagesAzl4)
 	if err != nil {
 		return bootloaderType, err

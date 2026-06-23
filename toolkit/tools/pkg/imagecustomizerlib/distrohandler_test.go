@@ -138,7 +138,7 @@ func TestAclValidateConfigPackageOpsRequireToolsDir(t *testing.T) {
 	}
 
 	err := handler.ValidateConfig(rc)
-	assert.ErrorContains(t, err, "ACL requires --tools-dir for package, UKI 'create', or verity operations")
+	assert.ErrorContains(t, err, "ACL requires --tools-dir for package, UKI 'create', and verity operations")
 
 	rc.Options.ToolsDir = "/some/tools/dir"
 	err = handler.ValidateConfig(rc)
