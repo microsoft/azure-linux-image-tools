@@ -532,7 +532,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	var cosiBootMetadata *CosiBootloader
 	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout,
-			im.distroHandler, toolsChroot)
+			im.distroHandler, nil)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
