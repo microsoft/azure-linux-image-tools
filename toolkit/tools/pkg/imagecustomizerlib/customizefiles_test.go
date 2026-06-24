@@ -358,7 +358,8 @@ func verifyFilePermissionsSame(t *testing.T, origPath string, newPath string) {
 		return
 	}
 
-	assert.Equal(t, origStat.Mode()&os.ModePerm, newStat.Mode()&os.ModePerm)
+	assert.Equalf(t, origStat.Mode()&os.ModePerm, newStat.Mode()&os.ModePerm, "file perm wrong (orig='%s', new='%s')",
+		origPath, newPath)
 }
 
 func ensureFilesExist(t *testing.T, imageConnection *imageconnection.ImageConnection, filePaths ...string) {
