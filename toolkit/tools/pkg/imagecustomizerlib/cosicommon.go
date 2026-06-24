@@ -386,7 +386,9 @@ func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, 
 	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler, toolsChroot *safechroot.Chroot) (*CosiBootloader, error) {
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+) (*CosiBootloader, error) {
 	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot(), toolsChroot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)

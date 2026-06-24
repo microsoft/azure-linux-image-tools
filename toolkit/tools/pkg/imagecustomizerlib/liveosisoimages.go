@@ -142,7 +142,7 @@ func createFullOSInitrdImage(writeableRootfsDir string, kernelKdumpFiles *imagec
 }
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string,
-	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+	distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
 
@@ -167,7 +167,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	for _, requiredRpm := range requiredRpms {
 		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		installed, err := distroHandler.IsPackageInstalled(chroot, toolsChroot, requiredRpm)
+		installed, err := distroHandler.IsPackageInstalled(chroot, nil, requiredRpm)
 		if err != nil {
 			return fmt.Errorf("failed to check if package (%s) is installed:\n%w", requiredRpm, err)
 		}

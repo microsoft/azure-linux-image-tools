@@ -607,7 +607,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
 			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
-				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler, toolsChroot)
+				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
@@ -786,7 +786,9 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	return osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler, toolsChroot *safechroot.Chroot) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+) ([]OsPackage, *CosiBootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection, distroHandler)
