@@ -236,7 +236,13 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", targetDir, err)
 	}
 
-	err = file.Copy(stageFile.sourcePath, targetPath)
+	// Preserve symlinks rather than dereferencing them. Some kernel boot files (e.g. Azure Linux 4.0's
+	// symvers-<ver>.xz) are symlinks into the rootfs that dangle in the flattened artifacts directory. The
+	// artifacts were copied in with --no-dereference, so stage them the same way; mkisofs records the symlinks
+	// via Rock Ridge. Regular files fall through to a normal copy.
+	err = file.NewFileCopyBuilder(stageFile.sourcePath, targetPath).
+		SetNoDereference().
+		Run()
 	if err != nil {
 		return fmt.Errorf("failed to stage file from (%s) to (%s):\n%w", stageFile.sourcePath, targetPath, err)
 	}
