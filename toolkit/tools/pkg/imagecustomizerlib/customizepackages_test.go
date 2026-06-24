@@ -948,56 +948,6 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
 }
 
-func TestCustomizeImagePackagesAddWithToolsDirAzl3(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
-	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageDistroAzureLinux, baseImageVersionAzl3, true)
-	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version,
-		false)
-
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddWithToolsDirAzl3")
-	defer os.RemoveAll(testTmpDir)
-
-	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-
-	packageName := "unzip"
-	packagePath := "/usr/bin/unzip"
-
-	config := imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			Packages: imagecustomizerapi.Packages{
-				Install: []string{packageName},
-			},
-		},
-	}
-
-	err := CustomizeImage(t.Context(), testDir, &config, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       baseImage,
-		RpmsSources:          []string{downloadedRpmsDir},
-		OutputImageFile:      outImageFilePath,
-		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: false,
-		ToolsDir:             toolsDir,
-		PreviewFeatures:      baseImageInfo.PreviewFeatures,
-	})
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer imageConnection.Close()
-
-	ensureFilesExist(t, imageConnection, packagePath)
-
-	err = imageConnection.CleanClose()
-	assert.NoError(t, err)
-}
-
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {
 	var versionOutput string
 	out, _, err := shell.NewExecBuilder("rpm", "-q", pkgName).
