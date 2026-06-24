@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateImage(t *testing.T) {
+func TestCreateImageRaw(t *testing.T) {
 	for _, imageInfo := range []testImageInfo{testImageAzl3, testImageAzl4} {
 		t.Run(imageInfo.ImageName, func(t *testing.T) {
 			testCreateImageRaw(t, imageInfo)
@@ -60,7 +60,7 @@ func testCreateImageRaw(t *testing.T, imageInfo testImageInfo) {
 		return
 	}
 
-	verifyCreateMinimalOs(t, buildDir, outputImageFilePath, imageInfo /*btrfs*/, false)
+	verifyCreateMinimalOs(t, buildDir, outputImageFilePath, imageInfo, false /*btrfs*/)
 
 	// Customize image, to verify the created image is customizable.
 	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
@@ -74,7 +74,7 @@ func testCreateImageRaw(t *testing.T, imageInfo testImageInfo) {
 		return
 	}
 
-	verifyCreateMinimalOs(t, buildDir, outputImageFilePath, imageInfo /*btrfs*/, false)
+	verifyCreateMinimalOs(t, buildDir, outputImageFilePath2, imageInfo, false /*btrfs*/)
 }
 
 func TestCreateImageBtrfs(t *testing.T) {
@@ -117,7 +117,7 @@ func testCreateImageBtrfs(t *testing.T, imageInfo testImageInfo) {
 		return
 	}
 
-	verifyCreateMinimalOs(t, buildDir, outputImageFilePath, imageInfo, true /*btrsfs*/)
+	verifyCreateMinimalOs(t, buildDir, outputImageFilePath, imageInfo, true /*btrfs*/)
 }
 
 func TestCreateImageNoTools(t *testing.T) {
@@ -253,12 +253,21 @@ func verifyCreateMinimalOs(t *testing.T, buildDir string, outputImageFilePath st
 	assert.NoError(t, err)
 
 	expectedVirtualSize := int64(0)
-	switch imageInfo.Version {
-	case "3.0":
-		expectedVirtualSize = int64(1 * diskutils.GiB)
+	switch imageInfo.Distro {
+	case "azurelinux":
+		switch imageInfo.Version {
+		case "3.0":
+			expectedVirtualSize = int64(1 * diskutils.GiB)
 
-	case "4.0":
-		expectedVirtualSize = int64(3 * diskutils.GiB)
+		case "4.0":
+			expectedVirtualSize = int64(3 * diskutils.GiB)
+
+		default:
+			t.Fatalf("Unsupported AZL version for test (%s)", imageInfo.Version)
+		}
+
+	default:
+		t.Fatalf("Unsupported distro for test (%s)", imageInfo.Distro)
 	}
 
 	fileType, err := testutils.GetImageFileType(outputImageFilePath)
