@@ -153,7 +153,7 @@ func TestConfigIsValidMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.disks' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.resetType' must be specified if 'storage.disks' is specified")
 }
 
 func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
@@ -220,7 +220,7 @@ func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.resetType' must be specified if 'storage.resetPartitionsUuidsType' is specified")
 }
 
 func TestConfigIsValidMultipleDisks(t *testing.T) {

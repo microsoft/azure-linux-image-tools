@@ -103,11 +103,11 @@ func (c *Config) IsValid() (err error) {
 	}
 
 	if c.CustomizePartitions() && !hasResetBootLoader {
-		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
+		return fmt.Errorf("'os.bootloader.resetType' must be specified if 'storage.disks' is specified")
 	}
 
 	if hasResetPartitionsUuids && !hasResetBootLoader {
-		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+		return fmt.Errorf("'os.bootloader.resetType' must be specified if 'storage.resetPartitionsUuidsType' is specified")
 	}
 
 	err = c.Output.IsValid()
