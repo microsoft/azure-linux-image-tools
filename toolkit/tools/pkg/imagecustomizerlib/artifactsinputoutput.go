@@ -478,7 +478,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, nil)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}

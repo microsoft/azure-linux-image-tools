@@ -107,8 +107,11 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg-query.
-func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return isPackageInstalledDeb(imageChroot, packageName)
+// toolsChroot is unused: Ubuntu images ship dpkg in-image.
+func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) (bool, error) {
+	return isPackageInstalledDeb(imageChroot, packageName), nil
 }
 
 func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -120,7 +123,9 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootDeb(imageChroot)
 }
 
-func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (BootloaderType, error) {
 	grubEfiPackages := []string{"grub-efi"}
 	switch runtime.GOARCH {
 	case "amd64":
@@ -128,12 +133,14 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	default:
 		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianArm64)
 	}
-	bootloaderType, _, err := detectBootloaderType(d, imageChroot, grubEfiPackages, []string{systemdBootPackage})
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, toolsChroot, grubEfiPackages, []string{systemdBootPackage})
 	return bootloaderType, err
 }
 
-func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, []string{systemdBootPackage})
 	return err
 }
 

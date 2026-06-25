@@ -96,8 +96,10 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 		snapshotTime, d.packageManager)
 }
 
-func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) (bool, error) {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -111,6 +113,7 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
 ) (BootloaderType, error) {
 	var grubEfiPackages []string
 	switch runtime.GOARCH {
@@ -119,7 +122,7 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	default:
 		grubEfiPackages = []string{grubEfiPackageFedoraArm64}
 	}
-	bootloaderType, detectedPackage, err := detectBootloaderType(d, imageChroot, grubEfiPackages,
+	bootloaderType, detectedPackage, err := detectBootloaderType(d, imageChroot, toolsChroot, grubEfiPackages,
 		systemdBootPackagesAzl4)
 	if err != nil {
 		return bootloaderType, err
@@ -130,8 +133,10 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	return bootloaderType, nil
 }
 
-func (d *azureLinux4DistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	detectedSystemdBootPackage, err := validateUkiDependencies(d, imageChroot, systemdBootPackagesAzl4)
+func (d *azureLinux4DistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	detectedSystemdBootPackage, err := validateUkiDependencies(d, imageChroot, toolsChroot, systemdBootPackagesAzl4)
 	if err != nil {
 		return err
 	}

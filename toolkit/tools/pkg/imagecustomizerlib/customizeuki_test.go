@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
@@ -34,6 +35,8 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		t.Skip("The 'ukify' command is not available")
 	}
 
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version, true)
+
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
@@ -41,9 +44,17 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
-	// Customize image.
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
-		baseImageInfo.PreviewFeatures)
+	// --tools-dir exercises the toolsChroot path in isPackageInstalled used by UKI 'create' validation.
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatType("raw"),
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}

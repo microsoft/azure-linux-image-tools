@@ -386,8 +386,10 @@ func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, 
 	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) (*CosiBootloader, error) {
-	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot())
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+) (*CosiBootloader, error) {
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot(), toolsChroot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
@@ -600,17 +602,22 @@ func padToMegabyte(imageFile string) error {
 }
 
 // detectBootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
-// candidate package. The name of the detected package is also returned.
-func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface, grubEfiPackages,
-	systemdBootPackages []string,
+// candidate package. The name of the detected package is also returned. toolsChroot has the same semantics as in
+// DistroHandler.IsPackageInstalled.
+func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, grubEfiPackages, systemdBootPackages []string,
 ) (BootloaderType, string, error) {
 	for _, pkg := range grubEfiPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+		installed, err := distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
+		if err != nil {
+			return "", "", err
+		}
+		if installed {
 			return BootloaderTypeGrub, pkg, nil
 		}
 	}
-	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, toolsChroot, systemdBootPackages)
 	if err == nil {
 		return BootloaderTypeSystemdBoot, pkg, nil
 	}

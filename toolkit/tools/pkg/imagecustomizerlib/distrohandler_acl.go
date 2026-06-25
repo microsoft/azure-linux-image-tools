@@ -76,6 +76,7 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
 	}
 
+	pkgOps := false
 	for _, configWithBase := range rc.ConfigChain {
 		os := configWithBase.Config.OS
 		if os == nil {
@@ -87,15 +88,24 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
 			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
 			pkgs.UpdateExistingPackages {
-			if rc.Options.ToolsDir == "" {
-				return fmt.Errorf("ACL package operations require --tools-dir: " +
-					"ACL images do not include a package manager")
-			}
+			pkgOps = true
 		}
 
 		if os.Overlays != nil {
 			return fmt.Errorf("overlays are not yet supported for ACL")
 		}
+	}
+
+	// ACL has no in-image package manager: every operation that needs to query or modify the rpm database has to
+	// happen through tdnf inside --tools-dir. That includes package ops (install/remove/update), UKI create
+	// (validates systemd-boot is installed), and verity (validates device-mapper is installed).
+	ukiCreate := rc.Uki != nil &&
+		rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough &&
+		rc.Uki.Mode != imagecustomizerapi.UkiModeModify
+	verityEnabled := len(rc.Storage.Verity) > 0
+	if (pkgOps || ukiCreate || verityEnabled) && rc.Options.ToolsDir == "" {
+		return fmt.Errorf("ACL requires --tools-dir for package, UKI 'create', and verity operations: " +
+			"ACL images do not include an in-image package manager")
 	}
 
 	return nil
@@ -110,8 +120,15 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		snapshotTime, d.packageManager)
 }
 
-func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+// IsPackageInstalled queries the image's rpm database via tdnf running inside toolsChroot. ACL images ship no
+// in-image tdnf/rpm, so the check requires --tools-dir (enforced up-front in checkForUnsupportedApis).
+func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) (bool, error) {
+	if toolsChroot == nil {
+		return false, fmt.Errorf("ACL cannot query rpmdb for package (%q) without --tools-dir", packageName)
+	}
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -151,13 +168,17 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	return packages, nil
 }
 
-func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (BootloaderType, error) {
 	// ACL always uses systemd-boot.
 	return BootloaderTypeSystemdBoot, nil
 }
 
-func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, []string{systemdBootPackage})
 	return err
 }
 

@@ -46,7 +46,12 @@ type DistroHandler interface {
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
-	IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+	// IsPackageInstalled reports whether packageName is installed in the image's package database. When toolsChroot is
+	// non-nil, implementations that depend on an in-image package manager should run their query inside toolsChroot
+	// against installroot=/_imageroot instead of imageChroot — this allows the check to work on images that ship no
+	// in-image package manager (e.g. ACL). Implementations that cannot complete the query (e.g. ACL with a nil
+	// toolsChroot) must return an error rather than a misleading false.
+	IsPackageInstalled(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot, packageName string) (bool, error)
 
 	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
 	GetPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
@@ -54,11 +59,12 @@ type DistroHandler interface {
 	// Get all installed packages from the chroot
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 
-	// Detect the bootloader type installed in the image.
-	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
+	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (BootloaderType, error)
 
 	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.
-	ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error
+	// toolsChroot has the same semantics as in IsPackageInstalled.
+	ValidateUkiDependencies(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) error
 
 	// GetEspDir returns the ESP directory path relative to the image root.
 	// For example: "boot/efi" for most distros, "boot" for ACL.

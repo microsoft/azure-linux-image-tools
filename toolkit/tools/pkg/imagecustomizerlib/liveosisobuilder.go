@@ -138,7 +138,8 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath, distroHandler)
+	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig,
+		rawImageFile, outputFormat, outputPath, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}

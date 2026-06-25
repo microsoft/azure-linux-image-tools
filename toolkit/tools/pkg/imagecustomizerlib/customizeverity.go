@@ -77,7 +77,8 @@ var verityKernelArgsToRemove = []string{
 }
 
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
-	imageChroot *safechroot.Chroot, distroHandler DistroHandler, uki *imagecustomizerapi.Uki,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
+	uki *imagecustomizerapi.Uki,
 ) (bool, error) {
 	var err error
 
@@ -90,7 +91,7 @@ func enableVerityPartition(ctx context.Context, buildDir string, verity []imagec
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
 	defer span.End()
 
-	err = validateVerityDependencies(imageChroot, distroHandler)
+	err = validateVerityDependencies(imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityPackageDependencyValidation, err)
 	}
@@ -483,7 +484,9 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 	return corruptionOption, hashSigPath, hashOffset, nil
 }
 
-func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
+func validateVerityDependencies(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	distroHandler DistroHandler,
+) error {
 	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
 	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
 	requiredRpms := []string{"device-mapper"}
@@ -491,7 +494,10 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler Di
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed := distroHandler.IsPackageInstalled(imageChroot, pkg)
+		installed, err := distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
+		if err != nil {
+			return fmt.Errorf("failed to check if package (%s) is installed:\n%w", pkg, err)
+		}
 		if !installed {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Verity: %v", pkg, requiredRpms)
 		}

@@ -138,8 +138,10 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	)
 }
 
-func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot, packageName string,
+) (bool, error) {
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
 }
 
 func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
@@ -151,7 +153,9 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
-func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (BootloaderType, error) {
 	var grubEfiPackage string
 	switch runtime.GOARCH {
 	case "amd64":
@@ -159,12 +163,14 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	default:
 		grubEfiPackage = grubEfiPackageFedoraArm64
 	}
-	bootloaderType, _, err := detectBootloaderType(d, imageChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, toolsChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
 	return bootloaderType, err
 }
 
-func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) error {
+	_, err := validateUkiDependencies(d, imageChroot, toolsChroot, []string{systemdBootPackage})
 	return err
 }
 

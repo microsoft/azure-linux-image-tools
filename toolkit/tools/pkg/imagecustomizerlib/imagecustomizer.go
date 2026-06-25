@@ -228,7 +228,25 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		}
 	}()
 
-	im, err := customizeOSContents(ctx, rc)
+	// Open the tools chroot once for the full customization run so it is available to OS-customization,
+	// COSI metadata collection, and ISO/PXE conversion phases.
+	var toolsChroot *ToolsChroot
+	if rc.Options.ToolsDir != "" {
+		if err := validateToolsDir(rc.Options.ToolsDir); err != nil {
+			return err
+		}
+		toolsChroot, err = initToolsChroot(ctx, rc.Options.ToolsDir)
+		if err != nil {
+			return err
+		}
+		defer toolsChroot.Close()
+	}
+	var toolsChrootInner *safechroot.Chroot
+	if toolsChroot != nil {
+		toolsChrootInner = toolsChroot.Chroot()
+	}
+
+	im, err := customizeOSContents(ctx, rc, toolsChrootInner)
 	if err != nil {
 		return err
 	}
@@ -251,9 +269,16 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		}
 	}
 
-	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts)
+	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts, toolsChrootInner)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrConvertToOutputFormat, err)
+	}
+
+	if toolsChroot != nil {
+		err = toolsChroot.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -409,7 +434,7 @@ func qemuImgEscapeOptionValue(value string) string {
 	return strings.ReplaceAll(value, ",", ",,")
 }
 
-func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata, error) {
+func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *safechroot.Chroot) (imageMetadata, error) {
 	im := imageMetadata{}
 
 	// If there are OS customizations, then we proceed as usual.
@@ -449,7 +474,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the raw image file.
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, im.distroHandler)
+		partitionsCustomized, im.distroHandler, toolsChroot)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -507,7 +532,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	var cosiBootMetadata *CosiBootloader
 	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout,
-			im.distroHandler)
+			im.distroHandler, nil)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
@@ -525,7 +550,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 }
 
 func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig, im imageMetadata,
-	inputIsoArtifacts *IsoArtifactsStore,
+	inputIsoArtifacts *IsoArtifactsStore, toolsChroot *safechroot.Chroot,
 ) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
 
@@ -663,28 +688,17 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
-	distroHandler DistroHandler,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
-	// Use the user-supplied tools directory directly as the tools chroot to avoid
-	// the cost of copying it into the build directory. The resolv.conf override
-	// is restored on exit so the directory remains reusable across invocations.
-	var toolsChroot *ToolsChroot
+	// When a tools chroot is supplied, the image must be mounted inside it so that tdnf running inside the tools chroot
+	// can reach the image at /_imageroot. Otherwise mount it at the build dir.
 	mountBaseDir := rc.BuildDirAbs
 	mountPointName := "imageroot"
-	if rc.Options.ToolsDir != "" {
-		if err := validateToolsDir(rc.Options.ToolsDir); err != nil {
-			return nil, nil, nil, "", err
-		}
-		var err error
-		toolsChroot, err = initToolsChroot(ctx, rc.Options.ToolsDir)
-		if err != nil {
-			return nil, nil, nil, "", err
-		}
-		defer toolsChroot.Close()
+	if toolsChroot != nil {
 		mountBaseDir = rc.Options.ToolsDir
 		mountPointName = toolsRootImageDir
 	}
@@ -724,11 +738,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	var toolsChrootInner *safechroot.Chroot
-	if toolsChroot != nil {
-		toolsChrootInner = toolsChroot.Chroot()
-	}
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChrootInner)
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChroot)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -749,18 +759,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
-	if toolsChroot != nil {
-		err = toolsChroot.CleanClose()
-		if err != nil {
-			return nil, nil, nil, "", err
-		}
-	}
-
 	return partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
 }
 
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
-	distroHandler DistroHandler,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
 	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false,
@@ -770,7 +773,7 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	}
 	defer imageConnection.Close()
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, toolsChroot)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -783,7 +786,9 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	return osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+) ([]OsPackage, *CosiBootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection, distroHandler)
@@ -791,7 +796,7 @@ func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractPackages, err)
 	}
 
-	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection, distroHandler)
+	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection, distroHandler, toolsChroot)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractBootloaderMetadata, err)
 	}
