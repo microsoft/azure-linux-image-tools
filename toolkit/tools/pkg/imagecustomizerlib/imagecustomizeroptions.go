@@ -80,6 +80,12 @@ func (o *ImageCustomizerOptions) verifyPreviewFeatures(previewFeatures []imagecu
 		}
 	}
 
+	if o.ToolsDir != "" {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureToolsDir) {
+			return ErrToolsDirPreviewRequired
+		}
+	}
+
 	return nil
 }
 

@@ -1,6 +1,7 @@
 previewFeatures:
 - create
 - btrfs
+- tools-dir
 
 storage:
   disks:

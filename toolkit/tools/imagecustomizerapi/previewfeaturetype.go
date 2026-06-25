@@ -47,6 +47,9 @@ const (
 
 	// PreviewFeatureUnsupportedDistroVersion allows distro versions that are not supported yet.
 	PreviewFeatureUnsupportedDistroVersion PreviewFeature = "unsupported-distro-version"
+
+	// PreviewFeatureToolsDir enables support for specifying a tools directory.
+	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -54,7 +57,7 @@ func (pf PreviewFeature) IsValid() error {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
-		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion:
+		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

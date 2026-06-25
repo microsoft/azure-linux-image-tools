@@ -97,6 +97,7 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 			OutputImageFormat:   options.OutputImageFormat,
 			PackageSnapshotTime: options.PackageSnapshotTime,
 			BuildDir:            options.BuildDir,
+			ToolsDir:            options.ToolsDir,
 			PreviewFeatures:     options.PreviewFeatures,
 		})
 	if err != nil {
