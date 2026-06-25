@@ -44,6 +44,9 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
+	previewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureToolsDir}
+	previewFeatures = append(previewFeatures, baseImageInfo.PreviewFeatures...)
+
 	// --tools-dir exercises the toolsChroot path in isPackageInstalled used by UKI 'create' validation.
 	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
@@ -51,7 +54,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    imagecustomizerapi.ImageFormatType("raw"),
 		UseBaseImageRpmRepos: true,
-		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		PreviewFeatures:      previewFeatures,
 		SetFilesContext:      *setfilesContext,
 		ToolsDir:             toolsDir,
 	})

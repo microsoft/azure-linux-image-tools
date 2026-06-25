@@ -31,6 +31,7 @@ As such, the example configuration files below must specify `create` in the [pre
     ```yaml
     previewFeatures:
     - create
+    - tools-dir
 
     storage:
       disks:
@@ -104,6 +105,7 @@ As such, the example configuration files below must specify `create` in the [pre
     ```yaml
     previewFeatures:
     - create
+    - tools-dir
     - preview-distro-version
 
     storage:

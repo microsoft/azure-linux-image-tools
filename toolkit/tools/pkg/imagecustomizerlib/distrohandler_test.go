@@ -123,6 +123,7 @@ func TestAclValidateConfigPackageOpsRequireToolsDir(t *testing.T) {
 	rc := &ResolvedConfig{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureDistroVersion,
+			imagecustomizerapi.PreviewFeatureToolsDir,
 		},
 		ConfigChain: []*ConfigWithBasePath{
 			{

@@ -271,6 +271,11 @@ Added in v1.1.
 
 Optional.
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `tools-dir` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
 Specifies the path to a directory that provides an external package manager (tdnf/dnf).
 Required when performing package operations on images that do not include a package
 manager in the base image.
