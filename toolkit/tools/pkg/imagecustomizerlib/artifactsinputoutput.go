@@ -461,12 +461,13 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 }
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
-	chrootDir string,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
+	imageMountPoint := filepath.Join(buildDir, "imageroot")
+
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, distroHandler, err :=
-		connectToExistingImage(ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, nil)
+		connectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, true, true, nil)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err

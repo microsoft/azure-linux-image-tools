@@ -197,10 +197,12 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 		}
 	}()
 
+	imageMountPoint := filepath.Join(buildDir, "readonly-rootfs-mount")
+
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
-	rawImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
-		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false, /*ignoreOverlays*/
-		distroHandler)
+	rawImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir,
+		imageMountPoint, false /*includeDefaultMounts*/, false /*readonly*/, false, /*readonlyVerity*/
+		false /*ignoreOverlays*/, distroHandler)
 	if err != nil {
 		return err
 	}

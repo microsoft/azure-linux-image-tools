@@ -63,7 +63,9 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 
 	// Connect to the image with read-only mounts.
 	// Use connectToExistingImage which automatically mounts all partitions based on fstab.
-	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, "selinux-extract",
+	imageMountPoint := filepath.Join(buildDir, "selinux-extract")
+
+	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, imageMountPoint,
 		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSelinuxPolicyImageConnection, err)
