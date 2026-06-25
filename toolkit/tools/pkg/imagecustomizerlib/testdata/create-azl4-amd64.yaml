@@ -1,6 +1,7 @@
 previewFeatures:
 - create
 - preview-distro-version
+- tools-dir
 
 storage:
   disks:

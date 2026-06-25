@@ -1,5 +1,6 @@
 previewFeatures:
 - create
+- tools-dir
 
 storage:
   disks:

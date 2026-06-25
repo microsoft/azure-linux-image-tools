@@ -123,6 +123,11 @@ Added in v1.2.
 
 Required.
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `tools-dir` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
 Specifies the path to a directory that provides the tools (tdnf/dnf and their
 dependencies) needed to install packages during image creation.
 

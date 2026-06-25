@@ -70,11 +70,6 @@ func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error
 func validateCreateImageConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
 	options ImageCreateOptions,
 ) (*ResolvedConfig, error) {
-	if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
-		return nil, fmt.Errorf(
-			"the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
-	}
-
 	err := validateCreateImageSupportedFields(config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
@@ -97,10 +92,16 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 			OutputImageFormat:   options.OutputImageFormat,
 			PackageSnapshotTime: options.PackageSnapshotTime,
 			BuildDir:            options.BuildDir,
+			ToolsDir:            options.ToolsDir,
 			PreviewFeatures:     options.PreviewFeatures,
 		})
 	if err != nil {
 		return nil, err
+	}
+
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
+		return nil, fmt.Errorf(
+			"the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
 	}
 
 	if len(config.OS.Packages.Install) == 0 {

@@ -4,6 +4,8 @@
 package imagecustomizerlib
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -62,4 +64,28 @@ func TestOptionsIsValid_CosiCompressionLevel_Fail(t *testing.T) {
 		err := options.IsValid()
 		assert.ErrorIs(t, err, imagecustomizerapi.ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
 	}
+}
+
+func TestCustomizeImageToolsDirMissingPreviewFlag(t *testing.T) {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageToolsDirMissingPreviewFlag")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "nochange-config.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "out/image.vhd")
+
+	// Customize image to vhd.
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             buildDir,
+	})
+	assert.ErrorIs(t, err, ErrToolsDirPreviewRequired)
 }

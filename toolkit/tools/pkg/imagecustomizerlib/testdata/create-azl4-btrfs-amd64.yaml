@@ -3,6 +3,7 @@ previewFeatures:
 - create
 - preview-distro-version
 - btrfs
+- tools-dir
 
 storage:
   disks:

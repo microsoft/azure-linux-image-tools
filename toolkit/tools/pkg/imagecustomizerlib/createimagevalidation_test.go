@@ -240,6 +240,10 @@ func TestValidateCreateImageConfig_InvalidFieldsVerityConfig(t *testing.T) {
 		RpmsSources:       []string{testDir}, // Use the test directory as a dummy RPM source
 		OutputImageFormat: "vhdx",
 		BuildDir:          "./",
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureCreate,
+			imagecustomizerapi.PreviewFeatureToolsDir,
+		},
 	}
 
 	_, err = validateCreateImageConfig(t.Context(), testDir, &config, options)
@@ -257,6 +261,10 @@ func TestValidateCreateImageConfig_InvalidFieldsOverlaysConfig(t *testing.T) {
 		RpmsSources:       []string{testDir}, // Use the test directory as a dummy RPM source
 		OutputImageFormat: "vhdx",
 		BuildDir:          "./",
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureCreate,
+			imagecustomizerapi.PreviewFeatureToolsDir,
+		},
 	}
 
 	_, err = validateCreateImageConfig(t.Context(), testDir, &config, options)

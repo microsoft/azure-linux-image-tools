@@ -158,6 +158,11 @@ Supported options:
 
   Added in v1.5.
 
+- `tools-dir`: Enables support for the
+  [--tools-dir](../cli/customize.md#--tools-dirdirectory-path) API.
+
+  Added in v1.5.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
