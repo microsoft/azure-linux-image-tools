@@ -64,7 +64,7 @@ Supported options:
 - `uki`: Enables the Unified Kernel Image (UKI) feature.
 
   When this option is specified, the `os.uki` configuration becomes available. A
-  valid `os.bootloader.reset` value of `hard-reset` is required when `os.uki` is
+  valid `os.bootloader.resetType` value of `hard-reset` is required when `os.uki` is
   configured.
 
   Added in v0.8.
