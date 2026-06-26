@@ -141,7 +141,7 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,

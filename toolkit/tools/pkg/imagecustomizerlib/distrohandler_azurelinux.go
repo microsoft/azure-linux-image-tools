@@ -82,7 +82,7 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,

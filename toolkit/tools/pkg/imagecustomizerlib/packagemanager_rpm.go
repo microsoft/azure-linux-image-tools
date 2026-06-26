@@ -25,7 +25,7 @@ type rpmPackageManagerHandler interface {
 	// isPackageInstalled reports whether packageName is installed. When toolsChroot is non-nil, the query is issued
 	// from inside toolsChroot against installroot=/_imageroot (the bind-mounted image root), so it works on images
 	// that ship no in-image package manager.
-	isPackageInstalled(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot, packageName string) bool
+	isPackageInstalled(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot, packageName string) (bool, error)
 
 	// getPackageInformation queries the package database for packageName and returns its parsed version,
 	// release, and distro fields.

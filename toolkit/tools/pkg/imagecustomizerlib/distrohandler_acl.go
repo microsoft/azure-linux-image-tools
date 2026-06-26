@@ -128,7 +128,7 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 	if toolsChroot == nil {
 		return false, fmt.Errorf("ACL cannot query rpmdb for package (%q) without --tools-dir", packageName)
 	}
-	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName), nil
+	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
 func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
