@@ -40,13 +40,14 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	buildDirCustomize := filepath.Join(buildDir, "customize")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	originalConfigFile := filepath.Join(testDir, artifactsOutputConfigFile(t, baseImageInfo))
-	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
-	outputArtifactsDir := filepath.Join(testTempDir, "output")
+	configFile := filepath.Join(testDir, artifactsOutputConfigFile(t, baseImageInfo))
+	outputArtifactsDir := filepath.Join(testDir, "out/artifacts-output/artifacts")
 
-	// Copy test config to the temp dir so it's isolated
-	err = file.Copy(originalConfigFile, configFile)
-	assert.NoError(t, err)
+	// Clean artifacts dir
+	err = os.RemoveAll(outputArtifactsDir)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	// Customize image
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDirCustomize, configFile, baseImage, outImageFilePath, "raw",
@@ -147,14 +148,15 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	cosiFilePath := filepath.Join(testTempDir, "image.cosi")
-	originalConfigFile := filepath.Join(testDir, artifactsOutputVerityConfigFile(t, baseImageInfo))
-	configFile := filepath.Join(testTempDir, "artifacts-output-verity.yaml")
-	outputArtifactsDir := filepath.Join(testTempDir, "output")
+	configFile := filepath.Join(testDir, artifactsOutputVerityConfigFile(t, baseImageInfo))
+	outputArtifactsDir := filepath.Join(testDir, "./out/artifacts-output-verity/artifacts")
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 
-	// Copy test config to the temp dir so it's isolated
-	err = file.Copy(originalConfigFile, configFile)
-	assert.NoError(t, err)
+	// Clean artifacts dir
+	err = os.RemoveAll(outputArtifactsDir)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	// Customize image.
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",

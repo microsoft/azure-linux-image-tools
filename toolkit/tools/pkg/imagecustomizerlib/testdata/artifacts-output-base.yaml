@@ -1,0 +1,55 @@
+previewFeatures:
+- uki
+- output-artifacts
+
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 1G
+
+    - id: rootfs
+      size: 2G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - bootloader
+    path: ./out/artifacts-output/artifacts
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    mode: create
+
+  services:
+    enable:
+    - sshd

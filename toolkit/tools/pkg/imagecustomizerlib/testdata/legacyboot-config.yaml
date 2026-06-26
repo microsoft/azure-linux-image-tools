@@ -1,29 +1,10 @@
-storage:
-  disks:
-  - partitionTableType: gpt
-    maxSize: 4G
-    partitions:
-    - id: boot
-      type: bios-grub
-      start: 1M
-      size: 1023M
+previewFeatures:
+- base-configs
 
-    - id: rootfs
-      start: 1G
-      size: grow
-
-  bootType: legacy
-
-  filesystems:
-  - deviceId: rootfs
-    type: ext4
-    mountPoint:
-      path: /
+baseConfigs:
+- path: legacyboot-config-base.yaml
 
 os:
-  bootloader:
-    resetType: hard-reset
-
   packages:
     install:
       - grub2-pc
