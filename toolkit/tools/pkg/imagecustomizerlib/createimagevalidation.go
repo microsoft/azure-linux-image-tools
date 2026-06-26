@@ -75,12 +75,6 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
 	}
 
-	// Validate mandatory fields for creating a seed image
-	err = validateCreateImageMandatoryFields(baseConfigPath, config, options.RpmsSources, options.ToolsDir)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: Validate for distro and release
 	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, false,
 		imagecustomizerapi.ValidateResourceTypes{
@@ -104,6 +98,12 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 			"the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
 	}
 
+	// Validate mandatory fields for creating a seed image
+	err = validateCreateImageMandatoryFields(baseConfigPath, rc)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(config.OS.Packages.Install) == 0 {
 		return nil, fmt.Errorf(
 			"no packages to install specified, please specify at least one package to install for a new image")
@@ -112,23 +112,21 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 	return rc, nil
 }
 
-func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config,
-	rpmsSources []string, toolsDir string,
-) error {
+func validateCreateImageMandatoryFields(baseConfigPath string, rc *ResolvedConfig) error {
 	// check if storage disks is not empty for creating a seed image
-	if len(config.Storage.Disks) == 0 {
+	if len(rc.Storage.Disks) == 0 {
 		return fmt.Errorf("storage.disks field is required in the config file (%s)", baseConfigPath)
 	}
 
 	// rpmSources must not be empty for creating a seed image
-	if len(rpmsSources) == 0 {
+	if len(rc.Options.RpmsSources) == 0 {
 		return fmt.Errorf("rpm sources must be specified for creating a seed image")
 	}
 
-	if toolsDir == "" {
+	if rc.Options.ToolsDir == "" {
 		return fmt.Errorf("tools directory is required for image creation")
 	}
-	err := validateToolsDir(toolsDir)
+	err := validateToolsDir(rc.Options.ToolsDir)
 	if err != nil {
 		return err
 	}

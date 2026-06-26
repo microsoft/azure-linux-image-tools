@@ -179,6 +179,7 @@ func TestValidateCreateImageConfig_EmptyConfig(t *testing.T) {
 	}
 
 	options := ImageCreateOptions{
+		OutputImageFile:   "./out/image.vhdx",
 		OutputImageFormat: "vhdx",
 		BuildDir:          "./",
 	}

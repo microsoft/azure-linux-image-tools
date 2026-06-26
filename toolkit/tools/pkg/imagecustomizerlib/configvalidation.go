@@ -55,7 +55,7 @@ var (
 	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
 	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
-	ErrStorageInBaseConfig                  = NewImageCustomizerError("Validation:StorageBaseConfig", "storage is not yet supported as a value in a base config")
+	ErrStorageMoreThanOne                   = NewImageCustomizerError("Validation:StorageMoreThanOne", "storage may only be specified in one config file:\nstorage merging logic not yet implemented")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -136,15 +136,18 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.PreviewFeatures = append(rc.PreviewFeatures, config.PreviewFeatures...)
-	rc.PreviewFeatures = append(rc.PreviewFeatures, options.PreviewFeatures...)
-
-	err = options.verifyPreviewFeatures(rc.PreviewFeatures)
+	rc.ConfigChain, err = buildConfigChain(ctx, config, baseConfigPath)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.ConfigChain, err = buildConfigChain(ctx, config, baseConfigPath)
+	rc.PreviewFeatures = append(rc.PreviewFeatures, options.PreviewFeatures...)
+
+	for _, configWithBase := range rc.ConfigChain {
+		rc.PreviewFeatures = append(rc.PreviewFeatures, configWithBase.Config.PreviewFeatures...)
+	}
+
+	err = options.verifyPreviewFeatures(rc.PreviewFeatures)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +263,11 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 }
 
 func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
+	foundStorage := imagecustomizerapi.Storage{}
+	foundStorageCount := 0
+
 	// Disallow storage fields in base configs until merging logic is implemented.
-	for i := 0; i < len(rc.ConfigChain)-1; i++ {
+	for i := 0; i < len(rc.ConfigChain); i++ {
 		storage := rc.ConfigChain[i].Config.Storage
 
 		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault ||
@@ -271,12 +277,16 @@ func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
 			len(storage.Verity) > 0 ||
 			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
 
-			return imagecustomizerapi.Storage{}, ErrStorageInBaseConfig
+			foundStorage = storage
+			foundStorageCount += 1
 		}
 	}
 
-	topLevelConfig := rc.ConfigChain[len(rc.ConfigChain)-1]
-	return topLevelConfig.Config.Storage, nil
+	if foundStorageCount > 1 {
+		return imagecustomizerapi.Storage{}, ErrStorageMoreThanOne
+	}
+
+	return foundStorage, nil
 }
 
 func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {

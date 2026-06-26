@@ -1,0 +1,32 @@
+previewFeatures:
+- create
+
+storage:
+  disks:
+  - partitionTableType: gpt
+    maxSize: 3G
+    partitions:
+    - id: boot
+      type: esp
+      size: 32M
+
+    - id: rootfs
+      start: 33M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: boot
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
