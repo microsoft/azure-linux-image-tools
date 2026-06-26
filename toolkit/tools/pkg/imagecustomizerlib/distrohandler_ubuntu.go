@@ -111,7 +111,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
-	return isPackageInstalledDeb(imageChroot, packageName), nil
+	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
 func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,

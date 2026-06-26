@@ -5,8 +5,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -327,15 +329,23 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
 }
 
 // isPackageInstalledDeb checks if a package is installed using dpkg-query.
-func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName string) bool {
+func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName string) (bool, error) {
 	err := shell.NewExecBuilder("dpkg-query", "-W", "-f='${Status}'", packageName).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
 		Execute()
 	if err != nil {
-		return false
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// The command ran and failed.
+			return false, nil
+		}
+
+		// The command failed to start.
+		return false, err
 	}
-	return true
+
+	return true, nil
 }
 
 // getAllPackagesFromChrootDeb retrieves all installed packages from a DEB-based system.

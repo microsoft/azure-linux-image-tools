@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"slices"
 	"strings"
@@ -108,7 +110,7 @@ func (pm *tdnfPackageManager) createOutputCallback() func(string) {
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
-) bool {
+) (bool, error) {
 	args := []string{"info", packageName, "--repo", "@system"}
 	chroot := imageChroot
 	if toolsChroot != nil {
@@ -126,9 +128,17 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 		Chroot(chroot.ChrootDir()).
 		Execute()
 	if err != nil {
-		return false
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// The command ran and failed.
+			return false, nil
+		}
+
+		// The command failed to start.
+		return false, err
 	}
-	return true
+
+	return true, nil
 }
 
 func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,

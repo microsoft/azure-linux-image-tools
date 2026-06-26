@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -183,7 +185,7 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
-) bool {
+) (bool, error) {
 	// Use `rpm -q` rather than `dnf info --installed` here: it queries the local rpm database directly without
 	// opening any log files for writing, so it works on read-only chroots and avoids the security concerns of
 	// pointing dnf's logdir at a fixed, predictable path inside the chroot. `rpm` is guaranteed to be present in any
@@ -202,9 +204,17 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 		Chroot(chroot.ChrootDir()).
 		Execute()
 	if err != nil {
-		return false
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// The command ran and failed.
+			return false, nil
+		}
+
+		// The command failed to start.
+		return false, err
 	}
-	return true
+
+	return true, nil
 }
 
 func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
