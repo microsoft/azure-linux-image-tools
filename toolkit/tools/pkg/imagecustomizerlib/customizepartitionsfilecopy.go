@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -23,8 +24,10 @@ var (
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
 	buildImageFile string, newBuildImageFile string, distroHandler DistroHandler,
 ) (map[string]string, error) {
-	existingImageConnection, _, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
-		true, false, false, distroHandler)
+	imageMountPoint := filepath.Join(buildDir, "imageroot")
+
+	existingImageConnection, _, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, imageMountPoint,
+		false, true, false, false, distroHandler)
 	if err != nil {
 		return nil, err
 	}

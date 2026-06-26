@@ -697,15 +697,13 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	// When a tools chroot is supplied, the image must be mounted inside it so that tdnf running inside the tools chroot
 	// can reach the image at /_imageroot. Otherwise mount it at the build dir.
-	mountBaseDir := rc.BuildDirAbs
-	mountPointName := "imageroot"
+	imageMountPoint := filepath.Join(rc.BuildDirAbs, "imageroot")
 	if toolsChroot != nil {
-		mountBaseDir = rc.Options.ToolsDir
-		mountPointName = toolsRootImageDir
+		imageMountPoint = filepath.Join(rc.Options.ToolsDir, toolsRootImageDir)
 	}
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, mountBaseDir, mountPointName, true, false, readOnlyVerity, false, distroHandler)
+		ctx, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint, true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -766,8 +764,9 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) ([]OsPackage, *CosiBootloader, error) {
-	var err error
-	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false,
+	imageMountPoint := filepath.Join(buildDir, "imageroot")
+
+	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, false,
 		partitionsLayout, distroHandler)
 	if err != nil {
 		return nil, nil, err
@@ -900,8 +899,10 @@ func CheckEnvironmentVars() error {
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (DistroHandler, error) {
+	imageMountPoint := filepath.Join(rc.BuildDirAbs, "imageroot")
+
 	existingImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
-		"imageroot", false /* include-default-mounts */, true, /* read-only */
+		imageMountPoint, false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
 		return nil, err

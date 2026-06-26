@@ -32,7 +32,7 @@ import (
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
+func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, mountPath string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
 	distroHandler DistroHandler,
 ) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
@@ -41,7 +41,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 	imageConnection := imageconnection.NewImageConnection()
 
 	partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, err := connectToExistingImageHelper(imageConnection,
-		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
+		imageFilePath, buildDir, mountPath, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
 		distroHandler)
 	if err != nil {
 		imageConnection.Close()
@@ -52,7 +52,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 }
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
+	buildDir string, mountPath string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
 	ignoreOverlays bool, distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
 	// Connect to image file using loopback device.
@@ -118,9 +118,7 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
-	imageChrootDir := filepath.Join(buildDir, chrootDirName)
-
-	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
+	err = imageConnection.ConnectChroot(mountPath, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -128,7 +126,7 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	return partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
 }
 
-func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
+func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, mountPath string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
 	distroHandler DistroHandler,
 ) (*imageconnection.ImageConnection, []string, error) {
@@ -136,14 +134,14 @@ func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDi
 	defer span.End()
 
 	imageConnection, readonlyPartUuids, err := reconnectToExistingImageHelper(imageFilePath, buildDir,
-		chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, partitionsLayout, distroHandler)
+		mountPath, includeDefaultMounts, readonly, readOnlyVerity, partitionsLayout, distroHandler)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
 	}
 	return imageConnection, readonlyPartUuids, nil
 }
 
-func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chrootDirName string,
+func reconnectToExistingImageHelper(imageFilePath string, buildDir string, mountPath string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
 	distroHandler DistroHandler,
 ) (*imageconnection.ImageConnection, []string, error) {
@@ -176,9 +174,7 @@ func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chroo
 	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
-	imageChrootDir := filepath.Join(buildDir, chrootDirName)
-
-	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
+	err = imageConnection.ConnectChroot(mountPath, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
 		return nil, nil, err
 	}

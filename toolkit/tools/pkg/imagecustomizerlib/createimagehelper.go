@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -25,8 +26,10 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	}
 	defer toolsChroot.Close()
 
-	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
-		toolsRootImageDir, true, false, false, false, distroHandler)
+	imageMountPoint := filepath.Join(toolsDir, toolsRootImageDir)
+
+	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
+		imageMountPoint, true, false, false, false, distroHandler)
 	if err != nil {
 		return nil, "", err
 	}
