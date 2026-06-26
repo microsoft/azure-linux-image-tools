@@ -71,6 +71,10 @@ os:
     - vim
     - device-mapper
 
+    remove:
+    - tdnf
+    - rpm
+
   additionalFiles:
     # Change the directory that the sshd-keygen service writes the SSH host keys to.
   - source: files/sshd-keygen.service

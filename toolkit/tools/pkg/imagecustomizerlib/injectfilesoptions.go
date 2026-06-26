@@ -11,6 +11,7 @@ type InjectFilesOptions struct {
 	OutputImageFile      string
 	OutputImageFormat    string
 	CosiCompressionLevel *int
+	ToolsDir             string
 }
 
 func (o *InjectFilesOptions) IsValid() error {

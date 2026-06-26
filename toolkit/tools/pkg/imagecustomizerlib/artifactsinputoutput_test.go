@@ -118,12 +118,19 @@ func artifactsOutputConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) st
 
 // artifactsOutputVerityConfigFile returns the artifacts-output-verity test config file appropriate for the
 // given base image version (azl3 vs azl4) and host architecture.
-func artifactsOutputVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+func artifactsOutputVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
+	toolsDirSuffix := ""
+	if useToolsDir {
+		toolsDirSuffix = "-toolsdir"
+	}
+
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl2, baseImageVersionAzl3:
-		return "artifacts-output-verity-azl3.yaml"
+		return fmt.Sprintf("artifacts-output-verity-azl3%s.yaml", toolsDirSuffix)
+
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("artifacts-output-verity-%s-azl4.yaml", runtime.GOARCH)
+		return fmt.Sprintf("artifacts-output-verity-%s-azl4%s.yaml", runtime.GOARCH, toolsDirSuffix)
+
 	default:
 		t.Fatalf("unsupported base image version for artifacts-output-verity test: %s", baseImageInfo.Version)
 		return ""
@@ -131,7 +138,19 @@ func artifactsOutputVerityConfigFile(t *testing.T, baseImageInfo testBaseImageIn
 }
 
 func TestOutputAndInjectArtifactsCosi(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testOutputAndInjectArtifactsCosiHelper(t, baseImageInfo, false)
+		})
+
+		t.Run(baseImageInfo.Name+"ToolsDir", func(t *testing.T) {
+			testOutputAndInjectArtifactsCosiHelper(t, baseImageInfo, true)
+		})
+	}
+}
+
+func testOutputAndInjectArtifactsCosiHelper(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
@@ -142,13 +161,21 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")
+	toolsDir := ""
+	if useToolsDir {
+		toolsDir = testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version, true)
+	}
+
+	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts"+baseImageInfo.Name)
+	if useToolsDir {
+		testTempDir += "ToolsDir"
+	}
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	cosiFilePath := filepath.Join(testTempDir, "image.cosi")
-	configFile := filepath.Join(testDir, artifactsOutputVerityConfigFile(t, baseImageInfo))
+	configFile := filepath.Join(testDir, artifactsOutputVerityConfigFile(t, baseImageInfo, useToolsDir))
 	outputArtifactsDir := filepath.Join(testDir, "./out/artifacts-output-verity/artifacts")
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 
@@ -159,8 +186,16 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	}
 
 	// Customize image.
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
-		baseImageInfo.PreviewFeatures)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -173,6 +208,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		InputImageFile:    outImageFilePath,
 		OutputImageFile:   cosiFilePath,
 		OutputImageFormat: "cosi",
+		ToolsDir:          toolsDir,
 	}
 	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)
 	if !assert.NoError(t, err) {

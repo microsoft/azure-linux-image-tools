@@ -339,10 +339,21 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 }
 
 // getAllPackagesFromChrootRpm retrieves all installed packages from an RPM-based system
-func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	out, _, err := shell.NewExecBuilder("rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n").
+func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
+) ([]OsPackage, error) {
+	args := []string{"-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n"}
+
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+		// imageChroot has no in-image rpm.
+		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
+		chroot = toolsChroot
+	}
+
+	out, _, err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(imageChroot.ChrootDir()).
+		Chroot(chroot.ChrootDir()).
 		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)

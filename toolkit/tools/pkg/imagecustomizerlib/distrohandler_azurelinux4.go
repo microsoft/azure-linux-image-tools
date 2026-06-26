@@ -108,8 +108,9 @@ func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot
 }
 
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
 ) ([]OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot)
+	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

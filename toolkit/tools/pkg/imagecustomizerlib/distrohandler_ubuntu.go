@@ -119,7 +119,9 @@ func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 	return nil, fmt.Errorf("getting package information is not supported yet for Ubuntu images")
 }
 
-func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]OsPackage, error) {
 	return getAllPackagesFromChrootDeb(imageChroot)
 }
 

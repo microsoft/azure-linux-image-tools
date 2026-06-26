@@ -112,6 +112,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 	}
 }
 
+// Tests: Root verity, verity mount by partition label, COSI output, COSI partition shrinking, and tools dir.
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -122,6 +123,8 @@ func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 
 func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version, true)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -137,8 +140,16 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "cosi",
-		baseImageInfo.PreviewFeatures)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "cosi",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 
 	if !assert.NoError(t, err) {
 		return

@@ -15,6 +15,7 @@ type ConvertImageOptions struct {
 	OutputImageFile      string
 	OutputImageFormat    imagecustomizerapi.ImageFormatType
 	CosiCompressionLevel *int
+	ToolsDir             string
 }
 
 func (o *ConvertImageOptions) IsValid() error {
