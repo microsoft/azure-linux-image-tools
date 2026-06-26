@@ -197,6 +197,8 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 
 	command := b.command
 
+	logger.Log.Debugf("Executing: %v", append([]string{command}, b.args...))
+
 	// Check if we need to pre-resolve the command path within the chroot directory.
 	// Note: 'exec.Command' only does a path lookup when 'filepath.Base(command) == command'.
 	if b.chrootDir != "" && filepath.Base(command) == command {
@@ -211,6 +213,7 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 
 	// Setup process.
 	cmd := exec.Command(command, b.args...)
+
 	cmd.Dir = b.workingDirectory
 	if cmd.Dir == "" && b.chrootDir != "" {
 		// Default to the root directory of the chroot.

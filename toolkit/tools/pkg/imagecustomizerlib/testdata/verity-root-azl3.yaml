@@ -1,0 +1,21 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: verity-root-base.yaml
+
+os:
+  selinux:
+    mode: disabled
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - device-mapper
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network

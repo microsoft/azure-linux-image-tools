@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -83,23 +84,33 @@ func testConvertImageRawToQcow2(t *testing.T, baseImageInfo testBaseImageInfo) {
 }
 
 func TestConvertImageRawToCosi(t *testing.T) {
-	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+	for _, baseImageInfo := range slices.Concat(baseImageAzureLinuxAll, baseImageUbuntuAll) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testConvertImageRawToCosi(t, baseImageInfo)
+			testConvertImageRawToCosi(t, baseImageInfo, false)
+		})
+
+		t.Run(baseImageInfo.Name+"ToolsDir", func(t *testing.T) {
+			testConvertImageRawToCosi(t, baseImageInfo, true)
 		})
 	}
 }
 
-func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
-		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
+	}
+
+	toolsDir := ""
+	if useToolsDir {
+		if baseImageInfo.Distro == "ubuntu" {
+			t.Skip("--tools-dir not supported for Ubuntu yet")
+		}
+
+		toolsDir = testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version, true)
 	}
 
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRawToCosi_%s", baseImageInfo.Name))
@@ -110,7 +121,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 	// First, we need a customized image with verity enabled
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
-	configFile := filepath.Join(testDir, "verity-config.yaml")
+	configFile := getRootVerityConfigFile(t, baseImageInfo, useToolsDir)
 
 	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
@@ -119,6 +130,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 		OutputImageFormat:    "raw",
 		UseBaseImageRpmRepos: true,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		ToolsDir:             toolsDir,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
 		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
@@ -137,6 +149,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 		InputImageFile:    customizedImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
+		ToolsDir:          toolsDir,
 	}
 
 	err = ConvertImage(t.Context(), options)

@@ -53,28 +53,14 @@ os:
   bootloader:
     resetType: hard-reset
 
-  selinux:
-    mode: disabled
-
   kernelCommandLine:
     extraCommandLine:
     - "rd.info"
-
-  packages:
-    install:
-    - openssh-server
-    - veritysetup
-    - vim
-    - device-mapper
 
   additionalFiles:
     # Change the directory that the sshd-keygen service writes the SSH host keys to.
   - source: files/sshd-keygen.service
     destination: /usr/lib/systemd/system/sshd-keygen.service
-
-    # Enable DHCP client on all of the physical NICs.
-  - source: files/89-ethernet.network
-    destination: /etc/systemd/network/89-ethernet.network
 
   services:
     enable:
