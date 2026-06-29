@@ -35,7 +35,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version, true)
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version)
 
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)

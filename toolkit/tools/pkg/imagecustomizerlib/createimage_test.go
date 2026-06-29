@@ -49,9 +49,9 @@ func testCreateImageRaw(t *testing.T, imageInfo testImageInfo) {
 
 	// get RPM sources
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, imageInfo.Distro, imageInfo.Version,
-		false, true)
+		false)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version, true)
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version)
 
 	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, configFile, rpmSources, toolsDir,
@@ -106,9 +106,9 @@ func testCreateImageBtrfs(t *testing.T, imageInfo testImageInfo) {
 	outputImageFormat := "raw"
 
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, imageInfo.Distro, imageInfo.Version,
-		false, true)
+		false)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version, true)
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version)
 
 	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsDir,
@@ -208,8 +208,8 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, imageInfo testI
 	assert.NoError(t, err)
 
 	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, imageInfo.Distro, imageInfo.Version,
-		false, true)}
-	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version, true)
+		false)}
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, imageInfo.Distro, imageInfo.Version)
 	outputImageFileAbsolute := filepath.Join(buildDir, "image1.raw")
 
 	cwd, err := os.Getwd()

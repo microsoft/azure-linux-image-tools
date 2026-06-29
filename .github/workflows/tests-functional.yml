@@ -135,9 +135,9 @@ jobs:
         set -eux
         pushd repo/toolkit/tools
         if [[ "$TEST_DISTRO" == "azl3" ]]; then
-          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0
         elif [[ "$TEST_DISTRO" == "azl4" ]]; then
-          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 4.0 -s true
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 4.0
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
           echo "No test utils needed for Ubuntu tests"
         else
