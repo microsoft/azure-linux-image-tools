@@ -169,6 +169,8 @@ func (b ExecBuilder) ExecuteCaptureOutput() (string, string, error) {
 }
 
 func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
+	logger.Log.Debugf("Executing: %v", append([]string{b.command}, b.args...))
+
 	stdoutLinesChans := []chan string(nil)
 	stdErrLinesChans := []chan string(nil)
 
