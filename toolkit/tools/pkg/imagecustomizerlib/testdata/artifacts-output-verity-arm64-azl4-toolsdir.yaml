@@ -1,0 +1,7 @@
+# Differs from artifacts-output-verity-amd64-azl4 in its use of grub2-efi-aa64 (not grub2-efi-x64)
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: artifacts-output-verity-arm64-azl4.yaml
+- path: toolsdir-azl4.yaml

@@ -1,0 +1,6 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: verity-root-azl4.yaml
+- path: toolsdir-azl4.yaml

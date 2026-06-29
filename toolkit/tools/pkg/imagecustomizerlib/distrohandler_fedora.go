@@ -149,8 +149,10 @@ func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot)
+func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]OsPackage, error) {
+	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

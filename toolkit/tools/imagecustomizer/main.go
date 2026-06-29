@@ -55,6 +55,7 @@ type InjectFilesCmd struct {
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi|baremetal-image)" help:"Format of output image." enum:"${imageformat}" default:""`
 	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
 type ConvertCmd struct {
@@ -63,6 +64,7 @@ type ConvertCmd struct {
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
 	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
 type ValidateConfigCmd struct {
@@ -200,6 +202,7 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    cmd.OutputImageFormat,
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
+			ToolsDir:             cmd.ToolsDir,
 		})
 	if err != nil {
 		return err
@@ -216,6 +219,7 @@ func convertImage(ctx context.Context, cmd ConvertCmd) error {
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
+			ToolsDir:             cmd.ToolsDir,
 		})
 	if err != nil {
 		return err

@@ -39,7 +39,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-config.yaml")
+	configFile := getRootVerityConfigFile(t, baseImageInfo, false /*useToolsDir*/)
 
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
@@ -58,6 +58,36 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	}
 
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath)
+}
+
+func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
+	toolsDirSuffix := ""
+	if useToolsDir {
+		toolsDirSuffix = "-toolsdir"
+	}
+
+	switch baseImageInfo.Distro {
+	case "azurelinux":
+		switch baseImageInfo.Version {
+		case "3.0", "2.0":
+			return filepath.Join(testDir, fmt.Sprintf("verity-root-azl3%s.yaml", toolsDirSuffix))
+
+		case "4.0":
+			return filepath.Join(testDir, fmt.Sprintf("verity-root-azl4%s.yaml", toolsDirSuffix))
+
+		default:
+			t.Fatalf("Unsupported AZL version (%s)", baseImageInfo.Version)
+			return ""
+		}
+
+	case "ubuntu":
+		// Future: Once Ubuntu has bootloader hard-reset support, switch this to an Ubuntu specific config file.
+		return filepath.Join(testDir, "verity-root-base.yaml")
+
+	default:
+		t.Fatalf("Unsupported distro (%s)", baseImageInfo.Distro)
+		return ""
+	}
 }
 
 func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
