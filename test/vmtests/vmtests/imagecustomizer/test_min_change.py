@@ -417,7 +417,6 @@ def test_min_change_efi_azl3_iso_bootstrap_output(
     )
 
 
-@pytest.mark.skip(reason="Azure Linux 4.0 ISO bootstrap output is not yet supported")
 def test_min_change_efi_azl4_iso_bootstrap_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -431,6 +430,7 @@ def test_min_change_efi_azl4_iso_bootstrap_output(
 ) -> None:
     azl_release = 4
     config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl4.yaml")
+    config_path = add_preview_features_to_config(config_path, "preview-distro-version", close_list)
     output_format = "iso"
 
     run_min_change_test(
@@ -480,7 +480,6 @@ def test_min_change_efi_azl3_iso_full_os_output(
     )
 
 
-@pytest.mark.skip(reason="Azure Linux 4.0 ISO full OS output is not yet supported")
 def test_min_change_efi_azl4_iso_full_os_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -494,6 +493,7 @@ def test_min_change_efi_azl4_iso_full_os_output(
 ) -> None:
     azl_release = 4
     config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm-azl4.yaml")
+    config_path = add_preview_features_to_config(config_path, "preview-distro-version", close_list)
     output_format = "iso"
 
     run_min_change_test(
@@ -577,7 +577,6 @@ def test_min_change_legacy_azl3_iso_output(
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
-@pytest.mark.skip(reason="Azure Linux 4.0 ISO bootstrap output is not yet supported")
 def test_min_change_legacy_azl4_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -591,6 +590,7 @@ def test_min_change_legacy_azl4_iso_output(
 ) -> None:
     azl_release = 4
     config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl4.yaml")
+    config_path = add_preview_features_to_config(config_path, "preview-distro-version", close_list)
     output_format = "iso"
 
     run_min_change_test(

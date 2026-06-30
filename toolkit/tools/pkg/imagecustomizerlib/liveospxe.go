@@ -92,7 +92,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		// dracut livenet module will download it.
 		artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, isoImageName)
 		err = createIsoImage(buildDir, imagecustomizerapi.InitramfsImageTypeBootstrap,
-			artifactsStore.files, kdumpBootFiles, additionalIsoFiles, artifactsIsoImagePath)
+			artifactsStore.files, kdumpBootFiles, additionalIsoFiles, artifactsIsoImagePath, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image.\n%w", err)
 		}

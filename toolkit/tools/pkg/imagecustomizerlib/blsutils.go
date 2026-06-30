@@ -263,3 +263,119 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 
 	return result
 }
+
+// forEachBLSEntry rewrites every non-rescue BLS .conf file under {bootDir}/loader/entries by passing its content
+// through edit.
+func forEachBLSEntry(bootDir string, edit func(content string) (string, error)) error {
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		contentBytes, err := os.ReadFile(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+		content := string(contentBytes)
+
+		title := ""
+		for _, field := range bls.ParseFields(content) {
+			if field.Key == "title" {
+				title = field.Value
+				break
+			}
+		}
+		if bls.IsRescueEntryTitle(title) {
+			continue
+		}
+
+		updatedContent, err := edit(content)
+		if err != nil {
+			return fmt.Errorf("failed to update BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		if updatedContent == content {
+			continue
+		}
+
+		err = os.WriteFile(absPath, []byte(updatedContent), 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to write BLS entry file (%s):\n%w", absPath, err)
+		}
+	}
+
+	return nil
+}
+
+// setBLSEntryField replaces the value of the first line with the given key (e.g. "linux" or "initrd") in a BLS entry,
+// preserving every other byte. It returns an error if the key is absent unlike updateBLSEntryOptions above, which adds
+// an options line if none exists.
+func setBLSEntryField(content string, key string, newValue string) (string, error) {
+	for _, line := range bls.ParseLines(content) {
+		if line.Key != key {
+			continue
+		}
+		return content[:line.ContentStart] + key + " " + newValue + content[line.ContentEnd:], nil
+	}
+	return "", fmt.Errorf("failed to find the '%s' key in BLS entry", key)
+}
+
+// updateLiveOSBLSEntries applies the LiveOS-compatibility kernel-entry edits to the BLS entries under bootDir. It is
+// the BLS counterpart of the per-entry portion of updateGrubCfgForLiveOS.
+func updateLiveOSBLSEntries(bootDir string, initramfsImageType imagecustomizerapi.InitramfsImageType,
+	disableSELinux bool, savedConfigs *SavedConfigs,
+) error {
+	var argsToRemove []string
+	var argsToAppend []string
+
+	switch initramfsImageType {
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		// Remove 'root' so that no pivoting takes place.
+		argsToRemove = append(argsToRemove, "root")
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
+		argsToAppend = append(argsToAppend, strings.Fields(liveosKernelArgs)...)
+	default:
+		return fmt.Errorf("unsupported initramfs image type (%s)", initramfsImageType)
+	}
+
+	if disableSELinux {
+		argsToRemove = append(argsToRemove, selinuxArgNames...)
+		selinuxArgs, err := selinuxModeToArgs(imagecustomizerapi.SELinuxModeDisabled)
+		if err != nil {
+			return err
+		}
+		argsToAppend = append(argsToAppend, selinuxArgs...)
+	}
+
+	argsToAppend = append(argsToAppend, savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine...)
+
+	return forEachBLSEntry(bootDir, func(content string) (string, error) {
+		if initramfsImageType == imagecustomizerapi.InitramfsImageTypeFullOS {
+			var err error
+			content, err = setBLSEntryField(content, "initrd", isoInitrdPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to update initrd path in BLS entry:\n%w", err)
+			}
+		}
+		return updateBLSEntryOptions(content, argsToRemove, argsToAppend), nil
+	})
+}
+
+// setLiveOSBLSEntriesRoot replaces the root= kernel arg in every BLS entry under bootDir and optionally appends
+// additional args.
+func setLiveOSBLSEntriesRoot(bootDir string, rootValue string, extraArgs []string) error {
+	argsToRemove := []string{"root"}
+	newArgs := append([]string{"root=" + rootValue}, extraArgs...)
+
+	return forEachBLSEntry(bootDir, func(content string) (string, error) {
+		return updateBLSEntryOptions(content, argsToRemove, newArgs), nil
+	})
+}

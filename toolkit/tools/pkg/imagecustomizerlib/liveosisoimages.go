@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -31,7 +32,7 @@ const (
 	initKernelInitrdPath = "/init"
 	initBinaryInitrdPath = "/lib/systemd/systemd"
 
-	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
+	dracutConfigTemplate = `add_dracutmodules+=" %s "
 add_drivers+=" overlay "
 hostonly="no"
 `
@@ -46,9 +47,7 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-var (
-	kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
-)
+var kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
 
 type StageFile struct {
 	sourcePath    string
@@ -112,7 +111,8 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, kdumpBootFiles *imagecustomize
 }
 
 func createFullOSInitrdImage(writeableRootfsDir string, kernelKdumpFiles *imagecustomizerapi.KdumpBootFilesType,
-	kdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string) error {
+	kdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string,
+) error {
 	logger.Log.Infof("Creating full OS initrd")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, kernelKdumpFiles, kdumpBootFilesMap)
@@ -146,6 +146,8 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 ) error {
 	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
 
+	dracutModules := distroHandler.LiveOSInitrdDracutModules()
+	dracutConfig := fmt.Sprintf(dracutConfigTemplate, strings.Join(dracutModules, " "))
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
 	err := file.Write(dracutConfig, dracutConfigFile)
 	if err != nil {
@@ -164,15 +166,15 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", writeableRootfsDir, err)
 	}
 
-	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
-	for _, requiredRpm := range requiredRpms {
-		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		installed, err := distroHandler.IsPackageInstalled(chroot, nil, requiredRpm)
+	requiredPackages := distroHandler.LiveOSRequiredPackages()
+	for _, requiredPackage := range requiredPackages {
+		logger.Log.Debugf("Checking if (%s) is installed", requiredPackage)
+		installed, err := distroHandler.IsPackageInstalled(chroot, nil, requiredPackage)
 		if err != nil {
-			return fmt.Errorf("failed to check if package (%s) is installed:\n%w", requiredRpm, err)
+			return fmt.Errorf("failed to check if package (%s) is installed:\n%w", requiredPackage, err)
 		}
 		if !installed {
-			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredRpm, requiredRpms)
+			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredPackage, requiredPackages)
 		}
 	}
 
@@ -181,7 +183,8 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		initrdPathInChroot,
 		"--kver", kernelVersion,
 		"--filesystems", "squashfs",
-		"--include", usrLibLocaleDir, usrLibLocaleDir}
+		"--include", usrLibLocaleDir, usrLibLocaleDir,
+	}
 
 	err = shell.NewExecBuilder("dracut", dracutParams...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
@@ -201,7 +204,8 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 }
 
 func createSquashfsImage(writeableRootfsDir string, kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
-	kdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string) error {
+	kdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string,
+) error {
 	logger.Log.Infof("Creating squashfs")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, kdumpBootFiles, kdumpBootFilesMap)
@@ -424,7 +428,8 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsImageType, filesStore *IsoFilesStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	outputImagePath string) error {
+	outputImagePath string, distroHandler DistroHandler,
+) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
 	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
@@ -433,11 +438,42 @@ func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsI
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}
 
+	if grubPrefixDir := distroHandler.LiveOSGrubEfiPrefixDir(); grubPrefixDir != "" {
+		err = writeIsoGrubPrefixRedirector(stagingDir, grubPrefixDir)
+		if err != nil {
+			return fmt.Errorf("failed to stage grub prefix redirector:\n%w", err)
+		}
+	}
+
 	biosBootEnabled := false
 	biosFilesDirPath := ""
 	err = isogenerator.BuildIsoImage(stagingDir, biosBootEnabled, biosFilesDirPath, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s) using the (%s) folder:\n%w", outputImagePath, stagingDir, err)
+	}
+
+	return nil
+}
+
+// writeIsoGrubPrefixRedirector writes a minimal grub.cfg into grubPrefixDir (the directory the ISO's grub EFI binary
+// uses as its baked-in 'prefix', e.g. EFI/azurelinux) within stagingPath. BLS-style distros (Azure Linux 4.0, Fedora)
+// ship a grub binary whose prefix points at EFI/<distro> rather than the boot media root, so without this file grub
+// would look for <prefix>/grub.cfg, find nothing, and drop to the 'grub>' rescue prompt. The redirector locates the
+// LiveOS volume by label and chains to the real configuration at isoGrubCfgPath.
+func writeIsoGrubPrefixRedirector(stagingPath string, grubPrefixDir string) error {
+	redirector := fmt.Sprintf("search --label %s --set root\n"+
+		"set prefix=($root)%s\n"+
+		"configfile ($root)%s\n", isogenerator.DefaultVolumeId, grubCfgDir, isoGrubCfgPath)
+
+	targetPath := filepath.Join(stagingPath, grubPrefixDir, isoGrubCfg)
+	err := os.MkdirAll(filepath.Dir(targetPath), os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create grub prefix directory (%s):\n%w", filepath.Dir(targetPath), err)
+	}
+
+	err = file.Write(redirector, targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to write grub prefix redirector (%s):\n%w", targetPath, err)
 	}
 
 	return nil
@@ -468,7 +504,6 @@ func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
 }
 
 func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size uint64, err error) {
-
 	totalSizeInBytes := uint64(0)
 	for _, fileOrDir := range filesOrDirs {
 		sizeInBytes, err := getSizeOnDiskInBytes(fileOrDir)
@@ -531,7 +566,8 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		rootfsDir,
 		inputArtifactsStore.files.bootEfiPath,
 		inputArtifactsStore.files.grubEfiPath,
-		artifactsBootDir}
+		artifactsBootDir,
+	}
 
 	// estimate the new disk size
 	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)

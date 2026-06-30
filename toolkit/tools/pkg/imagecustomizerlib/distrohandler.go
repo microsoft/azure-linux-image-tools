@@ -131,11 +131,32 @@ type DistroHandler interface {
 	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
 		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
 
+	// UpdateLiveOSGrubCfgForLiveOS applies the common LiveOS-compatibility edits to the grub.cfg generation. It is the
+	// base that the iso and pxe steps build on.
+	UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+		initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+		kernelVersions []string) (string, error)
+
+	// UpdateLiveOSGrubCfgForIso applies the iso-specific edits on top of the LiveOS edits.
+	UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+		initramfsType imagecustomizerapi.InitramfsImageType) (string, error)
+
 	// ShimPackage returns the package that provides the shim EFI binary for this distro on the current architecture.
 	ShimPackage() string
 
 	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
 	GrubEfiPackage() string
+
+	// LiveOSRequiredPackages returns the packages that must already be installed in the target image for Image
+	// Customizer to build a LiveOS bootstrap initrd (the squashfs and dracut live tooling).
+	LiveOSRequiredPackages() []string
+
+	// LiveOSGrubEfiPrefixDir returns the ISO-relative directory that this distro's grub EFI binary uses as its baked-in
+	// 'prefix', or "" if it doesn't use a baked-in prefix.
+	LiveOSGrubEfiPrefixDir() string
+
+	// LiveOSInitrdDracutModules returns the dracut modules to add when building the LiveOS bootstrap initrd.
+	LiveOSInitrdDracutModules() []string
 
 	// Distro has a root partition that is missing placeholder directories for special mounts like /dev.
 	RootMissingMountDirectories() bool

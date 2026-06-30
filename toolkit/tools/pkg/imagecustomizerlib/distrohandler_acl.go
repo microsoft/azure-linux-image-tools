@@ -295,6 +295,19 @@ func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDevi
 	return fs.ErrNotExist
 }
 
+func (d *aclDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	kernelVersions []string,
+) (string, error) {
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+}
+
+func (d *aclDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+}
+
 func (d *aclDistroHandler) ShimPackage() string {
 	// ACL uses systemd-boot + UKI (no shim/grub from a package).
 	return ""
@@ -303,6 +316,18 @@ func (d *aclDistroHandler) ShimPackage() string {
 func (d *aclDistroHandler) GrubEfiPackage() string {
 	// ACL does not use grub.
 	return ""
+}
+
+func (d *aclDistroHandler) LiveOSRequiredPackages() []string {
+	return liveOSRequiredPackagesAzl3
+}
+
+func (d *aclDistroHandler) LiveOSGrubEfiPrefixDir() string {
+	return ""
+}
+
+func (d *aclDistroHandler) LiveOSInitrdDracutModules() []string {
+	return liveOSInitrdDracutModulesAzl3
 }
 
 func (d *aclDistroHandler) RootMissingMountDirectories() bool {

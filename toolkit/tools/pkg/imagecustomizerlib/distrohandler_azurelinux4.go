@@ -73,15 +73,16 @@ func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	return nil
 }
 
+const azl4PxeUnsupportedError = "PXE output format is not supported yet for Azure Linux 4.0 images"
+
 func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.HasPackageSnapshotTime() {
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
 	switch rc.OutputImageFormat {
-	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir,
-		imagecustomizerapi.ImageFormatTypePxeTar:
-		return fmt.Errorf("ISO and PXE output formats are not supported yet for Azure Linux 4.0 images")
+	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
+		return errors.New(azl4PxeUnsupportedError)
 	}
 
 	return nil
@@ -256,6 +257,19 @@ func (d *azureLinux4DistroHandler) UpdateBootConfigForVerity(verityMetadata []ve
 	return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
 }
 
+func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	kernelVersions []string,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+}
+
+func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForIso(grubCfgContent, bootDir, initramfsType)
+}
+
 func (d *azureLinux4DistroHandler) warnIfUnsignedSystemdBootPackage(detectedPackage string) {
 	if detectedPackage == systemdBootUnsignedPackageAzl4 {
 		logger.Log.Warnf("Detected package (%s): Customized image will fail Secure Boot verification", detectedPackage)
@@ -278,6 +292,18 @@ func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageFedoraArm64
 	}
+}
+
+func (d *azureLinux4DistroHandler) LiveOSRequiredPackages() []string {
+	return liveOSRequiredPackagesFedora
+}
+
+func (d *azureLinux4DistroHandler) LiveOSGrubEfiPrefixDir() string {
+	return "EFI/azurelinux"
+}
+
+func (d *azureLinux4DistroHandler) LiveOSInitrdDracutModules() []string {
+	return liveOSInitrdDracutModulesFedora
 }
 
 func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {

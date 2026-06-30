@@ -45,40 +45,53 @@ const (
 //
 // Fedora-style distros do not ship a grub-noprefix binary, so grubNoPrefixBinary and
 // osEspGrubNoPrefixBinaryPath are left empty.
-var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
-	"amd64": {
-		bootBinary:                  bootx64BinaryFedora,
-		grubBinary:                  grubx64Binary,
-		grubNoPrefixBinary:          "",
-		espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
-		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
-		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
-		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
-		osEspGrubNoPrefixBinaryPath: "",
-		isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64BinaryFedora,
-		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
-		ukiEfiStubBinary:            ukiEfiStubx64Binary,
-		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
-		ukiAddonStubBinary:          ukiAddonStubx64Binary,
-		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
-	},
-	"arm64": {
-		bootBinary:                  bootAA64BinaryFedora,
-		grubBinary:                  grubAA64Binary,
-		grubNoPrefixBinary:          "",
-		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
-		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
-		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
-		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
-		osEspGrubNoPrefixBinaryPath: "",
-		isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64BinaryFedora,
-		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
-		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
-		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
-		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
-		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
-	},
-}
+var (
+	bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
+		"amd64": {
+			bootBinary:                  bootx64BinaryFedora,
+			grubBinary:                  grubx64Binary,
+			grubNoPrefixBinary:          "",
+			espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
+			espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+			osEspGrubNoPrefixBinaryPath: "",
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64BinaryFedora,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+			ukiEfiStubBinary:            ukiEfiStubx64Binary,
+			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
+			ukiAddonStubBinary:          ukiAddonStubx64Binary,
+			ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+		},
+		"arm64": {
+			bootBinary:                  bootAA64BinaryFedora,
+			grubBinary:                  grubAA64Binary,
+			grubNoPrefixBinary:          "",
+			espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
+			espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+			osEspGrubNoPrefixBinaryPath: "",
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64BinaryFedora,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+			ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
+			ukiAddonStubBinary:          ukiAddonStubAA64Binary,
+			ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+		},
+	}
+
+	// liveOSRequiredPackagesFedora lists the packages needed to build a LiveOS bootstrap initrd on Fedora-style distros
+	// Unlike Azure Linux 3.0, these ship the dmsquash-live/livenet dracut modules in a separate dracut-live package.
+	liveOSRequiredPackagesFedora = []string{"squashfs-tools", "tar", "device-mapper", "curl", "dracut-live"}
+
+	// liveOSInitrdDracutModulesFedora lists the dracut modules added to the LiveOS bootstrap initrd on Fedora-style
+	// distros. Unlike Azure Linux 3.0, the "selinux" module is omitted, since Fedora-style distros load SELinux policy
+	// after switch_root, as indicated by their base dracut's 98selinux check() returning 255, opting it out of normal
+	// initramfs builds. Loading it from the initramfs instead would deny execute on the initramfs binaries under
+	// enforcing policy.
+	liveOSInitrdDracutModulesFedora = []string{"dmsquash-live", "livenet"}
+)
 
 func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
 	logger.Log.Debugf("Distro handler: Fedora (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
@@ -264,6 +277,19 @@ func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
 }
 
+func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	kernelVersions []string,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+}
+
+func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForIso(grubCfgContent, bootDir, initramfsType)
+}
+
 func (d *fedoraDistroHandler) ShimPackage() string {
 	switch runtime.GOARCH {
 	case "amd64":
@@ -280,6 +306,18 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageFedoraArm64
 	}
+}
+
+func (d *fedoraDistroHandler) LiveOSRequiredPackages() []string {
+	return liveOSRequiredPackagesFedora
+}
+
+func (d *fedoraDistroHandler) LiveOSGrubEfiPrefixDir() string {
+	return "EFI/fedora"
+}
+
+func (d *fedoraDistroHandler) LiveOSInitrdDracutModules() []string {
+	return liveOSInitrdDracutModulesFedora
 }
 
 func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
