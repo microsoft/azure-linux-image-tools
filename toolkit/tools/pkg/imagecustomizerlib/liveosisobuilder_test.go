@@ -965,7 +965,6 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 		// is not an option because shim is needed for the secure boot chain
 		// (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
 		// are extracted as build artifacts. Use rpm --nodeps to bypass this.
-		// Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
 		config.Scripts = imagecustomizerapi.Scripts{
 			PostCustomization: []imagecustomizerapi.Script{
 				{Content: "rpm -e --nodeps " + grubPackageName},
