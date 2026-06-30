@@ -1,0 +1,25 @@
+pxe:
+  initramfsType: full-os
+
+os:
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "selinux=0"
+
+  packages:
+    install:
+    # multi-kernel test
+    - kernel-6.6.57.1-6.azl3
+    # iso/pxe required packages
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs so the booted OS can be reached over SSH.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network

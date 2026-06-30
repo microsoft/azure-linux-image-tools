@@ -209,6 +209,38 @@ def add_preview_features_to_config(config_path: Path, preview_feature: str, clos
     return path
 
 
+def add_pxe_bootstrap_base_url_to_config(
+    config_path: Path, bootstrap_base_url: str, close_list: List[Closeable]
+) -> Path:
+    """Modify an image customizer config file to set the PXE bootstrap base URL.
+
+    This URL is baked into the generated PXE artifacts (grub.cfg's root=live:<url>/image.iso), so it must match where
+    the bootstrap image is actually served at boot time.
+
+    Args:
+        config_path: Path to the base config file
+        bootstrap_base_url: Base URL where the bootstrap image is served at boot time
+        close_list: List of resources to be cleaned up
+
+    Returns:
+        Path to the modified config file
+    """
+    config_str = config_path.read_text()
+    config = yaml.safe_load(config_str)
+
+    pxe = dict_get_or_set(config, "pxe", {})
+    pxe["bootstrapBaseUrl"] = bootstrap_base_url
+
+    # Write out new config file to a temporary file.
+    fd, modified_config_path = tempfile.mkstemp(prefix=config_path.name + "~", suffix=".tmp", dir=config_path.parent)
+    with fdopen(fd, mode="w") as file:
+        yaml.safe_dump(config, file)
+
+    path = Path(modified_config_path)
+    close_list.append(RemoveFileOnClose(path))
+    return path
+
+
 def dict_get_or_set(dictionary: Dict[Any, Any], value_name: str, default: Any = None) -> Any:
     value = dictionary.get(value_name)
     if value is None:

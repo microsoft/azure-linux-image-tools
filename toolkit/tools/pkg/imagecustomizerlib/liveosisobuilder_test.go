@@ -862,10 +862,6 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorIs(t, err, ErrAzureLinux4PxeUnsupported)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -890,10 +886,6 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorIs(t, err, ErrAzureLinux4PxeUnsupported)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}

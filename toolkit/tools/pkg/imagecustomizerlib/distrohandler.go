@@ -143,6 +143,15 @@ type DistroHandler interface {
 	UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
 		initramfsType imagecustomizerapi.InitramfsImageType) (string, error)
 
+	// UpdateLiveOSGrubCfgForPxe applies the pxe-specific edits on top of the LiveOS edits.
+	UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+		initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string) (string, error)
+
+	// FinalizeLiveOSPxeBootConfig writes the pxe-specific root=live:<url> kernel arg into the staged PXE artifacts at
+	// pxeBootDir.
+	FinalizeLiveOSPxeBootConfig(pxeBootDir string, initramfsType imagecustomizerapi.InitramfsImageType,
+		bootstrapBaseUrl string, bootstrapFileUrl string) error
+
 	// ShimPackage returns the package that provides the shim EFI binary for this distro on the current architecture.
 	ShimPackage() string
 

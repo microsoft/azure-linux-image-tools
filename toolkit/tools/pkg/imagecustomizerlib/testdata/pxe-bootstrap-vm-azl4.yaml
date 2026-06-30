@@ -1,0 +1,24 @@
+# Differs from pxe-bootstrap-vm-azl3 in that it installs dracut-live and doesn't install selinux-policy-modules.
+pxe:
+  initramfsType: bootstrap
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs so the booted OS can be reached over SSH.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+
+os:
+  selinux:
+    mode: enforcing
+
+  packages:
+    install:
+    # iso/pxe required packages
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
+    # Azure Linux 4.0 ships the dmsquash-live dracut module in a separate dracut-live package.
+    - dracut-live
+    # Required package for SELinux.
+    - selinux-policy

@@ -251,6 +251,18 @@ func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, b
 	return updateGrubCfgForIso(grubCfgContent, initramfsType)
 }
 
+func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) (string, error) {
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+}
+
+func (d *ubuntuDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	return nil
+}
+
 func (d *ubuntuDistroHandler) ShimPackage() string {
 	return "shim"
 }
@@ -273,7 +285,6 @@ func (d *ubuntuDistroHandler) LiveOSGrubEfiPrefixDir() string {
 }
 
 func (d *ubuntuDistroHandler) LiveOSInitrdDracutModules() []string {
-	// Ubuntu LiveOS is not a validated path; default to the inline distros' module set.
 	return liveOSInitrdDracutModulesAzl3
 }
 

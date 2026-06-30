@@ -7,21 +7,51 @@ import os
 import platform
 import xml.etree.ElementTree as ET  # noqa: N817
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import libvirt  # type: ignore
 
 
 class VmSpec:
     def __init__(
-        self, name: str, memory_mib: int, core_count: int, os_disk_path: Path, boot_type: str, secure_boot: bool
+        self,
+        name: str,
+        memory_mib: int,
+        core_count: int,
+        os_disk_path: Optional[Path],
+        boot_type: str,
+        secure_boot: bool,
+        pxe_boot: bool = False,
+        network_name: str = "default",
     ):
+        """Describe a libvirt VM for create_libvirt_domain_xml to render into a domain definition.
+
+        Args:
+            name: libvirt domain name.
+            memory_mib: Guest RAM, in MiB.
+            core_count: Number of vCPUs.
+            os_disk_path: OS disk image to attach (a .iso boots as a CD-ROM, anything else as a virtio disk). Must be
+                None when pxe_boot is True, and must be set otherwise.
+            boot_type: "efi" for UEFI boot.
+            secure_boot: Whether to enable UEFI Secure Boot.
+            pxe_boot: When True, attach no disk and boot from the network instead: the firmware PXE-boots off the NIC
+                on network_name.
+            network_name: The libvirt network the VM's NIC attaches to. For PXE this is also the network that serves
+                the boot artifacts (DHCP/TFTP/HTTP). Defaults to libvirt's "default" network.
+        """
+        if pxe_boot and os_disk_path is not None:
+            raise ValueError("os_disk_path must be None when pxe_boot is True")
+        if not pxe_boot and os_disk_path is None:
+            raise ValueError("os_disk_path is required when pxe_boot is False")
+
         self.name: str = name
         self.memory_mib: int = memory_mib
         self.core_count: int = core_count
-        self.os_disk_path: Path = os_disk_path
+        self.os_disk_path: Optional[Path] = os_disk_path
         self.boot_type: str = boot_type
         self.secure_boot: bool = secure_boot
+        self.pxe_boot: bool = pxe_boot
+        self.network_name: str = network_name
 
 
 def _get_domain_caps(
@@ -163,8 +193,6 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     if vm_spec.boot_type == "efi":
         ET.SubElement(os_tag, "nvram")
 
-    os_boot = ET.SubElement(os_tag, "boot")
-
     if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
@@ -238,38 +266,47 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     network_interface.attrib["type"] = "network"
 
     network_interface_source = ET.SubElement(network_interface, "source")
-    network_interface_source.attrib["network"] = "default"
+    network_interface_source.attrib["network"] = vm_spec.network_name
 
     network_interface_model = ET.SubElement(network_interface, "model")
     network_interface_model.attrib["type"] = "virtio"
 
     next_disk_indexes: Dict[str, int] = {}
 
-    _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
-    if os_disk_ext.lower() != ".iso":
-        os_boot.attrib["dev"] = "hd"
-        _add_disk_xml(
-            devices=devices,
-            file_path=str(vm_spec.os_disk_path),
-            device_type="disk",
-            image_type="qcow2",
-            bus_type="virtio",
-            device_prefix="vd",
-            read_only=False,
-            next_disk_indexes=next_disk_indexes,
-        )
+    if vm_spec.pxe_boot:
+        # Do not attach a disk for PXE network boot, and do not set a global <os><boot dev='network'/></os> order since
+        # OVMF ignores that. Instead, set the boot order on the NIC itself, which is needed for OVMF (unlike SeaBIOS) so
+        # it is recognized as a boot device.
+        interface_boot = ET.SubElement(network_interface, "boot")
+        interface_boot.attrib["order"] = "1"
     else:
-        os_boot.attrib["dev"] = "cdrom"
-        _add_disk_xml(
-            devices=devices,
-            file_path=str(vm_spec.os_disk_path),
-            device_type="cdrom",
-            image_type="raw",
-            bus_type="scsi",
-            device_prefix="sd",
-            read_only=True,
-            next_disk_indexes=next_disk_indexes,
-        )
+        os_boot = ET.SubElement(os_tag, "boot")
+        assert vm_spec.os_disk_path is not None  # For type-checking
+        _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
+        if os_disk_ext.lower() != ".iso":
+            os_boot.attrib["dev"] = "hd"
+            _add_disk_xml(
+                devices=devices,
+                file_path=str(vm_spec.os_disk_path),
+                device_type="disk",
+                image_type="qcow2",
+                bus_type="virtio",
+                device_prefix="vd",
+                read_only=False,
+                next_disk_indexes=next_disk_indexes,
+            )
+        else:
+            os_boot.attrib["dev"] = "cdrom"
+            _add_disk_xml(
+                devices=devices,
+                file_path=str(vm_spec.os_disk_path),
+                device_type="cdrom",
+                image_type="raw",
+                bus_type="scsi",
+                device_prefix="sd",
+                read_only=True,
+                next_disk_indexes=next_disk_indexes,
+            )
 
     xml = ET.tostring(domain, "unicode")
     return xml

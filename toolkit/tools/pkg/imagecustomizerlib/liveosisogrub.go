@@ -6,6 +6,8 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -30,6 +32,10 @@ const (
 	vmLinuxPathAzl2Template = "/boot/vmlinuz-%s"
 	initrdPathAzl2Template  = "/boot/initrd.img-%s"
 )
+
+// blscfgCommandRegex matches the bare `blscfg` command invocation (the line that, at boot, enumerates the BLS entries
+// under /boot/loader/entries) on its own line.
+var blscfgCommandRegex = regexp.MustCompile(`(?m)^[ \t]*blscfg[ \t]*$`)
 
 // updateLiveOSGrubCfgBLSForLiveOS applies the common LiveOS-compatibility edits for distros that use Boot Loader
 // Specification entries.
@@ -61,6 +67,74 @@ func updateLiveOSGrubCfgBLSForIso(grubCfgContent string, bootDir string,
 		}
 	}
 	return grubCfgContent, nil
+}
+
+// updateLiveOSGrubCfgBLSForPxe applies the pxe-specific grub.cfg edits (removing 'search') for BLS distros.
+func updateLiveOSGrubCfgBLSForPxe(grubCfgContent string) (string, error) {
+	grubCfgContent, err := removeCommandAll(grubCfgContent, "search")
+	if err != nil {
+		return "", fmt.Errorf("failed to remove the 'search' commands from PXE grub.cfg:\n%w", err)
+	}
+	return grubCfgContent, nil
+}
+
+// finalizeLiveOSPxeBLSEntries writes the pxe-specific root=live:<url> arg (plus the dracut pxe args) to the BLS
+// entries under bootDir.
+func finalizeLiveOSPxeBLSEntries(bootDir string, initramfsImageType imagecustomizerapi.InitramfsImageType,
+	bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		fileUrl, err := getPxeBootstrapFileUrl(bootstrapBaseUrl, bootstrapFileUrl)
+		if err != nil {
+			return err
+		}
+
+		rootValue := fmt.Sprintf(rootValuePxeTemplate, fileUrl)
+		err = setLiveOSBLSEntriesRoot(bootDir, rootValue, strings.Fields(pxeBootstrapKernelsArgs))
+		if err != nil {
+			return err
+		}
+	}
+
+	// The BLS entries now carry their final kernel command line, so expand them into explicit grub menuentries.
+	return expandBLSEntriesToPxeGrubMenu(bootDir)
+}
+
+// expandBLSEntriesToPxeGrubMenu rewrites the staged PXE grub.cfg so it carries explicit menuentries instead of relying
+// on the `blscfg` command.
+func expandBLSEntriesToPxeGrubMenu(bootDir string) error {
+	menuEntries, err := renderGrubMenuEntriesFromBLS(bootDir)
+	if err != nil {
+		return err
+	}
+	if menuEntries == "" {
+		return fmt.Errorf("found no BLS entries under (%s) to build the PXE grub menu",
+			filepath.Join(bootDir, "loader", "entries"))
+	}
+
+	grubCfgPath := filepath.Join(bootDir, "grub2", isoGrubCfg)
+	content, err := file.Read(grubCfgPath)
+	if err != nil {
+		return fmt.Errorf("failed to read PXE grub.cfg (%s):\n%w", grubCfgPath, err)
+	}
+
+	if !blscfgCommandRegex.MatchString(content) {
+		return fmt.Errorf("expected a 'blscfg' command in PXE grub.cfg (%s) but found none", grubCfgPath)
+	}
+
+	// Boot the first entry deterministically: over PXE the grubenv is not writable, so the header's
+	// 'set default="${saved_entry}"' resolves to an empty value.
+	replacement := "set default=0\n" + strings.TrimRight(menuEntries, "\n")
+
+	// Use the literal replacement form so '$' in a kernel command line is not treated as a regexp group reference.
+	newContent := blscfgCommandRegex.ReplaceAllLiteralString(content, replacement)
+
+	err = file.Write(newContent, grubCfgPath)
+	if err != nil {
+		return fmt.Errorf("failed to write PXE grub.cfg (%s):\n%w", grubCfgPath, err)
+	}
+
+	return nil
 }
 
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
@@ -263,8 +337,8 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 				return fmt.Errorf("cannot generate grub.cfg for PXE booting.\n%v", err)
 			}
 		}
-		pxeContentString, err := updateGrubCfgForPxe(liveosContentString, initramfsImageType, savedConfigs.Pxe.bootstrapBaseUrl,
-			savedConfigs.Pxe.bootstrapFileUrl)
+		pxeContentString, err := distroHandler.UpdateLiveOSGrubCfgForPxe(liveosContentString, initramfsImageType,
+			savedConfigs.Pxe.bootstrapBaseUrl, savedConfigs.Pxe.bootstrapFileUrl)
 		if err != nil {
 			return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)
 		}

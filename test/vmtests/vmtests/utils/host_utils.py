@@ -4,13 +4,14 @@
 
 def get_host_distro() -> str:
     file_path = "/etc/os-release"
-    name_value = ""
+    id_value = ""
     with open(file_path, "r") as file:
         for line in file:
             if line.startswith("ID="):
-                name_value = line.strip().split("=", 1)[1]  # Get the value part
+                id_value = line.strip().split("=", 1)[1]
                 break
-    if name_value == "":
+
+    if id_value == "":
         raise Exception("ID field not found in os-release file")
 
-    return name_value
+    return id_value

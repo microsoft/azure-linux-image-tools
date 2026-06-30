@@ -135,6 +135,102 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 	return kernelToArgs, nil
 }
 
+// renderGrubMenuEntriesFromBLS reads the Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf and
+// renders an equivalent grub `menuentry` block for each non-recovery entry, in directory order, mirroring what grub's
+// `blscfg` command generates at boot. It is used where grub cannot run `blscfg` itself: over PXE the boot transport
+// (TFTP) cannot enumerate the entries directory, so the menu must be spelled out ahead of time.
+func renderGrubMenuEntriesFromBLS(bootDir string) (string, error) {
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	var builder strings.Builder
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			logger.Log.Debugf("Skipping non-.conf BLS entry file (%s) in directory (%s)", entry.Name(), entriesDir)
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		var title string
+		var titleSeen bool
+		var linux string
+		var initrd string
+		var options string
+		var optionsSeen bool
+
+		for _, field := range bls.ParseFields(string(content)) {
+			switch field.Key {
+			case "linux":
+				if linux != "" {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				if field.Value == "" {
+					return "", fmt.Errorf("BLS entry (%s) 'linux' key has empty value", absPath)
+				}
+				linux = field.Value
+			case "initrd":
+				if initrd != "" {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				initrd = field.Value
+			case "title":
+				// Per BLS spec each non-options key may appear at most once. An empty title value is still a valid
+				// (normal) entry, so track its presence explicitly rather than inferring from title != "".
+				if titleSeen {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				titleSeen = true
+				title = field.Value
+			case "efi", "uki", "uki-url":
+				return "", fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, field.Key)
+			case "options":
+				// "options" may appear multiple times per BLS spec; concatenate in source order so the kernel command
+				// line is preserved verbatim.
+				if optionsSeen {
+					options += " " + field.Value
+				} else {
+					options = field.Value
+					optionsSeen = true
+				}
+			}
+		}
+
+		if linux == "" {
+			return "", fmt.Errorf("BLS entry (%s) is missing 'linux' key", absPath)
+		}
+
+		// Entries without titles are treated as normal entries.
+		if bls.IsRescueEntryTitle(title) {
+			logger.Log.Debugf("Skipping recovery/rescue BLS entry with title (%s) in file (%s)", title, absPath)
+			continue
+		}
+
+		// A grub single-quoted string cannot contain a literal single quote; use the '\'' idiom to embed one.
+		quotedTitle := strings.ReplaceAll(title, "'", `'\''`)
+
+		builder.WriteString(fmt.Sprintf("menuentry '%s' {\n", quotedTitle))
+		if options != "" {
+			builder.WriteString(fmt.Sprintf("\tlinux %s %s\n", linux, options))
+		} else {
+			builder.WriteString(fmt.Sprintf("\tlinux %s\n", linux))
+		}
+		if initrd != "" {
+			builder.WriteString(fmt.Sprintf("\tinitrd %s\n", initrd))
+		}
+		builder.WriteString("}\n")
+	}
+
+	return builder.String(), nil
+}
+
 // readNonRecoveryKernelCmdlinesFromBLS reads the first non-recovery kernel's command-line
 // arguments from BLS entry files.
 func readNonRecoveryKernelCmdlinesFromBLS(bootDir string, argNames []string) (map[string]string, error) {
