@@ -34,9 +34,8 @@ const (
 	shimPackageFedoraAmd64    = "shim-x64"
 	shimPackageFedoraArm64    = "shim-aa64"
 
-	isoBootloaderDirFedora = "/EFI/BOOT"
-	bootx64BinaryFedora    = "BOOTX64.EFI"
-	bootAA64BinaryFedora   = "BOOTAA64.EFI"
+	bootx64BinaryFedora  = "BOOTX64.EFI"
+	bootAA64BinaryFedora = "BOOTAA64.EFI"
 
 	grubToolsPackageFedora     = "grub2-tools"
 	grubPcModulesPackageFedora = "grub2-pc-modules"
@@ -56,8 +55,8 @@ var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
 		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
 		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
 		osEspGrubNoPrefixBinaryPath: "",
-		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootx64BinaryFedora,
-		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubx64Binary,
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
 		ukiEfiStubBinary:            ukiEfiStubx64Binary,
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
 		ukiAddonStubBinary:          ukiAddonStubx64Binary,
@@ -72,8 +71,8 @@ var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
 		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
 		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
 		osEspGrubNoPrefixBinaryPath: "",
-		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootAA64BinaryFedora,
-		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubAA64Binary,
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
 		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
 		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
