@@ -100,7 +100,6 @@ scripts:
       # is not an option because shim is needed for the secure boot chain
       # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
       # are extracted as build artifacts. Use rpm --nodeps to bypass this.
-      # Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
       rpm -e --nodeps grub2-efi-x64
   - content: |
       set -eux
