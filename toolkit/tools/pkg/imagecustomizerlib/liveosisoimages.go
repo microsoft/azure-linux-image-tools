@@ -278,10 +278,16 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 			})
 
 		for _, otherKernelFile := range kernelFiles.otherFiles {
+			// Preserve each file's path relative to the artifacts tree so that files in subdirectories (e.g. the
+			// BLS entries under boot/loader/entries on Azure Linux 4.0) are not flattened into boot/.
+			relPath, err := filepath.Rel(filesStore.artifactsDir, otherKernelFile)
+			if err != nil {
+				return fmt.Errorf("failed to determine the relative path of (%s):\n%w", otherKernelFile, err)
+			}
 			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 				StageFile{
 					sourcePath:    otherKernelFile,
-					targetRelPath: "boot",
+					targetRelPath: filepath.Dir(relPath),
 				})
 		}
 	}
