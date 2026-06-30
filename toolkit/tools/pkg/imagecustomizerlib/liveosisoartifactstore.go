@@ -480,8 +480,9 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		// Any of the per-kernel dracut initrds is fine for distro detection since they're all from the same OS.
 		for _, f := range isoFiles {
 			base := filepath.Base(f)
-			isInitrd := strings.HasPrefix(base, initramfsPrefix) || strings.HasPrefix(base, initrdPrefix)
-			if isInitrd && strings.HasSuffix(base, ".img") {
+			isInitrd := ((strings.HasPrefix(base, initramfsPrefix) && strings.HasSuffix(base, ".img")) ||
+				strings.HasPrefix(base, initrdPrefix))
+			if isInitrd {
 				initrdPath = f
 				break
 			}
