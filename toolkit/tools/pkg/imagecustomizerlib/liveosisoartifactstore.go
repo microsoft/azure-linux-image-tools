@@ -150,6 +150,14 @@ func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string, ker
 		return scheduleAdditionalFile
 	}
 
+	// Only files that live directly under boot/ are treated as kernel-specific. A file in a subdirectory of boot/
+	// (e.g. a Boot Loader Specification entry under boot/loader/entries) merely happens to contain the kernel version
+	// in its name. Leave it to be staged as an additional file so its subpath is preserved rather than flattened into
+	// boot/.
+	if filepath.Dir(targetPath) != filepath.Join(filesStore.artifactsDir, "boot") {
+		return scheduleAdditionalFile
+	}
+
 	if strings.Contains(baseFileName, "kdump.img") {
 		// Ensure we have an entry in the map for it
 		kdumpBootFiles, exists := filesStore.kdumpBootFiles[kernelVersion]
