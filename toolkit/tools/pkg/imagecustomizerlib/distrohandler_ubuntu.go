@@ -34,6 +34,8 @@ const (
 var (
 	ErrUbuntuUnsupportedBootloaderHardReset   = NewImageCustomizerError("Validation:UbuntuUnsupportedBootloaderHardReset", "bootloader hard-reset API is not supported yet for Ubuntu images")
 	ErrUbuntuUnsupportedDisableBaseImageRepos = NewImageCustomizerError("Validation:UbuntuUnsupportedDisableBaseImageRepos", "disabling base image package repositories is not supported yet for Ubuntu images")
+
+	liveOSRequiredPackagesUbuntu = []string{"squashfs-tools", "tar", "dmsetup", "curl"}
 )
 
 func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
@@ -233,6 +235,19 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
 
+func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	kernelVersions []string,
+) (string, error) {
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+}
+
+func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+}
+
 func (d *ubuntuDistroHandler) ShimPackage() string {
 	return "shim"
 }
@@ -244,6 +259,19 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageDebianArm64
 	}
+}
+
+func (d *ubuntuDistroHandler) LiveOSRequiredPackages() []string {
+	return liveOSRequiredPackagesUbuntu
+}
+
+func (d *ubuntuDistroHandler) LiveOSGrubEfiPrefixDir() string {
+	return ""
+}
+
+func (d *ubuntuDistroHandler) LiveOSInitrdDracutModules() []string {
+	// Ubuntu LiveOS is not a validated path; default to the inline distros' module set.
+	return liveOSInitrdDracutModulesAzl3
 }
 
 func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {

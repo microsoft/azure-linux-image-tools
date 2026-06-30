@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -13,7 +14,6 @@ import (
 )
 
 const (
-	searchCommandTemplate   = "search --label %s --set root"
 	rootValueLiveOSTemplate = "live:LABEL=%s"
 	rootValuePxeTemplate    = "live:%s"
 
@@ -31,10 +31,42 @@ const (
 	initrdPathAzl2Template  = "/boot/initrd.img-%s"
 )
 
+// updateLiveOSGrubCfgBLSForLiveOS applies the common LiveOS-compatibility edits for distros that use Boot Loader
+// Specification entries.
+func updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+) (string, error) {
+	grubCfgContent, err := replaceSearchCommandAll(grubCfgContent, isogenerator.DefaultVolumeId)
+	if err != nil {
+		return "", fmt.Errorf("failed to update the search command in the live OS grub.cfg:\n%w", err)
+	}
+
+	err = updateLiveOSBLSEntries(bootDir, initramfsType, disableSELinux, savedConfigs)
+	if err != nil {
+		return "", fmt.Errorf("failed to update the live OS BLS entries:\n%w", err)
+	}
+	return grubCfgContent, nil
+}
+
+// updateLiveOSGrubCfgBLSForIso applies the iso-specific root rewrite (root=live:LABEL for a bootstrap initramfs) to
+// the BLS .conf files under bootDir for BLS distros.
+func updateLiveOSGrubCfgBLSForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
+		err := setLiveOSBLSEntriesRoot(bootDir, rootValue, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the root kernel argument in the iso BLS entries:\n%w", err)
+		}
+	}
+	return grubCfgContent, nil
+}
+
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string) (string, error) {
-	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
-	inputContentString, err := replaceSearchCommandAll(inputContentString, searchCommand)
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string,
+) (string, error) {
+	inputContentString, err := replaceSearchCommandAll(inputContentString, isogenerator.DefaultVolumeId)
 	if err != nil {
 		return "", fmt.Errorf("failed to update the search command in the live OS grub.cfg:\n%w", err)
 	}
@@ -151,7 +183,8 @@ func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecust
 }
 
 func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string,
-	bootstrapFileUrl string) (string, error) {
+	bootstrapFileUrl string,
+) (string, error) {
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
 	inputContentString, err := removeCommandAll(inputContentString, "search")
 	if err != nil {
@@ -184,7 +217,9 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 // This function generates both the iso and the pxe versions of the grub so
 // that the call does not need to call it multiple times.
 func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string) error {
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string,
+	distroHandler DistroHandler,
+) error {
 	logger.Log.Infof("Updating grub.cfg")
 
 	inputContentString, err := file.Read(inputGrubCfgPath)
@@ -192,8 +227,11 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		return err
 	}
 
+	bootDir := filepath.Dir(filepath.Dir(inputGrubCfgPath))
+
 	// Update grub.cfg content to be 'live-os compatible'.
-	liveosContentString, err := updateGrubCfgForLiveOS(inputContentString, initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
+	liveosContentString, err := distroHandler.UpdateLiveOSGrubCfgForLiveOS(inputContentString, bootDir,
+		initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
 	if err != nil {
 		return err
 	}
@@ -202,7 +240,8 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 	if (outputFormat == imagecustomizerapi.ImageFormatTypeIso) ||
 		((outputFormat == imagecustomizerapi.ImageFormatTypePxeDir || outputFormat == imagecustomizerapi.ImageFormatTypePxeTar) &&
 			initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap) {
-		isoContentString, err := updateGrubCfgForIso(liveosContentString, initramfsImageType)
+		isoContentString, err := distroHandler.UpdateLiveOSGrubCfgForIso(liveosContentString, bootDir,
+			initramfsImageType)
 		if err != nil {
 			return fmt.Errorf("failed to update %s:\n%w", inputGrubCfgPath, err)
 		}

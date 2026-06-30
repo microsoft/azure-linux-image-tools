@@ -25,12 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// azl4IsoPxeUnsupportedError is the validation error returned by the
-// Azure Linux distro handler when ISO or PXE output is requested with
-// an Azure Linux 4.0 base image. ISO and PXE outputs are not supported
-// on Azure Linux 4.0; LiveOS tests expect this error in that case.
-const azl4IsoPxeUnsupportedError = "ISO and PXE output formats are not supported yet for Azure Linux 4.0 images"
-
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
 	selinuxMode imagecustomizerapi.SELinuxMode,
@@ -39,7 +33,11 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 
 	pkgsToInstall := []string{}
 	if bootstrapPrereqs {
-		pkgsToInstall = append(pkgsToInstall, "squashfs-tools", "tar", "device-mapper", "curl")
+		liveOSRequiredPackages := liveOSRequiredPackagesAzl3
+		if baseImageVersion == baseImageVersionAzl4 {
+			liveOSRequiredPackages = liveOSRequiredPackagesFedora
+		}
+		pkgsToInstall = append(pkgsToInstall, liveOSRequiredPackages...)
 	}
 	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled {
 		pkgsToInstall = append(pkgsToInstall, "selinux-policy")
@@ -220,18 +218,17 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 		verifyFilePermissions(t, os.FileMode(*additionalFile.Permissions), fullOSFilePath)
 	}
 
-	// Ensure grub.cfg file has the extra kernel command-line args.
-	grubCfgFilePath := filepath.Join(artifactsPath, grubCfgDir, isoGrubCfg)
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
+	// Ensure the kernel command line carries the extra kernel command-line args. Inline-grub distros keep these on
+	// the grub.cfg 'linux' lines; BLS distros (Azure Linux 4.0, Fedora) keep them on the BLS entry 'options' lines.
+	kernelEntryContent, kernelEntryKeyword := readLiveOSKernelEntryContent(t, artifactsPath)
 	for _, extraCommandLineParameter := range extraCommandLineParameters {
-		assert.Regexp(t, "linux.* "+extraCommandLineParameter+" ", grubCfgContents)
+		assert.Regexp(t, kernelEntryKeyword+".* "+extraCommandLineParameter+`\s`, kernelEntryContent)
 	}
 
 	// Check the saved-configs.yaml file.
 	savedConfigsFilePath := filepath.Join(artifactsPath, savedConfigsDir, savedConfigsFileName)
 	savedConfigs := &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
+	err := imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	for _, extraCommandLineParameter := range extraCommandLineParameters {
 		assert.Contains(t, savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine, extraCommandLineParameter)
@@ -399,7 +396,6 @@ func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageForma
 
 func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string) {
 	var err error
-	pxeKernelIpArg := "linux.* ip=dhcp "
 
 	pxeImageFileUrl := ""
 	if strings.HasSuffix(pxeBaseUrl, ".iso") {
@@ -409,10 +405,6 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 		assert.NoError(t, err)
 	}
 
-	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
-	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
-	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
-
 	// Check if PXE support is present in the Dracut package version in use.
 	err = verifyDracutPXESupport(packageInfo)
 	if err != nil {
@@ -421,12 +413,42 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 		return
 	}
 
-	// Ensure grub-pxe.cfg file exists and has the pxe-specific command-line args.
-	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
-	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
+	pxeKernelEntryContent, pxeKernelEntryKeyword := readLiveOSKernelEntryContent(t, isoMountDir)
+
+	pxeKernelIpArg := pxeKernelEntryKeyword + ".* ip=dhcp "
+
+	pxeKernelRootArg := pxeKernelEntryKeyword + ".* root=live:" + pxeImageFileUrl
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
+
+	assert.Regexp(t, pxeKernelIpArg, pxeKernelEntryContent)
+	assert.Regexp(t, pxeKernelRootArg, pxeKernelEntryContent)
+}
+
+// readLiveOSKernelEntryContent returns the text that carries the LiveOS kernel command line under artifactsPath,
+// along with the grub keyword that introduces it. For BLS distros (Azure Linux 4.0, Fedora) this is the concatenation
+// of the /boot/loader/entries/*.conf files and the keyword is "options"; otherwise it is the grub.cfg content and the
+// keyword is "linux".
+func readLiveOSKernelEntryContent(t *testing.T, artifactsPath string) (string, string) {
+	blsEntriesDir := filepath.Join(artifactsPath, "boot/loader/entries")
+	blsEntries, err := os.ReadDir(blsEntriesDir)
+	if err == nil && len(blsEntries) > 0 {
+		var builder strings.Builder
+		for _, entry := range blsEntries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+				continue
+			}
+			entryContent, readErr := file.Read(filepath.Join(blsEntriesDir, entry.Name()))
+			assert.NoError(t, readErr, "read BLS entry %s", entry.Name())
+			builder.WriteString(entryContent)
+			builder.WriteString("\n")
+		}
+		return builder.String(), "options"
+	}
+
+	grubCfgContents, err := file.Read(filepath.Join(artifactsPath, grubCfgDir, isoGrubCfg))
 	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
-	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
+	return grubCfgContents, "linux"
 }
 
 func TestCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T) {
@@ -468,10 +490,6 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -590,10 +608,6 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -664,10 +678,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 		if !assert.ErrorContains(t, err, "unsupported number of kernels") {
 			return
 		}
-	case baseImageVersionAzl4:
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 	default:
-		// Azl3 should succeed.
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -710,10 +721,6 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -769,10 +776,6 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -831,10 +834,6 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
@@ -861,7 +860,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		assert.ErrorContains(t, err, azl4PxeUnsupportedError)
 		return
 	}
 	if !assert.NoError(t, err) {
@@ -889,7 +888,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		assert.ErrorContains(t, err, azl4PxeUnsupportedError)
 		return
 	}
 	if !assert.NoError(t, err) {
@@ -901,6 +900,10 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		// Azure Linux 4.0's shim package cannot be removed (it's a protected package).
+		if baseImageInfo.Version == baseImageVersionAzl4 {
+			continue
+		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageLiveOSIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -936,10 +939,6 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	assert.Error(t, err)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
 
@@ -990,9 +989,5 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	assert.Error(t, err)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }

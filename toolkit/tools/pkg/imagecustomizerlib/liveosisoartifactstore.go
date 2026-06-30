@@ -449,7 +449,8 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	return infoStore, nil
 }
 
-func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore *IsoFilesStore, err error) {
+func createIsoFilesStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir string,
+) (filesStore *IsoFilesStore, distroHandler DistroHandler, err error) {
 	artifactsDir := filepath.Join(storeDir, "artifacts")
 
 	filesStore = &IsoFilesStore{
@@ -459,12 +460,12 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 
 	err = extractIsoImageContents(storeDir, isoImageFile, filesStore.artifactsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract iso contents from input iso file (%s):\n%w", isoImageFile, err)
+		return nil, nil, fmt.Errorf("failed to extract iso contents from input iso file (%s):\n%w", isoImageFile, err)
 	}
 
 	isoFiles, err := file.EnumerateDirFiles(artifactsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to enumerate expanded iso files under %s:\n%w", artifactsDir, err)
+		return nil, nil, fmt.Errorf("failed to enumerate expanded iso files under %s:\n%w", artifactsDir, err)
 	}
 
 	filesStore.additionalFiles = make(map[string]string)
@@ -475,7 +476,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	squashfsPath := filepath.Join(artifactsDir, liveOSImagePath)
 	squashfsExists, err := file.PathExists(squashfsPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
+		return nil, nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
 	}
 
 	// A bootstrap ISO carries a squashfs root plus per-kernel dracut initrds, while a full-OS ISO has no squashfs and
@@ -495,27 +496,26 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 			}
 		}
 		if initrdPath == "" {
-			return nil, fmt.Errorf("bootstrap ISO has no per-kernel initrd")
+			return nil, nil, fmt.Errorf("bootstrap ISO has no per-kernel initrd")
 		}
 	} else {
 		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
 		initrdExists, err := file.PathExists(initrdPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check for initrd at (%s):\n%w", initrdPath, err)
+			return nil, nil, fmt.Errorf("failed to check for initrd at (%s):\n%w", initrdPath, err)
 		}
 		if !initrdExists {
-			return nil, fmt.Errorf("full OS ISO has no initrd at expected path (%s)", initrdPath)
+			return nil, nil, fmt.Errorf("full OS ISO has no initrd at expected path (%s)", initrdPath)
 		}
 	}
 
-	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)
+	distroHandler, err = NewDistroHandlerFromInitrd(initrdPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect distro from initrd (%s):\n%w", initrdPath, err)
+		return nil, nil, fmt.Errorf("failed to detect distro from initrd (%s):\n%w", initrdPath, err)
 	}
-
 	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	isoBootBinaryPath := bootFilesConfig.isoBootBinaryPath
 	isoGrubBinaryPath := bootFilesConfig.isoGrubBinaryPath
@@ -568,7 +568,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		}
 	}
 
-	return filesStore, nil
+	return filesStore, distroHandler, nil
 }
 
 func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoStore, err error) {
@@ -616,29 +616,30 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	return artifactStore, nil
 }
 
-func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
+func createIsoArtifactStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir string,
+) (artifactStore *IsoArtifactsStore, distroHandler DistroHandler, err error) {
 	logger.Log.Debugf("Creating ISO store (%s) from (%s)", storeDir, isoImageFile)
 
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)
+		return nil, nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)
 	}
 
 	artifactStore = &IsoArtifactsStore{}
 
-	filesStore, err := createIsoFilesStoreFromIsoImage(isoImageFile, storeDir)
+	filesStore, distroHandler, err := createIsoFilesStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	artifactStore.files = filesStore
 
 	infoStore, err := createIsoInfoStoreFromIsoImage(filesStore.savedConfigsFilePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	artifactStore.info = infoStore
 
-	return artifactStore, nil
+	return artifactStore, distroHandler, nil
 }
 
 func fileExistsToString(filePath string) string {
