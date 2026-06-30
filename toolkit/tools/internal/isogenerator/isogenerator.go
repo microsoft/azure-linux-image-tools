@@ -5,6 +5,7 @@ package isogenerator
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -17,7 +18,6 @@ import (
 const (
 	DefaultVolumeId                 = "CDROM"
 	efiBootImgPathRelativeToIsoRoot = "boot/grub2/efiboot.img"
-	initrdEFIBootDirectoryPath      = "boot/efi/EFI/BOOT"
 )
 
 func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
@@ -57,10 +57,29 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
 	logger.Log.Infof("Creating ISO bootloader image")
 
+	const blockSizeInBytes = 1024 * 1024
+
+	// Size the FAT image to hold the shim and grub binaries (the only files copied in below) plus headroom for the
+	// FAT metadata and directory entries. The bootloader binaries vary in size across distros (e.g. Azure Linux
+	// 4.0's grub is larger than 3.0's), so derive the size from the actual inputs rather than hard-coding it.
+	var contentBytes int64
+	for _, sourcePath := range []string{sourceShimPath, sourceGrubPath} {
+		info, statErr := os.Stat(sourcePath)
+		if statErr != nil {
+			return fmt.Errorf("failed to stat boot file (%s):\n%w", sourcePath, statErr)
+		}
+		contentBytes += info.Size()
+	}
+
 	const (
-		blockSizeInBytes     = 1024 * 1024
-		numberOfBlocksToCopy = 3
+		// Headroom for the FAT boot sector, FAT tables, and EFI/BOOT directory entries, plus slack.
+		fatOverheadBytes = 2 * 1024 * 1024
+		minBlocksToCopy  = 3
 	)
+	numberOfBlocksToCopy := (contentBytes + fatOverheadBytes + blockSizeInBytes - 1) / blockSizeInBytes
+	if numberOfBlocksToCopy < minBlocksToCopy {
+		numberOfBlocksToCopy = minBlocksToCopy
+	}
 
 	ddArgs := []string{
 		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
