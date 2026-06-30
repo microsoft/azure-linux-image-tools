@@ -165,8 +165,6 @@ func LookPathChroot(command string, rootDir string) (string, error) {
 }
 
 func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr, selinuxContext string) (err error) {
-	logger.Log.Debugf("Executing: %v", cmd.Args)
-
 	if cmd.Env == nil && len(currentEnv) > 0 {
 		cmd.Env = currentEnv
 	}
