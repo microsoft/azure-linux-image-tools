@@ -41,29 +41,10 @@ func validateCreateImageSupportedFields(c *imagecustomizerapi.Config) error {
 }
 
 func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
-	if len(osConfig.AdditionalFiles) > 0 {
-		return fmt.Errorf("os.additionalFiles field is not supported by the create subcommand")
-	}
-
-	if len(osConfig.AdditionalDirs) > 0 {
-		return fmt.Errorf("os.additionalDirectories field is not supported by the create subcommand")
-	}
-
 	if osConfig.Uki != nil {
 		return fmt.Errorf("uki field is not supported by the create subcommand")
 	}
 
-	if osConfig.SELinux != (imagecustomizerapi.SELinux{}) {
-		return fmt.Errorf("selinux field is not supported by the create subcommand")
-	}
-
-	if len(osConfig.Modules) > 0 {
-		return fmt.Errorf("os.modules field is not supported by the create subcommand")
-	}
-
-	if osConfig.Overlays != nil {
-		return fmt.Errorf("os.overlay field is not supported by the create subcommand")
-	}
 	return nil
 }
 
