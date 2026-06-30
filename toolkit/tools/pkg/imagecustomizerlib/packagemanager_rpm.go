@@ -29,7 +29,7 @@ type rpmPackageManagerHandler interface {
 
 	// getPackageInformation queries the package database for packageName and returns its parsed version,
 	// release, and distro fields.
-	getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
+	getPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 
 	importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, chrootGpgKeys []string,
 		uriGpgKeys []string,

@@ -131,9 +131,10 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
-func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	packageName string,
 ) (*PackageVersionInformation, error) {
-	return d.packageManager.getPackageInformation(imageChroot, packageName)
+	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,

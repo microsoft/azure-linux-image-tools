@@ -141,11 +141,24 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 	return true, nil
 }
 
-func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	packageName string,
 ) (*PackageVersionInformation, error) {
-	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, "info", packageName, "--repo", "@system").
+	args := []string{"info", packageName, "--repo", "@system"}
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+		// imageChroot has no in-image tdnf (e.g. ACL). Matches the executeRpmPackageManagerCommand pattern.
+		args = append([]string{
+			"--releasever=" + pm.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
+		chroot = toolsChroot
+	}
+
+	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(imageChroot.ChrootDir()).
+		Chroot(chroot.ChrootDir()).
 		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information via tdnf:\n%w", packageName, err)

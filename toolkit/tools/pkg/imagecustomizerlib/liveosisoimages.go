@@ -23,6 +23,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -142,7 +143,7 @@ func createFullOSInitrdImage(writeableRootfsDir string, kernelKdumpFiles *imagec
 }
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string,
-	distroHandler DistroHandler,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) error {
 	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
 
@@ -153,21 +154,33 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	}
 	defer os.Remove(dracutConfigFile)
 
-	chroot := safechroot.NewChroot(writeableRootfsDir, true /*isExistingDir*/)
+	var bindMount *safemount.Mount
+	chrootDir := writeableRootfsDir
+	if toolsChroot != nil {
+		chrootDir = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
+
+		bindMount, err = safemount.NewMount(writeableRootfsDir, chrootDir, "", unix.MS_BIND, "", true)
+		if err != nil {
+			return fmt.Errorf("failed to create image bind mount in toold dir:\n%w", err)
+		}
+		defer bindMount.Close()
+	}
+
+	chroot := safechroot.NewChroot(chrootDir, true /*isExistingDir*/)
 	if chroot == nil {
-		return fmt.Errorf("failed to create a new chroot object for (%s)", writeableRootfsDir)
+		return fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
 	}
 	defer chroot.Close(true /*leaveOnDisk*/)
 
 	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
 	if err != nil {
-		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", writeableRootfsDir, err)
+		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", chrootDir, err)
 	}
 
 	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	for _, requiredRpm := range requiredRpms {
 		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		installed, err := distroHandler.IsPackageInstalled(chroot, nil, requiredRpm)
+		installed, err := distroHandler.IsPackageInstalled(chroot, toolsChroot, requiredRpm)
 		if err != nil {
 			return fmt.Errorf("failed to check if package (%s) is installed:\n%w", requiredRpm, err)
 		}
@@ -189,6 +202,18 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to run dracut:\n%w", err)
+	}
+
+	err = chroot.Close(true /*leaveOnDisk*/)
+	if err != nil {
+		return err
+	}
+
+	if bindMount != nil {
+		err := bindMount.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
 	generatedInitrdPath := filepath.Join(writeableRootfsDir, initrdPathInChroot)

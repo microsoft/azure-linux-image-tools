@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
 const (
@@ -129,7 +130,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
 	requestedSelinuxMode imagecustomizerapi.SELinuxMode, resolvedIso imagecustomizerapi.Iso,
 	resolvedPxe imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
-	outputPath string, distroHandler DistroHandler,
+	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
 	logger.Log.Infof("Creating Live OS artifacts using customized full OS image")
 
@@ -139,7 +140,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 	}
 
 	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig,
-		rawImageFile, outputFormat, outputPath, distroHandler)
+		rawImageFile, outputFormat, outputPath, distroHandler, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}
@@ -183,7 +184,7 @@ func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initr
 
 func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
-	outputPath string, distroHandler DistroHandler,
+	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	defer func() {
@@ -245,7 +246,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	// Create the ISO artifacts store
 	storeFolder := filepath.Join(isoBuildDir, "from-iso-and-raw")
 	artifactsStore, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder,
-		distroHandler)
+		distroHandler, toolsChroot)
 	if err != nil {
 		return err
 	}
@@ -314,7 +315,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 		// Generate the initrd image(s)
 		for kernelVersion, kernelBootFiles := range artifactsStore.files.kernelBootFiles {
 			err = createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, kernelBootFiles.initrdImagePath,
-				distroHandler)
+				distroHandler, toolsChroot)
 			if err != nil {
 				return fmt.Errorf("failed to create initrd image:\n%w", err)
 			}

@@ -217,16 +217,26 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 	return true, nil
 }
 
-func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	packageName string,
 ) (*PackageVersionInformation, error) {
 	// Use `rpm -q --queryformat` rather than `dnf info --installed` here for the same reason as in isPackageInstalled.
 	//
 	// Use `--queryformat` to get a single-line, parser-friendly output that matches what parsePackageInfoOutput
 	// already expects from `tdnf info` (Name/Version/Release labels), so we share the parser.
-	packageInfo, _, err := shell.NewExecBuilder("rpm", "-q", "--queryformat",
-		"Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n", "--", packageName).
+	args := []string{"-q", "--queryformat",
+		"Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n", "--", packageName}
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+		// imageChroot has no in-image rpm.
+		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
+		chroot = toolsChroot
+	}
+
+	packageInfo, _, err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(imageChroot.ChrootDir()).
+		Chroot(chroot.ChrootDir()).
 		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information via rpm:\n%w", packageName, err)
