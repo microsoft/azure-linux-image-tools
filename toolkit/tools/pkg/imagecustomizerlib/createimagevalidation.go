@@ -12,31 +12,36 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func validateCreateImageSupportedFields(c *imagecustomizerapi.Config) error {
+func validateCreateImageSupportedFields(rc *ResolvedConfig) error {
 	// Verify that the config file does not contain any fields that are not supported by the create subcommand.
-	if c.Input != (imagecustomizerapi.Input{}) {
+	if rc.InputImage != (imagecustomizerapi.InputImage{}) {
 		return fmt.Errorf("input field is not supported by the create subcommand")
 	}
-	if c.Iso != nil {
-		return fmt.Errorf("iso field is not supported by the create subcommand")
-	}
-	if c.Pxe != nil {
-		return fmt.Errorf("pxe field is not supported by the create subcommand")
-	}
 
-	if c.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
+	if rc.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
 		return fmt.Errorf("reset partitions uuids field is not supported by the create subcommand")
 	}
 
-	if c.Storage.Verity != nil {
+	if rc.Storage.Verity != nil {
 		return fmt.Errorf("storage verity field is not supported by the create subcommand")
 	}
 
-	if c.OS != nil {
-		if err := validateCreateImageSupportedOsFields(c.OS); err != nil {
-			return err
+	if rc.Uki != nil {
+		return fmt.Errorf("uki field is not supported by the create subcommand")
+	}
+
+	if rc.SELinux != (imagecustomizerapi.SELinux{}) {
+		return fmt.Errorf("selinux field is not supported by the create subcommand")
+	}
+
+	for _, config := range rc.ConfigChain {
+		if config.Config.OS != nil {
+			if err := validateCreateImageSupportedOsFields(config.Config.OS); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -47,14 +52,6 @@ func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error
 
 	if len(osConfig.AdditionalDirs) > 0 {
 		return fmt.Errorf("os.additionalDirectories field is not supported by the create subcommand")
-	}
-
-	if osConfig.Uki != nil {
-		return fmt.Errorf("uki field is not supported by the create subcommand")
-	}
-
-	if osConfig.SELinux != (imagecustomizerapi.SELinux{}) {
-		return fmt.Errorf("selinux field is not supported by the create subcommand")
 	}
 
 	if len(osConfig.Modules) > 0 {
@@ -70,12 +67,6 @@ func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error
 func validateCreateImageConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
 	options ImageCreateOptions,
 ) (*ResolvedConfig, error) {
-	err := validateCreateImageSupportedFields(config)
-	if err != nil {
-		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
-	}
-
-	// TODO: Validate for distro and release
 	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, false,
 		imagecustomizerapi.ValidateResourceTypes{
 			imagecustomizerapi.ValidateResourceTypeAll,
@@ -96,6 +87,11 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
 		return nil, fmt.Errorf(
 			"the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
+	}
+
+	err = validateCreateImageSupportedFields(rc)
+	if err != nil {
+		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
 	}
 
 	// Validate mandatory fields for creating a seed image

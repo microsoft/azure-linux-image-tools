@@ -266,7 +266,7 @@ func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
 	foundStorage := imagecustomizerapi.Storage{}
 	foundStorageCount := 0
 
-	// Disallow storage fields in base configs until merging logic is implemented.
+	// Only allow storage to be specified in 1 config file in the tree.
 	for i := 0; i < len(rc.ConfigChain); i++ {
 		storage := rc.ConfigChain[i].Config.Storage
 

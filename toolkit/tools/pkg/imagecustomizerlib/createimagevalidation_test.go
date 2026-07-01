@@ -239,6 +239,7 @@ func TestValidateCreateImageConfig_InvalidFieldsVerityConfig(t *testing.T) {
 
 	options := ImageCreateOptions{
 		RpmsSources:       []string{testDir}, // Use the test directory as a dummy RPM source
+		OutputImageFile:   "./out/image.vhdx",
 		OutputImageFormat: "vhdx",
 		BuildDir:          "./",
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
@@ -260,6 +261,7 @@ func TestValidateCreateImageConfig_InvalidFieldsOverlaysConfig(t *testing.T) {
 
 	options := ImageCreateOptions{
 		RpmsSources:       []string{testDir}, // Use the test directory as a dummy RPM source
+		OutputImageFile:   "./out/image.vhdx",
 		OutputImageFormat: "vhdx",
 		BuildDir:          "./",
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
