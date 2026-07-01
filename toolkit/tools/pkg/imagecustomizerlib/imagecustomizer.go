@@ -325,7 +325,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig,
 	defer span.End()
 
 	if rc.InputIsIso() {
-		inputIsoArtifacts, inputIsoDistroHandler, err := createIsoArtifactStoreAndDistroHandlerFromIsoImage(
+		inputIsoArtifacts, inputIsoDistroHandler, err := createIsoArtifactStoreFromIsoImage(
 			rc.InputImage.Path, filepath.Join(rc.BuildDirAbs, "from-iso"))
 		if err != nil {
 			return inputIsoArtifacts, nil,

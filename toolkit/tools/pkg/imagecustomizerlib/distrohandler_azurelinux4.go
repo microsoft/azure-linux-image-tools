@@ -73,7 +73,8 @@ func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	return nil
 }
 
-const azl4PxeUnsupportedError = "PXE output format is not supported yet for Azure Linux 4.0 images"
+var ErrAzureLinux4PxeUnsupported = NewImageCustomizerError("Validation:AzureLinux4PxeUnsupported",
+	"PXE output format is not supported yet for Azure Linux 4.0 images")
 
 func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.HasPackageSnapshotTime() {
@@ -82,7 +83,7 @@ func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) e
 
 	switch rc.OutputImageFormat {
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
-		return errors.New(azl4PxeUnsupportedError)
+		return ErrAzureLinux4PxeUnsupported
 	}
 
 	return nil

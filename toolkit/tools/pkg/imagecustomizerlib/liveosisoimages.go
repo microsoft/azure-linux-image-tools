@@ -47,8 +47,6 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-var kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
-
 type StageFile struct {
 	sourcePath    string
 	targetRelPath string
