@@ -1,10 +1,14 @@
-
-
 previewFeatures:
 - base-configs
 
 baseConfigs:
 - path: partitions-config.yaml
 
+storage:
+  resetPartitionsUuidsType: reset-all
+
 os:
   hostname: wallaby
+
+  bootloader:
+    resetType: hard-reset
