@@ -8,5 +8,8 @@ baseConfigs:
 
 os:
   packages:
+    install:
+    - e2fsprogs
+
     installLists:
     - lists/azl-minimal-os.yaml
