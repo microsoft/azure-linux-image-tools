@@ -90,36 +90,43 @@ func isZstFile(firstBytes []byte) bool {
 	return magicNumber == 0xFD2FB528 || (magicNumber >= 0x184D2A50 && magicNumber <= 0x184D2A5F)
 }
 
-func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
+func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, distroVersion string,
 ) string {
+	if distro == "ubuntu" {
+		t.Skip("test requires downloaded RPMs dir:\nRPMs dir not supported for Ubuntu yet")
+	}
+
 	downloadedRpmsDir := filepath.Join(testutilsDir, "testrpms/downloadedrpms", distro, distroVersion)
 	if _, err := os.Stat(downloadedRpmsDir); os.IsNotExist(err) {
 		t.Skipf("test requires downloaded RPMs dir: %s;\n"+
-			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			downloadedRpmsDir, distro, distroVersion, createImage)
+			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s",
+			downloadedRpmsDir, distro, distroVersion)
 	}
 
 	return downloadedRpmsDir
 }
 
-func GetDownloadedToolsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
+func GetDownloadedToolsDir(t *testing.T, testutilsDir string, distro string, distroVersion string,
 ) string {
+	if distro == "ubuntu" {
+		t.Skip("test requires downloaded tools dir:\ntools dir not supported for Ubuntu yet")
+	}
+
 	toolsDirName := fmt.Sprintf("tools-%s-%s-dir", distro, distroVersion)
 	toolsDirPath := filepath.Join(testutilsDir, "testrpms/build", toolsDirName)
 
 	if _, err := os.Stat(toolsDirPath); os.IsNotExist(err) {
 		t.Skipf("test requires downloaded tools dir: %s;\n"+
-			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			toolsDirPath, distro, distroVersion, createImage)
+			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s",
+			toolsDirPath, distro, distroVersion)
 	}
 
 	return toolsDirPath
 }
 
 func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, distro string, distroVersion string, withGpgKey bool,
-	createImage bool,
 ) string {
-	dir := GetDownloadedRpmsDir(t, testutilsDir, distro, distroVersion, createImage)
+	dir := GetDownloadedRpmsDir(t, testutilsDir, distro, distroVersion)
 
 	suffix := "nokey"
 	if withGpgKey {

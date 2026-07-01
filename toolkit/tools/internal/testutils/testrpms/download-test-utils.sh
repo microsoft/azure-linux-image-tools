@@ -11,23 +11,20 @@ FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 DISTRO="azurelinux"
 DISTRO_VERSION="3.0"
 
-CREATE_IMAGE="false"
 CONTAINER_REGISTRY=""
 
-while getopts "d:t:s:r:" flag
+while getopts "d:t:r:" flag
 do
     case "${flag}" in
         d) DISTRO="$OPTARG";;
         t) DISTRO_VERSION="$OPTARG";;
-        s) CREATE_IMAGE="$OPTARG";;
         r) CONTAINER_REGISTRY="$OPTARG";;
         h) ;;&
-        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s CREATE_IMAGE] [-r CONTAINER_REGISTRY]"
+        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-r CONTAINER_REGISTRY]"
             echo ""
             echo "Args:"
             echo "  -d DISTRO              The distribution to use (azurelinux or fedora). Default: azurelinux"
             echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
-            echo "  -s CREATE_IMAGE        If set to true, the script will create a tools tar.gz and download the rpms needed for the create subcommand."
             echo "  -r CONTAINER_REGISTRY  Container registry URL to use for Fedora images (e.g., myacr.azurecr.io)."
             echo "  -h Show help"
             exit 1;;
@@ -85,35 +82,25 @@ else
   DISTRO_CONFIG_MAP["azurelinux-4.0"]="create-azl4-arm64.yaml create-azl4-btrfs-arm64.yaml"
 fi
 
-# Get configuration files for the distro-version
+# Handle tools file creation
+echo "Creating tools file: $TOOLS_FILE"
+$SCRIPT_DIR/create-tools-file.sh "$CONTAINER_IMAGE" "$TOOLS_FILE"
+echo "Tools file created successfully."
+
+TOOLS_DIR="${TOOLS_FILE%.tar.gz}-dir"
+echo "Extracting tools dir: $TOOLS_DIR"
+mkdir -p "$TOOLS_DIR"
+tar -x -z -f "$TOOLS_FILE" -C "$TOOLS_DIR"
+echo "Tools dir extracted successfully."
+
+# Handle package extraction for create subcommand testing.
+# Get configuration files for the distro-version.
 CONFIG_FILES="${DISTRO_CONFIG_MAP[${DISTRO}-${DISTRO_VERSION}]:-}"
-# Validate that we have configuration for this distro
+
+# Check if we have configuration for this distro.
 if [[ -z "$CONFIG_FILES" ]]; then
-  echo "Error: Unsupported distro '$DISTRO'"
-  echo "Supported distros: ${!DISTRO_CONFIG_MAP[@]}"
-  exit 1
-fi
-
-
-# Handle tools file creation and package extraction for create subcommand testing
-if [ "$CREATE_IMAGE" = "true" ]; then
-  echo "Creating tools file: $TOOLS_FILE"
-  $SCRIPT_DIR/create-tools-file.sh "$CONTAINER_IMAGE" "$TOOLS_FILE"
-  echo "Tools file created successfully."
-
-  TOOLS_DIR="${TOOLS_FILE%.tar.gz}-dir"
-  echo "Extracting tools dir: $TOOLS_DIR"
-  mkdir -p "$TOOLS_DIR"
-  tar -x -z -f "$TOOLS_FILE" -C "$TOOLS_DIR"
-  echo "Tools dir extracted successfully."
-
-  # Check for python3 availability
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "Error: python3 is required but not found in PATH"
-    echo "Please install python3 to extract package lists from config files"
-    exit 1
-  fi
-
+  echo "Skipping create-image package extraction for distro '$DISTRO'"
+else
   # Extract package list from all config files for this distro
   for CONFIG_FILE in $CONFIG_FILES; do
     CONFIG_PATH="$TESTDATA_DIR/$CONFIG_FILE"
@@ -127,8 +114,6 @@ if [ "$CREATE_IMAGE" = "true" ]; then
     echo "Package list from $CONFIG_FILE: $FILE_PACKAGES"
     PACKAGE_LIST="$PACKAGE_LIST $FILE_PACKAGES"
   done
-else
-  echo "Skipping tools file creation and package extraction."
 fi
 
 # Combine with common testing packages
