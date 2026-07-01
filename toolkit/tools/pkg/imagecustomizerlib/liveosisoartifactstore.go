@@ -489,7 +489,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		for _, f := range isoFiles {
 			base := filepath.Base(f)
 			isInitrd := strings.HasPrefix(base, initramfsPrefix) || strings.HasPrefix(base, initrdPrefix)
-			if isInitrd && strings.HasSuffix(base, ".img") {
+			if isInitrd {
 				initrdPath = f
 				break
 			}
