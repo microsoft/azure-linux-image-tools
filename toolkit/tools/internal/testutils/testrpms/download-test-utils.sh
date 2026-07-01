@@ -11,7 +11,6 @@ FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 DISTRO="azurelinux"
 DISTRO_VERSION="3.0"
 
-CREATE_IMAGE="false"
 CONTAINER_REGISTRY=""
 
 while getopts "d:t:r:" flag
@@ -21,12 +20,11 @@ do
         t) DISTRO_VERSION="$OPTARG";;
         r) CONTAINER_REGISTRY="$OPTARG";;
         h) ;;&
-        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s CREATE_IMAGE] [-r CONTAINER_REGISTRY]"
+        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-r CONTAINER_REGISTRY]"
             echo ""
             echo "Args:"
             echo "  -d DISTRO              The distribution to use (azurelinux or fedora). Default: azurelinux"
             echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
-            echo "  -s CREATE_IMAGE        If set to true, the script will create a tools tar.gz and download the rpms needed for the create subcommand."
             echo "  -r CONTAINER_REGISTRY  Container registry URL to use for Fedora images (e.g., myacr.azurecr.io)."
             echo "  -h Show help"
             exit 1;;
@@ -95,22 +93,13 @@ mkdir -p "$TOOLS_DIR"
 tar -x -z -f "$TOOLS_FILE" -C "$TOOLS_DIR"
 echo "Tools dir extracted successfully."
 
-# Check for python3 availability
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "Error: python3 is required but not found in PATH"
-  echo "Please install python3 to extract package lists from config files"
-  exit 1
-  fi
-
 # Handle package extraction for create subcommand testing.
 # Get configuration files for the distro-version.
 CONFIG_FILES="${DISTRO_CONFIG_MAP[${DISTRO}-${DISTRO_VERSION}]:-}"
 
 # Check if we have configuration for this distro.
 if [[ -z "$CONFIG_FILES" ]]; then
-  echo "Skipping package extraction."
-  echo "Unsupported distro '$DISTRO'"
-  echo "Supported distros: ${!DISTRO_CONFIG_MAP[@]}"
+  echo "Skipping create-image package extraction for distro '$DISTRO'"
 else
   # Extract package list from all config files for this distro
   for CONFIG_FILE in $CONFIG_FILES; do
