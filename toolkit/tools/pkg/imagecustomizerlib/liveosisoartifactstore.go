@@ -449,7 +449,7 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	return infoStore, nil
 }
 
-func createIsoFilesStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir string,
+func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string,
 ) (filesStore *IsoFilesStore, distroHandler DistroHandler, err error) {
 	artifactsDir := filepath.Join(storeDir, "artifacts")
 
@@ -616,7 +616,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	return artifactStore, nil
 }
 
-func createIsoArtifactStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir string,
+func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string,
 ) (artifactStore *IsoArtifactsStore, distroHandler DistroHandler, err error) {
 	logger.Log.Debugf("Creating ISO store (%s) from (%s)", storeDir, isoImageFile)
 
@@ -627,7 +627,7 @@ func createIsoArtifactStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir s
 
 	artifactStore = &IsoArtifactsStore{}
 
-	filesStore, distroHandler, err := createIsoFilesStoreAndDistroHandlerFromIsoImage(isoImageFile, storeDir)
+	filesStore, distroHandler, err := createIsoFilesStoreFromIsoImage(isoImageFile, storeDir)
 	if err != nil {
 		return nil, nil, err
 	}

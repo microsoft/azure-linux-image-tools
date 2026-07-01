@@ -27,8 +27,8 @@ var (
 	// Finds the SELinux mode line in the /etc/selinux/config file.
 	selinuxConfigModeRegex = regexp.MustCompile(`(?m)^SELINUX=(\w+)$`)
 
-	// Captures the variable a grub 'search' command assigns via '--set=<var>' (e.g. root or boot).
-	grubSearchSetTargetRegex = regexp.MustCompile(`\s+--set=(\w+)`)
+	// Captures the variable a grub 'search' command assigns via '--set=<var>' or '--set <var>' (e.g. root or boot).
+	grubSearchSetTargetRegex = regexp.MustCompile(`\s+--set(?:=|\s+)(\w+)`)
 )
 
 const (

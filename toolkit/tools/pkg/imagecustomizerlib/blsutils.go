@@ -365,7 +365,8 @@ func updateLiveOSBLSEntries(bootDir string, initramfsImageType imagecustomizerap
 				return "", fmt.Errorf("failed to update initrd path in BLS entry:\n%w", err)
 			}
 		}
-		return updateBLSEntryOptions(content, argsToRemove, argsToAppend), nil
+		content = updateBLSEntryOptions(content, argsToRemove, argsToAppend)
+		return content, nil
 	})
 }
 
