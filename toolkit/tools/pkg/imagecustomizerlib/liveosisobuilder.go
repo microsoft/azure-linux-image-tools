@@ -285,7 +285,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	// Update grub.cfg
 	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(artifactsStore.files), artifactsStore.files.isoGrubCfgPath,
-		artifactsStore.files.pxeGrubCfgPath)
+		artifactsStore.files.pxeGrubCfgPath, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -337,7 +337,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, liveosConfig.initramfsType, artifactsStore.files,
-			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
@@ -379,7 +379,7 @@ func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputA
 	// Update grub.cfg
 	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(inputArtifactsStore.files), inputArtifactsStore.files.isoGrubCfgPath,
-		inputArtifactsStore.files.pxeGrubCfgPath)
+		inputArtifactsStore.files.pxeGrubCfgPath, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -388,7 +388,7 @@ func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputA
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, liveosConfig.initramfsType, inputArtifactsStore.files,
-			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}

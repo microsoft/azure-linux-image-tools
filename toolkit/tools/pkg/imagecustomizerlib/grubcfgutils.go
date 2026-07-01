@@ -26,6 +26,9 @@ var (
 
 	// Finds the SELinux mode line in the /etc/selinux/config file.
 	selinuxConfigModeRegex = regexp.MustCompile(`(?m)^SELINUX=(\w+)$`)
+
+	// Captures the variable a grub 'search' command assigns via '--set=<var>' or '--set <var>' (e.g. root or boot).
+	grubSearchSetTargetRegex = regexp.MustCompile(`\s+--set(?:=|\s+)(\w+)`)
 )
 
 const (
@@ -57,8 +60,9 @@ func findGrubCommandAll(inputGrubCfgContent string, commandName string, allowMul
 	return lines, nil
 }
 
-// Finds all search command occurrences and replaces them.
-func replaceSearchCommandAll(inputGrubCfgContent string, newSearchCommand string) (outputGrubCfgContent string, err error) {
+// Finds all search command occurrences and rewrites each to locate the LiveOS volume by label, preserving the
+// variable each original command assigned via '--set'.
+func replaceSearchCommandAll(inputGrubCfgContent string, volumeId string) (outputGrubCfgContent string, err error) {
 	lines, err := findGrubCommandAll(inputGrubCfgContent, "search", true /*allowMultiple*/)
 	if err != nil {
 		return "", err
@@ -71,6 +75,14 @@ func replaceSearchCommandAll(inputGrubCfgContent string, newSearchCommand string
 		line := lines[i]
 		start := line.Tokens[0].Loc.Start.Index
 		end := line.EndToken.Loc.Start.Index
+
+		// Commands without an explicit '--set=<var>' target default to 'root', matching grub's own default.
+		setTarget := "root"
+		if match := grubSearchSetTargetRegex.FindStringSubmatch(inputGrubCfgContent[start:end]); match != nil {
+			setTarget = match[1]
+		}
+		newSearchCommand := fmt.Sprintf("search --label %s --set %s", volumeId, setTarget)
+
 		outputGrubCfgContent = outputGrubCfgContent[:start] + newSearchCommand + outputGrubCfgContent[end:]
 	}
 

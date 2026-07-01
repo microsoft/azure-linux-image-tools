@@ -36,8 +36,10 @@ const (
 )
 
 var (
-	grubEfiPackagesAzl3     = []string{grubEfiPackageAzl3, grubEfiNoPrefixPackageAzl3}
-	systemdBootPackagesAzl3 = []string{systemdBootPackage}
+	grubEfiPackagesAzl3           = []string{grubEfiPackageAzl3, grubEfiNoPrefixPackageAzl3}
+	systemdBootPackagesAzl3       = []string{systemdBootPackage}
+	liveOSRequiredPackagesAzl3    = []string{"squashfs-tools", "tar", "device-mapper", "curl"}
+	liveOSInitrdDracutModulesAzl3 = []string{"dmsquash-live", "livenet", "selinux"}
 )
 
 func newAzureLinuxDistroHandler(targetOs targetos.TargetOs) *azureLinuxDistroHandler {
@@ -219,12 +221,37 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
 
+func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	kernelVersions []string,
+) (string, error) {
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+}
+
+func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType,
+) (string, error) {
+	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+}
+
 func (d *azureLinuxDistroHandler) ShimPackage() string {
 	return shimPackageAzl3
 }
 
 func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
 	return grubEfiPackageAzl3
+}
+
+func (d *azureLinuxDistroHandler) LiveOSRequiredPackages() []string {
+	return liveOSRequiredPackagesAzl3
+}
+
+func (d *azureLinuxDistroHandler) LiveOSGrubEfiPrefixDir() string {
+	return ""
+}
+
+func (d *azureLinuxDistroHandler) LiveOSInitrdDracutModules() []string {
+	return liveOSInitrdDracutModulesAzl3
 }
 
 func (d *azureLinuxDistroHandler) RootMissingMountDirectories() bool {

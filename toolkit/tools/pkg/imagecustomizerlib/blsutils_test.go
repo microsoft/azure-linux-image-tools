@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -569,4 +570,111 @@ func TestParseBLSOptionsValue(t *testing.T) {
 			assert.Equal(t, tc.wantArg, gotArgs)
 		})
 	}
+}
+
+// writeTestBLSEntry creates a single AZL4-style BLS entry under {bootDir}/loader/entries and returns the entry's
+// absolute path.
+func writeTestBLSEntry(t *testing.T, bootDir string) string {
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	err := os.MkdirAll(entriesDir, 0o755)
+	assert.NoError(t, err)
+
+	content := "title Azure Linux (6.18.31-1.5.azl4.x86_64) 4.0\n" +
+		"version 6.18.31-1.5.azl4.x86_64\n" +
+		"linux /boot/vmlinuz-6.18.31-1.5.azl4.x86_64\n" +
+		"initrd /boot/initramfs-6.18.31-1.5.azl4.x86_64.img\n" +
+		"options console=ttyS0 root=UUID=1396c02f-6cf5-438c-9c9c-fb2001079bb9 rd.shell=0\n" +
+		"grub_users $grub_users\n" +
+		"grub_arg --unrestricted\n" +
+		"grub_class azurelinux\n"
+
+	entryPath := filepath.Join(entriesDir, "azl4.conf")
+	err = os.WriteFile(entryPath, []byte(content), 0o644)
+	assert.NoError(t, err)
+	return entryPath
+}
+
+func TestUpdateLiveOSBLSEntriesFullOS(t *testing.T) {
+	bootDir := t.TempDir()
+	entryPath := writeTestBLSEntry(t, bootDir)
+
+	savedConfigs := &SavedConfigs{}
+	savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine = []string{"rd.info"}
+
+	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeFullOS, false /*disableSELinux*/, savedConfigs)
+	assert.NoError(t, err)
+
+	got, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+	gotStr := string(got)
+
+	// Full-OS repoints initrd at the single regenerated /boot/initrd.img.
+	assert.Regexp(t, `(?m)^initrd /boot/initrd\.img$`, gotStr)
+	// root= is dropped so no pivot takes place, and the unrelated arg is preserved.
+	assert.NotContains(t, gotStr, "root=UUID=")
+	assert.Regexp(t, `(?m)^options .*console=ttyS0`, gotStr)
+	// The saved extra command line is appended.
+	assert.Regexp(t, `(?m)^options .* rd\.info$`, gotStr)
+	// blscfg-only keys are untouched.
+	assert.Contains(t, gotStr, "grub_class azurelinux")
+}
+
+func TestUpdateLiveOSBLSEntriesBootstrap(t *testing.T) {
+	bootDir := t.TempDir()
+	entryPath := writeTestBLSEntry(t, bootDir)
+
+	savedConfigs := &SavedConfigs{}
+	savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine = []string{"rd.shell"}
+
+	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeBootstrap, true /*disableSELinux*/, savedConfigs)
+	assert.NoError(t, err)
+
+	got, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+	gotStr := string(got)
+
+	// Bootstrap keeps the per-kernel initrd and the original root (the iso/pxe root is set later).
+	assert.Regexp(t, `(?m)^initrd /boot/initramfs-6\.18\.31-1\.5\.azl4\.x86_64\.img$`, gotStr)
+	assert.Contains(t, gotStr, "root=UUID=1396c02f-6cf5-438c-9c9c-fb2001079bb9")
+	// The dracut live-OS args are appended.
+	assert.Contains(t, gotStr, "rd.live.image")
+	assert.Contains(t, gotStr, "rd.live.dir="+liveOSDir)
+	assert.Contains(t, gotStr, "rd.live.squashimg="+liveOSImage)
+	// SELinux is disabled.
+	assert.Contains(t, gotStr, "selinux=0")
+	// The saved extra command line is appended.
+	assert.Regexp(t, `(?m)^options .* rd\.shell$`, gotStr)
+}
+
+func TestSetLiveOSBLSEntriesRootForIso(t *testing.T) {
+	bootDir := t.TempDir()
+	entryPath := writeTestBLSEntry(t, bootDir)
+
+	err := setLiveOSBLSEntriesRoot(bootDir, "live:LABEL=foo", nil)
+	assert.NoError(t, err)
+
+	got, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+	gotStr := string(got)
+
+	assert.Contains(t, gotStr, "root=live:LABEL=foo")
+	assert.NotContains(t, gotStr, "root=UUID=")
+}
+
+func TestSetBLSEntryField(t *testing.T) {
+	content := "title Foo\n" +
+		"linux /boot/vmlinuz-6.6\n" +
+		"initrd /boot/initramfs-6.6.img\n" +
+		"options root=/dev/sda1\n"
+
+	got, err := setBLSEntryField(content, "initrd", "/boot/initrd.img")
+	assert.NoError(t, err)
+	assert.Regexp(t, `(?m)^initrd /boot/initrd\.img$`, got)
+	// Other lines are preserved verbatim.
+	assert.Contains(t, got, "linux /boot/vmlinuz-6.6\n")
+	assert.Contains(t, got, "options root=/dev/sda1\n")
+
+	// Absent key is an error rather than a silent no-op, mirroring the inline-grub path.
+	_, err = setBLSEntryField(content, "efi", "/x")
+	assert.Error(t, err)
 }
