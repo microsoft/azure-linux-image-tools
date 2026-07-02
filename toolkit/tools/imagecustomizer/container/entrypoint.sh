@@ -6,13 +6,15 @@
 set -e
 
 ENABLE_TELEMETRY="${ENABLE_TELEMETRY:-true}"
+HELP=false
 
 # Check if --disable-telemetry flag is present in arguments
 for arg in "$@"; do
-    if [[ "$arg" == "--disable-telemetry" ]]; then
-        ENABLE_TELEMETRY=false
-        break
-    fi
+    case "$arg" in
+        "--disable-telemetry") ENABLE_TELEMETRY=false;;
+        "--help") HELP=true;;
+        "--version") HELP=true;;
+    esac
 done
 
 # Start telemetry service if enabled and connection string is set
@@ -26,8 +28,11 @@ if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRIN
     sleep 1
 fi
 
-# containerd by default creates /dev as a tmpfs and populates it with a copy of the host's /dev at the time of container
-# creation. Replace it with a real devtmpfs so that partitions are populated when a virtual disk is mounted.
-mount -t devtmpfs devtmpfs /dev
+if [[ "$HELP" == "false" ]]; then
+    # containerd by default creates /dev as a tmpfs and populates it with a copy of the host's /dev at the time of
+    # container creation. Replace it with a real devtmpfs so that partitions are populated when a virtual disk is
+    # mounted.
+    mount -t devtmpfs devtmpfs /dev
+fi
 
 imagecustomizer "$@"
