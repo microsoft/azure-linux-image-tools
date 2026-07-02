@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -40,14 +41,14 @@ var (
 type ImageBuildData struct {
 	Source       string
 	KnownInfo    outputPartitionMetadata
-	Metadata     *FileSystem
+	Metadata     *cosiapi.FileSystem
 	VeritySource string
 }
 
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
-	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
-	cosiBootMetadata *CosiBootloader, compressionLevel int, compressionLong int, includeVhdFooter bool,
+	osRelease string, osPackages []cosiapi.OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
+	cosiBootMetadata *cosiapi.Bootloader, compressionLevel int, compressionLong int, includeVhdFooter bool,
 	partitionOriginalSizes map[string]uint64,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
@@ -118,7 +119,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
-	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
+	imageUuidStr string, osRelease string, osPackages []cosiapi.OsPackage, cosiBootMetadata *cosiapi.Bootloader,
 	gptData *GptExtractedData, compressionLong int,
 ) error {
 	// Pre-compute a map from partition UUID to index for quick lookup
@@ -139,13 +140,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	imageData := []ImageBuildData{}
-	partitionImageFiles := make(map[int]ImageFile)
+	partitionImageFiles := make(map[int]cosiapi.ImageFile)
 	for _, partition := range partitions {
 		partitionPath := path.Join("images", partition.PartitionFilename)
 		partitionSource := path.Join(sourceDir, partition.PartitionFilename)
 
-		// Create and populate ImageFile for partition
-		partitionImageFile := ImageFile{
+		// Create and populate cosiapi.ImageFile for partition
+		partitionImageFile := cosiapi.ImageFile{
 			Path:             partitionPath,
 			UncompressedSize: partition.UncompressedSize,
 		}
@@ -174,7 +175,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			continue
 		}
 
-		metadataImage := FileSystem{
+		metadataImage := cosiapi.FileSystem{
 			Image:      partitionImageFiles[partition.PartitionNum],
 			PartType:   partition.PartitionTypeUuid,
 			MountPoint: entry.FstabEntry.Target,
@@ -202,7 +203,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				}
 
 				hashPartition := partitions[hashPartitionIndex]
-				metadataImage.Verity = &VerityConfig{
+				metadataImage.Verity = &cosiapi.VerityConfig{
 					Roothash:   verity.rootHash,
 					Image:      partitionImageFiles[hashPartition.PartitionNum],
 					HashOffset: hashOffset,
@@ -218,7 +219,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	// Build GPT image file metadata
-	gptImageFile := ImageFile{
+	gptImageFile := cosiapi.ImageFile{
 		Path:             path.Join("images", filepath.Base(gptData.CompressedFilePath)),
 		UncompressedSize: gptData.UncompressedSize,
 	}
@@ -232,16 +233,16 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		return fmt.Errorf("failed to build disk metadata:\n%w", err)
 	}
 
-	metadata := MetadataJson{
+	metadata := cosiapi.MetadataJson{
 		Version:    "1.2",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Disk:       diskInfo,
-		Images:     make([]FileSystem, len(imageData)),
+		Images:     make([]cosiapi.FileSystem, len(imageData)),
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
 		Bootloader: handleBootloaderMetadata(cosiBootMetadata),
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: compressionLong,
 		},
 	}
@@ -316,7 +317,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	return nil
 }
 
-func addFileToCosi(tw *tar.Writer, source string, image ImageFile) error {
+func addFileToCosi(tw *tar.Writer, source string, image cosiapi.ImageFile) error {
 	file, err := os.Open(source)
 	if err != nil {
 		return fmt.Errorf("failed to open file :\n%w", err)
@@ -356,7 +357,7 @@ func sha384sum(path string) (string, error) {
 	return fmt.Sprintf("%x", sha384.Sum(nil)), nil
 }
 
-func populateImageFile(source string, imageFile *ImageFile) error {
+func populateImageFile(source string, imageFile *cosiapi.ImageFile) error {
 	stat, err := os.Stat(source)
 	if err != nil {
 		return fmt.Errorf("failed to stat %s:\n%w", source, err)
@@ -382,13 +383,13 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, error) {
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]cosiapi.OsPackage, error) {
 	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
 }
 
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
-) (*CosiBootloader, error) {
+) (*cosiapi.Bootloader, error) {
 	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot(), toolsChroot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
@@ -397,16 +398,16 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 	chrootDir := imageConnection.Chroot().RootDir()
 
 	switch bootloaderType {
-	case BootloaderTypeSystemdBoot:
+	case cosiapi.BootloaderTypeSystemdBoot:
 		// Try extracting systemd-boot entries (UKI + config or config-only)
 		configEntries, err := extractSystemdBootEntriesIfPresent(chrootDir)
 		if err != nil {
 			return nil, fmt.Errorf("error extracting systemd-boot config entries:\n%w", err)
 		}
 		if len(configEntries) > 0 {
-			return &CosiBootloader{
-				Type:        BootloaderTypeSystemdBoot,
-				SystemdBoot: &SystemDBoot{Entries: configEntries},
+			return &cosiapi.Bootloader{
+				Type:        cosiapi.BootloaderTypeSystemdBoot,
+				SystemdBoot: &cosiapi.SystemDBoot{Entries: configEntries},
 			}, nil
 		}
 
@@ -416,17 +417,17 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 			return nil, fmt.Errorf("error extracting UKI standalone entries:\n%w", err)
 		}
 		if len(ukiEntries) > 0 {
-			return &CosiBootloader{
-				Type:        BootloaderTypeSystemdBoot,
-				SystemdBoot: &SystemDBoot{Entries: ukiEntries},
+			return &cosiapi.Bootloader{
+				Type:        cosiapi.BootloaderTypeSystemdBoot,
+				SystemdBoot: &cosiapi.SystemDBoot{Entries: ukiEntries},
 			}, nil
 		}
 
 		return nil, fmt.Errorf("systemd-boot detected, but no supported boot entries found")
 
-	case BootloaderTypeGrub:
-		return &CosiBootloader{
-			Type:        BootloaderTypeGrub,
+	case cosiapi.BootloaderTypeGrub:
+		return &cosiapi.Bootloader{
+			Type:        cosiapi.BootloaderTypeGrub,
 			SystemdBoot: nil,
 		}, nil
 
@@ -435,7 +436,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 	}
 }
 
-func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler DistroHandler) ([]SystemDBootEntry, error) {
+func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler DistroHandler) ([]cosiapi.SystemDBootEntry, error) {
 	espDir := filepath.Join(chrootDir, distroHandler.GetEspDir())
 
 	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
@@ -443,15 +444,15 @@ func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler Distro
 		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
 	}
 
-	var entries []SystemDBootEntry
+	var entries []cosiapi.SystemDBootEntry
 	for kernelName, cmdline := range cmdlines {
 		efiPath := filepath.Join("/", distroHandler.GetEspDir(), "EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
 		kernelVersion, err := getKernelVersion(kernelName)
 		if err != nil {
 			return nil, fmt.Errorf("invalid kernel name in UKI file (%s):\n%w", kernelName, err)
 		}
-		entries = append(entries, SystemDBootEntry{
-			Type:    SystemDBootEntryTypeUKIStandalone,
+		entries = append(entries, cosiapi.SystemDBootEntry{
+			Type:    cosiapi.SystemDBootEntryTypeUKIStandalone,
 			Path:    efiPath,
 			Kernel:  kernelVersion,
 			Cmdline: strings.TrimRight(cmdline, "\n"),
@@ -460,7 +461,7 @@ func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler Distro
 	return entries, nil
 }
 
-func extractSystemdBootEntriesIfPresent(chrootDir string) ([]SystemDBootEntry, error) {
+func extractSystemdBootEntriesIfPresent(chrootDir string) ([]cosiapi.SystemDBootEntry, error) {
 	loaderEntryDir := filepath.Join(chrootDir, "boot", "loader", "entries")
 	exists, err := file.DirExists(loaderEntryDir)
 	if err != nil {
@@ -478,13 +479,13 @@ func extractSystemdBootEntriesIfPresent(chrootDir string) ([]SystemDBootEntry, e
 	return entries, nil
 }
 
-func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
+func extractSystemdBootEntries(entryDir string) ([]cosiapi.SystemDBootEntry, error) {
 	files, err := os.ReadDir(entryDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory %s:\n%w", entryDir, err)
 	}
 
-	var entries []SystemDBootEntry
+	var entries []cosiapi.SystemDBootEntry
 
 	for _, file := range files {
 		entry, err := parseSystemdBootEntryFromFile(entryDir, file)
@@ -499,7 +500,7 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 	return entries, nil
 }
 
-func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDBootEntry, error) {
+func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*cosiapi.SystemDBootEntry, error) {
 	if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
 		return nil, nil
 	}
@@ -510,7 +511,7 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 		return nil, fmt.Errorf("failed to read %s:\n%w", absPath, err)
 	}
 
-	entry := &SystemDBootEntry{
+	entry := &cosiapi.SystemDBootEntry{
 		Path: filepath.Join("/boot/loader/entries", file.Name()),
 	}
 
@@ -555,25 +556,25 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 			if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
 				entry.Kernel = kernelVer
 			}
-			entry.Type = SystemDBootEntryTypeUKIConfig
+			entry.Type = cosiapi.SystemDBootEntryTypeUKIConfig
 		}
 	}
 
 	// Determine fallback type
 	if entry.Type == "" {
 		if strings.HasSuffix(entry.Kernel, ".efi") {
-			entry.Type = SystemDBootEntryTypeUKIConfig
+			entry.Type = cosiapi.SystemDBootEntryTypeUKIConfig
 		} else {
-			entry.Type = SystemDBootEntryTypeConfig
+			entry.Type = cosiapi.SystemDBootEntryTypeConfig
 		}
 	}
 
 	return entry, nil
 }
 
-func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
+func handleBootloaderMetadata(bootloader *cosiapi.Bootloader) cosiapi.Bootloader {
 	if bootloader == nil {
-		return CosiBootloader{}
+		return cosiapi.Bootloader{}
 	}
 	return *bootloader
 }
@@ -601,12 +602,12 @@ func padToMegabyte(imageFile string) error {
 	return nil
 }
 
-// detectBootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
+// detectcosiapi.BootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
 // candidate package. The name of the detected package is also returned. toolsChroot has the same semantics as in
 // DistroHandler.IsPackageInstalled.
 func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, grubEfiPackages, systemdBootPackages []string,
-) (BootloaderType, string, error) {
+) (cosiapi.BootloaderType, string, error) {
 	for _, pkg := range grubEfiPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
 		installed, err := distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
@@ -614,12 +615,12 @@ func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.Ch
 			return "", "", err
 		}
 		if installed {
-			return BootloaderTypeGrub, pkg, nil
+			return cosiapi.BootloaderTypeGrub, pkg, nil
 		}
 	}
 	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, toolsChroot, systemdBootPackages)
 	if err == nil {
-		return BootloaderTypeSystemdBoot, pkg, nil
+		return cosiapi.BootloaderTypeSystemdBoot, pkg, nil
 	}
 
 	allPackages := slices.Concat(grubEfiPackages, systemdBootPackages)

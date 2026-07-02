@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -177,14 +178,14 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		return
 	}
 
-	expectedCosiMetadata := MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       5639 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4, 5}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -192,7 +193,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/boot",
@@ -200,20 +201,20 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_3.raw.zst",
 				},
 				MountPoint: "/",
 				FsType:     "ext4",
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
-				Verity: &VerityConfig{
-					Image: ImageFile{
+				Verity: &cosiapi.VerityConfig{
+					Image: cosiapi.ImageFile{
 						Path: "images/image_4.raw.zst",
 					},
 				},
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_5.raw.zst",
 				},
 				MountPoint: "/var",
@@ -221,17 +222,17 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "systemd-boot",
-			SystemdBoot: &SystemDBoot{
-				Entries: []SystemDBootEntry{
+			SystemdBoot: &cosiapi.SystemDBoot{
+				Entries: []cosiapi.SystemDBootEntry{
 					{
 						Type: "uki-standalone",
 					},
 				},
 			},
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}

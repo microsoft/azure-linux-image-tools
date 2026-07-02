@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -90,13 +91,13 @@ func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
-) (BootloaderType, error) {
+) (cosiapi.BootloaderType, error) {
 	bootloaderType, _, err := detectBootloaderType(d, imageChroot, toolsChroot, grubEfiPackagesAzl3, systemdBootPackagesAzl3)
 	return bootloaderType, err
 }

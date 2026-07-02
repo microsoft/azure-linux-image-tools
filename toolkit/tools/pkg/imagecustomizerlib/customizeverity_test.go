@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -144,14 +145,14 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 		return
 	}
 
-	expectedCosiMetadata := MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       5254 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4, 5}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -159,7 +160,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/boot",
@@ -167,20 +168,20 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_3.raw.zst",
 				},
 				MountPoint: "/",
 				FsType:     "ext4",
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
-				Verity: &VerityConfig{
-					Image: ImageFile{
+				Verity: &cosiapi.VerityConfig{
+					Image: cosiapi.ImageFile{
 						Path: "images/image_4.raw.zst",
 					},
 				},
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_5.raw.zst",
 				},
 				MountPoint: "/var",
@@ -188,10 +189,10 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
@@ -1094,16 +1095,16 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 		return
 	}
 
-	expectedCosiMetadata := MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			// 4348 MiB = 1 (alignment) + 250 (esp) + 1024 (boot) + 2048 (root) + 1024 (var) + 1 (secondary GPT).
 			// Tracks the partition layout in verity-root-inline-uki-*.yaml.
 			Size:       4348 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -1111,7 +1112,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/boot",
@@ -1119,20 +1120,20 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_3.raw.zst",
 				},
 				MountPoint: "/",
 				FsType:     "ext4",
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
-				Verity: &VerityConfig{
-					Image: ImageFile{
+				Verity: &cosiapi.VerityConfig{
+					Image: cosiapi.ImageFile{
 						Path: "images/image_3.raw.zst",
 					},
 				},
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_4.raw.zst",
 				},
 				MountPoint: "/var",
@@ -1140,17 +1141,17 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "systemd-boot",
-			SystemdBoot: &SystemDBoot{
-				Entries: []SystemDBootEntry{
+			SystemdBoot: &cosiapi.SystemDBoot{
+				Entries: []cosiapi.SystemDBootEntry{
 					{
 						Type: "uki-standalone",
 					},
 				},
 			},
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -105,8 +106,8 @@ type imageMetadata struct {
 
 	partitionsLayout       []fstabEntryPartNum
 	osRelease              string
-	osPackages             []OsPackage
-	cosiBootMetadata       *CosiBootloader
+	osPackages             []cosiapi.OsPackage
+	cosiBootMetadata       *cosiapi.Bootloader
 	distroHandler          DistroHandler
 	partitionOriginalSizes map[string]uint64
 }
@@ -529,8 +530,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	}
 
 	// collect OS info if generating a COSI image
-	var osPackages []OsPackage
-	var cosiBootMetadata *CosiBootloader
+	var osPackages []cosiapi.OsPackage
+	var cosiBootMetadata *cosiapi.Bootloader
 	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout,
 			im.distroHandler, nil)
@@ -763,7 +764,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
-) ([]OsPackage, *CosiBootloader, error) {
+) ([]cosiapi.OsPackage, *cosiapi.Bootloader, error) {
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
 
 	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, false,
@@ -788,7 +789,7 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 
 func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
-) ([]OsPackage, *CosiBootloader, error) {
+) ([]cosiapi.OsPackage, *cosiapi.Bootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection, distroHandler)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -57,10 +58,10 @@ type DistroHandler interface {
 	GetPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 
 	// Get all installed packages from the chroot
-	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
+	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
-	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (BootloaderType, error)
+	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)
 
 	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.
 	// toolsChroot has the same semantics as in IsPackageInstalled.

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -27,14 +28,14 @@ import (
 )
 
 var (
-	expectedCosiMetadataForAzlCoreEfi = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForAzlCoreEfi = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       4 * diskutils.GiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -42,7 +43,7 @@ var (
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/",
@@ -50,10 +51,10 @@ var (
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
@@ -61,14 +62,14 @@ var (
 	// Azure Linux 4.0 core-efi base image has a 15 GiB virtual disk and tags the
 	// rootfs with the discoverable-partitions arch-specific root GUID instead of
 	// the legacy linux-filesystem GUID used by AzL2/AzL3.
-	expectedCosiMetadataForAzl4CoreEfi = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForAzl4CoreEfi = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       15 * diskutils.GiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -76,7 +77,7 @@ var (
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/",
@@ -84,17 +85,17 @@ var (
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeRoot],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
 
-	expectedCosiFileSystemsForUbuntu2204 = []FileSystem{
+	expectedCosiFileSystemsForUbuntu2204 = []cosiapi.FileSystem{
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_1.raw.zst",
 			},
 			MountPoint: "/",
@@ -102,7 +103,7 @@ var (
 			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 		},
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_15.raw.zst",
 			},
 			MountPoint: "/boot/efi",
@@ -111,37 +112,37 @@ var (
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2204CloudAmd64 = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForUbuntu2204CloudAmd64 = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 14, 15}),
 		},
 		Images: expectedCosiFileSystemsForUbuntu2204,
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2204CloudArm64 = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForUbuntu2204CloudArm64 = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 15}),
 		},
 		Images: expectedCosiFileSystemsForUbuntu2204,
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
 
-	expectedCosiFileSystemsForUbuntu2404 = []FileSystem{
+	expectedCosiFileSystemsForUbuntu2404 = []cosiapi.FileSystem{
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_1.raw.zst",
 			},
 			MountPoint: "/",
@@ -149,7 +150,7 @@ var (
 			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 		},
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_15.raw.zst",
 			},
 			MountPoint: "/boot/efi",
@@ -157,7 +158,7 @@ var (
 			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 		},
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_16.raw.zst",
 			},
 			MountPoint: "/boot",
@@ -166,30 +167,30 @@ var (
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2404CloudAmd64 = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForUbuntu2404CloudAmd64 = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 14, 15, 16}),
 		},
 		Images: expectedCosiFileSystemsForUbuntu2404,
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2404CloudArm64 = MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadataForUbuntu2404CloudArm64 = cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 15, 16}),
 		},
 		Images: expectedCosiFileSystemsForUbuntu2404,
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
@@ -197,14 +198,14 @@ var (
 
 // expectedCosiMetadataForAzureLinux returns the expected COSI metadata for the given Azure Linux core-efi base image.
 // AzL4 differs from AzL2/AzL3 in disk size and rootfs partition type GUID.
-func expectedCosiMetadataForAzureLinux(baseImageInfo testBaseImageInfo) (MetadataJson, error) {
+func expectedCosiMetadataForAzureLinux(baseImageInfo testBaseImageInfo) (cosiapi.MetadataJson, error) {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl2, baseImageVersionAzl3:
 		return expectedCosiMetadataForAzlCoreEfi, nil
 	case baseImageVersionAzl4:
 		return expectedCosiMetadataForAzl4CoreEfi, nil
 	default:
-		return MetadataJson{}, fmt.Errorf("unexpected Azure Linux version: %s", baseImageInfo.Version)
+		return cosiapi.MetadataJson{}, fmt.Errorf("unexpected Azure Linux version: %s", baseImageInfo.Version)
 	}
 }
 
@@ -228,7 +229,7 @@ func TestAddSkippableFrame(t *testing.T) {
 	partitionFilepath, err := addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, testDir)
 	assert.NoError(t, err)
 
-	// Verify decompression with skippable frame
+	// Verify decosiapi.Compression with skippable frame
 	err = verifySkippableFrameDecompression(partitionRawFilepath, partitionFilepath)
 	assert.NoError(t, err)
 
@@ -271,17 +272,17 @@ func extractZstFile(zstFilePath string, outputFilePath string) error {
 }
 
 func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsOutputDir string,
-	expectedMetadata MetadataJson,
-) (MetadataJson, bool) {
+	expectedMetadata cosiapi.MetadataJson,
+) (cosiapi.MetadataJson, bool) {
 	partitionsPaths, metadata, err := extractCosi(cosiFilePath, partitionsOutputDir)
 	if !assert.NoError(t, err) {
-		return MetadataJson{}, false
+		return cosiapi.MetadataJson{}, false
 	}
 
 	assert.Equal(t, "1.2", metadata.Version)
 
 	assert.Equal(t, expectedMetadata.Disk.Size, metadata.Disk.Size)
-	assert.Equal(t, DiskTypeGpt, metadata.Disk.Type)
+	assert.Equal(t, cosiapi.DiskTypeGpt, metadata.Disk.Type)
 	assert.Equal(t, 512, metadata.Disk.LbaSize)
 
 	assert.Equal(t, len(expectedMetadata.Disk.GptRegions), len(partitionsPaths))
@@ -343,7 +344,7 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 	return metadata, true
 }
 
-func verifyCosiImageFile(t *testing.T, expected ImageFile, actual ImageFile) {
+func verifyCosiImageFile(t *testing.T, expected cosiapi.ImageFile, actual cosiapi.ImageFile) {
 	assert.Equal(t, expected.Path, actual.Path)
 
 	assert.Less(t, uint64(0), actual.CompressedSize)
@@ -351,22 +352,22 @@ func verifyCosiImageFile(t *testing.T, expected ImageFile, actual ImageFile) {
 	assert.Regexp(t, `^[0-9a-fA-F]{96}$`, actual.Sha384)
 }
 
-func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJson, error) {
+func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, cosiapi.MetadataJson, error) {
 	var extractedParitionsPaths []string
 
 	err := os.MkdirAll(partitionsOutputDir, os.ModePerm)
 	if err != nil {
-		return nil, MetadataJson{}, fmt.Errorf("failed to create output directory:\n%w", err)
+		return nil, cosiapi.MetadataJson{}, fmt.Errorf("failed to create output directory:\n%w", err)
 	}
 
 	// Open the COSI file
 	cosiFile, err := os.Open(cosiFilePath)
 	if err != nil {
-		return nil, MetadataJson{}, fmt.Errorf("failed to open COSI file:\n%w", err)
+		return nil, cosiapi.MetadataJson{}, fmt.Errorf("failed to open COSI file:\n%w", err)
 	}
 	defer cosiFile.Close()
 
-	cosiMetadata := MetadataJson{}
+	cosiMetadata := cosiapi.MetadataJson{}
 	foundCosiMetadata := false
 
 	tarReader := tar.NewReader(cosiFile)
@@ -376,7 +377,7 @@ func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJs
 			break
 		}
 		if err != nil {
-			return nil, MetadataJson{}, fmt.Errorf("error reading tar:\n%w", err)
+			return nil, cosiapi.MetadataJson{}, fmt.Errorf("error reading tar:\n%w", err)
 		}
 
 		// Skip directories
@@ -387,14 +388,14 @@ func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJs
 		// Validate the file path to prevent directory traversal
 		cleanPath := filepath.Clean(header.Name)
 		if strings.Contains(cleanPath, "..") {
-			return nil, MetadataJson{}, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
+			return nil, cosiapi.MetadataJson{}, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
 		}
 
 		switch {
 		case filepath.Ext(header.Name) == ".zst":
 			outputFilePath, err := writeZstAndRawToFile(partitionsOutputDir, header, tarReader)
 			if err != nil {
-				return nil, MetadataJson{}, fmt.Errorf("failed to extract partition from cosi:\n%w", err)
+				return nil, cosiapi.MetadataJson{}, fmt.Errorf("failed to extract partition from cosi:\n%w", err)
 			}
 
 			extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
@@ -403,7 +404,7 @@ func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJs
 		case header.Name == CosiMetadataName:
 			cosiMetadata, err = readCosiMetadata(tarReader)
 			if err != nil {
-				return nil, MetadataJson{}, fmt.Errorf("failed to read cosi metadata:\n%w", err)
+				return nil, cosiapi.MetadataJson{}, fmt.Errorf("failed to read cosi metadata:\n%w", err)
 			}
 
 			foundCosiMetadata = true
@@ -411,7 +412,7 @@ func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJs
 	}
 
 	if !foundCosiMetadata {
-		return nil, MetadataJson{}, fmt.Errorf("no %s found in cosi file", CosiMetadataName)
+		return nil, cosiapi.MetadataJson{}, fmt.Errorf("no %s found in cosi file", CosiMetadataName)
 	}
 
 	return extractedParitionsPaths, cosiMetadata, nil
@@ -466,16 +467,16 @@ func writeZstAndRawToFile(outputDir string, header *tar.Header, tarReader io.Rea
 	return outputFilePath, nil
 }
 
-func readCosiMetadata(src io.Reader) (MetadataJson, error) {
+func readCosiMetadata(src io.Reader) (cosiapi.MetadataJson, error) {
 	data, err := io.ReadAll(src)
 	if err != nil {
-		return MetadataJson{}, fmt.Errorf("failed to read metadata.json:\n%w", err)
+		return cosiapi.MetadataJson{}, fmt.Errorf("failed to read metadata.json:\n%w", err)
 	}
 
-	metadata := MetadataJson{}
+	metadata := cosiapi.MetadataJson{}
 	err = json.Unmarshal(data, &metadata)
 	if err != nil {
-		return MetadataJson{}, fmt.Errorf("failed to parse metadata.json:\n%w", err)
+		return cosiapi.MetadataJson{}, fmt.Errorf("failed to parse metadata.json:\n%w", err)
 	}
 
 	return metadata, nil
@@ -660,14 +661,14 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 		return
 	}
 
-	expectedCosiMetadata := MetadataJson{
-		Disk: Disk{
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
 			Size:       4130 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3}),
 		},
-		Images: []FileSystem{
+		Images: []cosiapi.FileSystem{
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_1.raw.zst",
 				},
 				MountPoint: "/boot/efi",
@@ -675,7 +676,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
 			},
 			{
-				Image: ImageFile{
+				Image: cosiapi.ImageFile{
 					Path: "images/image_2.raw.zst",
 				},
 				MountPoint: "/",
@@ -683,10 +684,10 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
 		},
-		Bootloader: CosiBootloader{
+		Bootloader: cosiapi.Bootloader{
 			Type: "grub",
 		},
-		Compression: Compression{
+		Compression: cosiapi.Compression{
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
@@ -780,10 +781,10 @@ func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 	}
 }
 
-func newTestCosiGptSections(partNums []int) []GptDiskRegion {
-	gptRegions := []GptDiskRegion{
+func newTestCosiGptSections(partNums []int) []cosiapi.GptDiskRegion {
+	gptRegions := []cosiapi.GptDiskRegion{
 		{
-			Image: ImageFile{
+			Image: cosiapi.ImageFile{
 				Path: "images/image_gpt.raw.zst",
 			},
 			Type: "primary-gpt",
@@ -791,8 +792,8 @@ func newTestCosiGptSections(partNums []int) []GptDiskRegion {
 	}
 
 	for _, partNum := range partNums {
-		partition := GptDiskRegion{
-			Image: ImageFile{
+		partition := cosiapi.GptDiskRegion{
+			Image: cosiapi.ImageFile{
 				Path: fmt.Sprintf("images/image_%d.raw.zst", partNum),
 			},
 			Type:   "partition",

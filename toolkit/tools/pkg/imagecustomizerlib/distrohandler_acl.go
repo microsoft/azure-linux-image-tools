@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -136,7 +137,7 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	// This function is only used for metadata within a COSI file.
 	// So, it doesn't matter too much if the package list can't be provided.
 
@@ -170,9 +171,9 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
-) (BootloaderType, error) {
+) (cosiapi.BootloaderType, error) {
 	// ACL always uses systemd-boot.
-	return BootloaderTypeSystemdBoot, nil
+	return cosiapi.BootloaderTypeSystemdBoot, nil
 }
 
 func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,
