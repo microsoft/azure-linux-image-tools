@@ -13,6 +13,11 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 )
 
+type NameValuePair struct {
+	Name  string
+	Value string
+}
+
 func ParseEnvFile(path string) (map[string]string, error) {
 	content, err := file.Read(path)
 	if err != nil {
@@ -23,18 +28,42 @@ func ParseEnvFile(path string) (map[string]string, error) {
 }
 
 func ParseEnv(content string) (map[string]string, error) {
-	tokens, err := grub.TokenizeConfig(content)
+	result := make(map[string]string)
+
+	err := parseEnvHelper(content, func(name, value string) {
+		result[name] = value
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]string)
+	return result, nil
+}
+
+func ParseEnvList(content string) ([]struct{ Name, Value string }, error) {
+	result := []struct{ Name, Value string }(nil)
+
+	err := parseEnvHelper(content, func(name, value string) {
+		result = append(result, NameValuePair{Name: name, Value: value})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func parseEnvHelper(content string, yield func(name, value string)) error {
+	tokens, err := grub.TokenizeConfig(content)
+	if err != nil {
+		return err
+	}
 
 	lines := grub.SplitTokensIntoLines(tokens)
 	for _, line := range lines {
 		if len(line.Tokens) > 2 {
 			loc := line.Tokens[1].Loc.Start
-			return nil, fmt.Errorf("env file line has multiple words (%d:%d)", loc.Line, loc.Col)
+			return fmt.Errorf("env file line has multiple words (%d:%d)", loc.Line, loc.Col)
 		}
 
 		token := line.Tokens[0]
@@ -43,7 +72,7 @@ func ParseEnv(content string) (map[string]string, error) {
 		if token.Type != grub.WORD &&
 			token.SubWords[0].Type != grub.KEYWORD_STRING {
 			loc := token.Loc.Start
-			return nil, fmt.Errorf("env file line is not a variable assignment (%d:%d)", loc.Line, loc.Col)
+			return fmt.Errorf("env file line is not a variable assignment (%d:%d)", loc.Line, loc.Col)
 		}
 
 		firstWord := token.SubWords[0].Value
@@ -52,7 +81,7 @@ func ParseEnv(content string) (map[string]string, error) {
 		eqIndex := strings.Index(firstWord, "=")
 		if eqIndex < 0 {
 			loc := token.Loc.Start
-			return nil, fmt.Errorf("env file line is not a variable assignment (%d:%d)", loc.Line, loc.Col)
+			return fmt.Errorf("env file line is not a variable assignment (%d:%d)", loc.Line, loc.Col)
 		}
 
 		name := firstWord[:eqIndex]
@@ -67,14 +96,14 @@ func ParseEnv(content string) (map[string]string, error) {
 
 			default:
 				loc := word.Loc.Start
-				return nil, fmt.Errorf("env file contains invalid characters (%d:%d)", loc.Line, loc.Col)
+				return fmt.Errorf("env file contains invalid characters (%d:%d)", loc.Line, loc.Col)
 			}
 		}
 
 		value := valueBuilder.String()
 
-		result[name] = value
+		yield(name, value)
 	}
 
-	return result, nil
+	return nil
 }
