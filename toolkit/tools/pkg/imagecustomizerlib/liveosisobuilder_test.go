@@ -681,9 +681,17 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 // - ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
 // - ISO  {bootstrap}  to ISO {full-os}      , with selinux disabled
 func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageLiveOSInitramfs1Helper(t, baseImageInfo)
+		})
+	}
+}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1")
+func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1"+baseImageInfo.Name)
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
