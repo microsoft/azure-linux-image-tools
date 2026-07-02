@@ -154,9 +154,9 @@ jobs:
 
         pushd ./repo/toolkit/tools/internal/testutils/testrpms
 
-        ./download-test-utils.sh -d azurelinux -t 3.0 -s true
-        ./download-test-utils.sh -d azurelinux -t 4.0 -s true
-        ./download-test-utils.sh -d fedora -t 42 -s true -r "$AZURE_CR_CACHE"
+        ./download-test-utils.sh -d azurelinux -t 3.0
+        ./download-test-utils.sh -d azurelinux -t 4.0
+        ./download-test-utils.sh -d fedora -t 42 -r "$AZURE_CR_CACHE"
       env:
         AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
 

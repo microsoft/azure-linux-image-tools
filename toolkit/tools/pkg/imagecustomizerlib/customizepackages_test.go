@@ -29,8 +29,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version,
-		false)
+	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -194,7 +193,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	}
 
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, baseImageInfo.Distro,
-		baseImageInfo.Version, withGpgKey, false)
+		baseImageInfo.Version, withGpgKey)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	buildDir := filepath.Join(testTmpDir, "build")
