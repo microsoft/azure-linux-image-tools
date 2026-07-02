@@ -212,7 +212,7 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 
 	LogVersionsOfToolDeps()
 
-	inputIsoArtifacts, err := convertInputImageToWriteableFormat(ctx, rc)
+	inputIsoArtifacts, inputIsoDistroHandler, err := convertInputImageToWriteableFormat(ctx, rc)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrConvertInputImage, err)
 	}
@@ -250,6 +250,13 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 	im, err := customizeOSContents(ctx, rc, toolsChrootInner)
 	if err != nil {
 		return err
+	}
+
+	// ISO input with no OS-partition customization has no mounted rootfs, so customizeOSContents will not detect the
+	// distro and will return im.distroHandler == nil. Fall back to the handler detected from the input ISO's initrd,
+	// which is guaranteed non-nil for ISO input.
+	if im.distroHandler == nil {
+		im.distroHandler = inputIsoDistroHandler
 	}
 
 	if rc.OutputArtifacts != nil {
@@ -307,7 +314,8 @@ func isKdumpBootFilesConfigChanging(requestedKdumpBootFiles *imagecustomizerapi.
 	return requestedKdumpBootFilesCfg != inputKdumpBootFilesCfg
 }
 
-func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig) (*IsoArtifactsStore, error) {
+func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig,
+) (*IsoArtifactsStore, DistroHandler, error) {
 	logger.Log.Infof("Converting input image to a writeable format")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "input_image_conversion")
@@ -317,17 +325,18 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 	defer span.End()
 
 	if rc.InputIsIso() {
-		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(rc.InputImage.Path,
-			filepath.Join(rc.BuildDirAbs, "from-iso"))
+		inputIsoArtifacts, inputIsoDistroHandler, err := createIsoArtifactStoreFromIsoImage(
+			rc.InputImage.Path, filepath.Join(rc.BuildDirAbs, "from-iso"))
 		if err != nil {
-			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'):\n%w", ErrCreateArtifactsStore, rc.InputImage.Path, err)
+			return inputIsoArtifacts, nil,
+				fmt.Errorf("%w (source='%s'):\n%w", ErrCreateArtifactsStore, rc.InputImage.Path, err)
 		}
 
 		var liveosConfig LiveOSConfig
 		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, rc.Iso, rc.Pxe,
 			rc.OutputImageFormat)
 		if err != nil {
-			return nil, fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
+			return nil, nil, fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
 		}
 
 		// Check if the user is changing the kdump boot files configuration.
@@ -343,20 +352,20 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(rc.BuildDirAbs, inputIsoArtifacts, rc.RawImageFile)
 			if err != nil {
-				return nil, fmt.Errorf("%w:\n%w", ErrCreateWriteableImage, err)
+				return nil, nil, fmt.Errorf("%w:\n%w", ErrCreateWriteableImage, err)
 			}
 		}
 
-		return inputIsoArtifacts, nil
+		return inputIsoArtifacts, inputIsoDistroHandler, nil
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", rc.RawImageFile)
 
 		_, err := convertImageToRaw(rc.InputImage.Path, rc.RawImageFile)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
