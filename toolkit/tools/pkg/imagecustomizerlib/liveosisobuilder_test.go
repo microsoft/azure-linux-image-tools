@@ -190,7 +190,7 @@ func VerifyBootstrappedImageExists(t *testing.T, initramfsType imagecustomizerap
 }
 
 func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config,
-	testTempDir string, artifactsPath, bootstrappedImage string, baseImageVersion string,
+	testTempDir string, artifactsPath, bootstrappedImage string, baseImageInfo testBaseImageInfo,
 ) {
 	var additionalFiles imagecustomizerapi.AdditionalFileList
 	var extraCommandLineParameters []string
@@ -220,7 +220,7 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 
 	// Ensure the kernel command line carries the extra kernel command-line args. Inline-grub distros keep these on
 	// the grub.cfg 'linux' lines; BLS distros (Azure Linux 4.0, Fedora) keep them on the BLS entry 'options' lines.
-	kernelEntryContent, kernelEntryKeyword := readLiveOSKernelEntryContent(t, artifactsPath, baseImageVersion)
+	kernelEntryContent, kernelEntryKeyword := readLiveOSKernelEntryContent(t, artifactsPath, baseImageInfo)
 	for _, extraCommandLineParameter := range extraCommandLineParameters {
 		assert.Regexp(t, kernelEntryKeyword+".* "+extraCommandLineParameter+`\s`, kernelEntryContent)
 	}
@@ -248,7 +248,7 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 
 	if outputFormat == "pxe" {
 		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(bootstrappedImage), artifactsPath, pxeUrlBase, baseImageVersion)
+			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(bootstrappedImage), artifactsPath, pxeUrlBase, baseImageInfo)
 		}
 	}
 }
@@ -356,7 +356,7 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outpu
 	}
 }
 
-func ValidateIsoContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string, baseImageVersion string) {
+func ValidateIsoContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string, baseImageInfo testBaseImageInfo) {
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
@@ -371,10 +371,10 @@ func ValidateIsoContent(t *testing.T, config *imagecustomizerapi.Config, testTem
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSContent(t, imagecustomizerapi.ImageFormatTypeIso, config, testTempDir, isoMountDir, "" /*bootstrappedImage*/, baseImageVersion)
+	ValidateLiveOSContent(t, imagecustomizerapi.ImageFormatTypeIso, config, testTempDir, isoMountDir, "" /*bootstrappedImage*/, baseImageInfo)
 }
 
-func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config, testTempDir, outImageFilePath string, baseImageVersion string) {
+func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config, testTempDir, outImageFilePath string, baseImageInfo testBaseImageInfo) {
 	pxeArtifactsPath := ""
 	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
 		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
@@ -391,10 +391,10 @@ func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageForma
 		bootstrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
 	}
 
-	ValidateLiveOSContent(t, outputFormat, config, testTempDir, pxeArtifactsPath, bootstrappedImage, baseImageVersion)
+	ValidateLiveOSContent(t, outputFormat, config, testTempDir, pxeArtifactsPath, bootstrappedImage, baseImageInfo)
 }
 
-func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string, baseImageVersion string) {
+func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string, baseImageInfo testBaseImageInfo) {
 	var err error
 
 	pxeImageFileUrl := ""
@@ -413,7 +413,7 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 		return
 	}
 
-	pxeKernelEntryContent, pxeKernelEntryKeyword := readLiveOSKernelEntryContent(t, isoMountDir, baseImageVersion)
+	pxeKernelEntryContent, pxeKernelEntryKeyword := readLiveOSKernelEntryContent(t, isoMountDir, baseImageInfo)
 
 	pxeKernelIpArg := pxeKernelEntryKeyword + ".* ip=dhcp "
 
@@ -427,8 +427,8 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 
 // readLiveOSKernelEntryContent returns the text that carries the LiveOS kernel command line under artifactsPath, along
 // with the grub keyword that introduces it.
-func readLiveOSKernelEntryContent(t *testing.T, artifactsPath string, baseImageVersion string) (string, string) {
-	if baseImageVersion == baseImageVersionAzl4 {
+func readLiveOSKernelEntryContent(t *testing.T, artifactsPath string, baseImageInfo testBaseImageInfo) (string, string) {
+	if baseImageInfo.Version == baseImageVersionAzl4 {
 		blsEntriesDir := filepath.Join(artifactsPath, "boot/loader/entries")
 		blsEntries, err := os.ReadDir(blsEntriesDir)
 		assert.NoError(t, err, "read BLS entries directory")
@@ -497,7 +497,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 		return
 	}
 
-	ValidateIsoContent(t, configA0, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configA0, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 
 	// Case A1:
 	//       Input: iso with kdumpBootFiles=keep
@@ -615,7 +615,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 		return
 	}
 
-	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 
 	// Case C:
 	//       Input: base vhdx
@@ -637,7 +637,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 		return
 	}
 
-	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 }
 
 func TestCustomizeImageLiveOSMultiKernel(t *testing.T) {
@@ -728,7 +728,7 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 		return
 	}
 
-	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo)
 
 	// ISO  {bootstrap} to ISO {bootstrap}, with no OS changes
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap,
@@ -741,7 +741,7 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 		return
 	}
 
-	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo)
 
 	// - ISO {bootstrap} to ISO {full-os}, with selinux disabled
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
@@ -754,7 +754,7 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 		return
 	}
 
-	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 }
 
 // Tests:
@@ -783,7 +783,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		return
 	}
 
-	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 
 	// ISO  {full-os} to ISO {full-os}, with selinux disabled
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
@@ -796,7 +796,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		return
 	}
 
-	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath, baseImageInfo)
 
 	// - ISO {full-os} to ISO {bootstrap}, with selinux enforcing
 
@@ -816,7 +816,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		return
 	}
 
-	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo.Version)
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath, baseImageInfo)
 }
 
 // Tests:
@@ -870,7 +870,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 		return
 	}
 
-	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath, baseImageInfo.Version)
+	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath, baseImageInfo)
 }
 
 // Tests:
@@ -898,7 +898,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 		return
 	}
 
-	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath, baseImageInfo.Version)
+	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath, baseImageInfo)
 }
 
 func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
