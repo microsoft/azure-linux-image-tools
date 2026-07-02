@@ -1,0 +1,77 @@
+previewFeatures:
+- uki
+- output-artifacts
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 500M
+
+    - id: boot
+      size: 1G
+
+    - id: root
+      size: 2G
+
+    - id: roothash
+      size: 17M
+
+    - id: var
+      size: 2G
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
+    corruptionOption: restart
+    hashSignaturePath: /boot/root.hash
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - bootloader
+    - verity-hash
+    path: ./out/artifacts-output-verity/artifacts
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    mode: create
+
+  services:
+    enable:
+    - sshd

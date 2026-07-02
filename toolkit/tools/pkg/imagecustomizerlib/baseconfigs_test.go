@@ -300,18 +300,18 @@ func hierarchicalConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 	}
 }
 
-func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
+func TestBaseConfigsStorageMoreThanOne(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsStorageInBaseConfig")
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsStorageMoreThanOne")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	currentConfigFile := filepath.Join(testDir, "storage-in-base-config.yaml")
+	currentConfigFile := filepath.Join(testDir, "storage-more-than-one.yaml")
 
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage,
 		outImageFilePath, "raw", baseImageInfo.PreviewFeatures)
-	assert.ErrorIs(t, err, ErrStorageInBaseConfig)
+	assert.ErrorIs(t, err, ErrStorageMoreThanOne)
 }

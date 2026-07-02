@@ -252,23 +252,7 @@ func verifyCreateMinimalOs(t *testing.T, buildDir string, outputImageFilePath st
 	distroHandler, err := NewDistroHandler(imageInfo.TargetOs())
 	assert.NoError(t, err)
 
-	expectedVirtualSize := int64(0)
-	switch imageInfo.Distro {
-	case "azurelinux":
-		switch imageInfo.Version {
-		case "3.0":
-			expectedVirtualSize = int64(1 * diskutils.GiB)
-
-		case "4.0":
-			expectedVirtualSize = int64(3 * diskutils.GiB)
-
-		default:
-			t.Fatalf("Unsupported AZL version for test (%s)", imageInfo.Version)
-		}
-
-	default:
-		t.Fatalf("Unsupported distro for test (%s)", imageInfo.Distro)
-	}
+	expectedVirtualSize := int64(3 * diskutils.GiB)
 
 	fileType, err := testutils.GetImageFileType(outputImageFilePath)
 	assert.NoError(t, err)

@@ -1,64 +1,15 @@
 # Differs from artifacts-output-azl3 in its use of systemd-boot-unsigned (not systemd-boot) and grub2-efi-x64 (not grub2-efi-binary)
-storage:
-  disks:
-  - partitionTableType: gpt
-    partitions:
-    - id: esp
-      type: esp
-      size: 100M
-
-    - id: boot
-      size: 1G
-
-    - id: rootfs
-      size: 2G
-
-  bootType: efi
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      path: /boot/efi
-      options: umask=0077
-
-  - deviceId: boot
-    type: ext4
-    mountPoint:
-      path: /boot
-
-  - deviceId: rootfs
-    type: ext4
-    mountPoint:
-      path: /
-
 previewFeatures:
-- uki
-- output-artifacts
+- base-configs
 
-output:
-  artifacts:
-    items: 
-    - ukis
-    - shim
-    - bootloader
-    path: ./output
+baseConfigs:
+- path: artifacts-output-base.yaml
 
 os:
-  bootloader:
-    resetType: hard-reset
-
-  uki:
-    mode: create
-
   packages:
     install:
     - systemd-boot-unsigned
     - openssh-server
-
-  services:
-    enable:
-    - sshd
 
 scripts:
   postCustomization:
