@@ -707,6 +707,28 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", inputArtifactsStore.files.grubEfiPath, targetGrubPath, err)
 		}
 
+		// The EFI/BOOT copy above keeps the reconstructed image bootable via the removable-media path. Some distros
+		// place the package-owned grub EFI binary under a vendor directory instead
+		// (e.g. EFI/azurelinux on Azure Linux 4.0), and that vendor location is where this distro's LiveOS grub
+		// detection looks. Restore a copy there too so a subsequent LiveOS extraction from this reconstructed image
+		// finds grub where it expects it. On distros that keep grub under EFI/BOOT this resolves to the same file and
+		// is skipped.
+		bootFilesConfig, err := distroHandler.GetBootArchConfig()
+		if err != nil {
+			return err
+		}
+		vendorGrubPath := filepath.Join(imageChroot.RootDir(), bootFilesConfig.osEspGrubBinaryPath)
+		if vendorGrubPath != targetGrubPath {
+			err = os.MkdirAll(filepath.Dir(vendorGrubPath), os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create destination efi directory (%s):\n%w", filepath.Dir(vendorGrubPath), err)
+			}
+			err = file.Copy(inputArtifactsStore.files.grubEfiPath, vendorGrubPath)
+			if err != nil {
+				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", inputArtifactsStore.files.grubEfiPath, vendorGrubPath, err)
+			}
+		}
+
 		return err
 	}
 
