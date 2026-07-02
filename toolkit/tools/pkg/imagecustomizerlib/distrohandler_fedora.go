@@ -39,13 +39,22 @@ const (
 
 	grubToolsPackageFedora     = "grub2-tools"
 	grubPcModulesPackageFedora = "grub2-pc-modules"
+
+	osEspGrubDirFedora = osEspDir + "/EFI/fedora"
 )
 
-// bootloaderFilesConfigFedora is the boot-files map for Fedora-style ESPs (Azure Linux 4 and Fedora).
-//
-// Fedora-style distros do not ship a grub-noprefix binary, so grubNoPrefixBinary and
-// osEspGrubNoPrefixBinaryPath are left empty.
 var (
+	// bootloaderFilesConfigFedora is the boot-files map for Fedora.
+	//
+	// It matches the Azure Linux 3.0 config (bootloaderFilesConfigAzl3) except that
+	//
+	// 1. grubNoPrefixBinary and osEspGrubNoPrefixBinaryPath are left empty. This is because Fedora does not ship a
+	// grub-noprefix binary.
+	//
+	// 2. osEspGrubBinaryPath is configured under Fedora's grub EFI vendor directory. The grub package installs its
+	// (package-owned) grub EFI binary here, while the /EFI/BOOT copy is an unowned removable-media fallback duplicate.
+	// LiveOS grub detection keys off the vendor copy so that a removed grub package is correctly reported as a missing
+	// grub binary.
 	bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
 		"amd64": {
 			bootBinary:                  bootx64BinaryFedora,
@@ -54,7 +63,7 @@ var (
 			espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
 			espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
-			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+			osEspGrubBinaryPath:         osEspGrubDirFedora + "/" + grubx64Binary,
 			osEspGrubNoPrefixBinaryPath: "",
 			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64BinaryFedora,
 			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
@@ -70,7 +79,7 @@ var (
 			espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
 			espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
-			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+			osEspGrubBinaryPath:         osEspGrubDirFedora + "/" + grubAA64Binary,
 			osEspGrubNoPrefixBinaryPath: "",
 			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64BinaryFedora,
 			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,

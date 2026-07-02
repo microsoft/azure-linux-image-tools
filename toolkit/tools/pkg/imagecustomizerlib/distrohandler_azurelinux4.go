@@ -32,9 +32,50 @@ type azureLinux4DistroHandler struct {
 
 const (
 	systemdBootUnsignedPackageAzl4 = "systemd-boot-unsigned"
+
+	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
+
+// bootloaderFilesConfigAzl4 is the boot-files map for Azure Linux 4.0.
+//
+// It matches the Fedora config (bootloaderFilesConfigFedora) except that osEspGrubBinaryPath is configured under
+// Azure Linux 4.0's grub EFI vendor directory instead.
+var bootloaderFilesConfigAzl4 = map[string]BootFilesArchConfig{
+	"amd64": {
+		bootBinary:                  bootx64BinaryFedora,
+		grubBinary:                  grubx64Binary,
+		grubNoPrefixBinary:          "",
+		espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
+		osEspGrubBinaryPath:         osEspGrubDirAzl4 + "/" + grubx64Binary,
+		osEspGrubNoPrefixBinaryPath: "",
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+		ukiEfiStubBinary:            ukiEfiStubx64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
+		ukiAddonStubBinary:          ukiAddonStubx64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+	},
+	"arm64": {
+		bootBinary:                  bootAA64BinaryFedora,
+		grubBinary:                  grubAA64Binary,
+		grubNoPrefixBinary:          "",
+		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
+		osEspGrubBinaryPath:         osEspGrubDirAzl4 + "/" + grubAA64Binary,
+		osEspGrubNoPrefixBinaryPath: "",
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
+		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+	},
+}
 
 func newAzureLinux4DistroHandler(targetOs targetos.TargetOs) *azureLinux4DistroHandler {
 	logger.Log.Debugf("Distro handler: Azure Linux 4+ (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
@@ -312,5 +353,5 @@ func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {
 }
 
 func (d *azureLinux4DistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
-	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
+	return bootArchConfigFromMap(bootloaderFilesConfigAzl4)
 }
