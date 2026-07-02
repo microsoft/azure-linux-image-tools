@@ -204,6 +204,13 @@ Can be one of:
   itself. If the tools chroot is being used (e.g. when using the [create](create.md)
   subcommand), then this path is within the tools chroot instead of the OS chroot.
 
+  If you use a repo file pointing to local directory containing RPM files, then you must
+  call `createrepo_c` (or `createrepo`) on the directory before using it as a repo:
+
+  ```bash
+  createrepo_c --compatibility --update <rpms-directory>
+  ```
+
   GPG signature checking is enabled by default.
   If you wish to disable GPG checking, then set both `gpgcheck` and `repo_gpgcheck` to
   `0` in the repo file.
@@ -216,9 +223,8 @@ Can be one of:
 
 This option can be specified multiple times.
 
-RPM sources are specified in the order or priority from lowest to highest.
-If `--disable-base-image-rpm-repos` is not specified, then the in-built RPM repos are
-given the lowest priority.
+If you need to prioritize one repo over another, then use a `*.repo` file and specify
+the `priority` field.
 
 See, [Building custom packages](../../reference/building-packages.md) for a guide on how to
 build your own packages for Azure Linux.

@@ -84,9 +84,6 @@ func (m *rpmSourcesMounts) mountRpmSourcesHelper(buildDir string, imageChroot *s
 
 	m.rpmsMountParentDirCreated = true
 
-	// Unfortunatley, tdnf doesn't support the repository priority field.
-	// So, to ensure repos are used in the correct order, create a single config file containing all the repos, specified
-	// in the order of highest priority to lowest priority.
 	allReposConfig := ini.Empty()
 
 	// Include base image's RPM sources.
