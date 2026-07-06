@@ -602,7 +602,7 @@ func padToMegabyte(imageFile string) error {
 	return nil
 }
 
-// detectcosiapi.BootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
+// detectBootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
 // candidate package. The name of the detected package is also returned. toolsChroot has the same semantics as in
 // DistroHandler.IsPackageInstalled.
 func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,

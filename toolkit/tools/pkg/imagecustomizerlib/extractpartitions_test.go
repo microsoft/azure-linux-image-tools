@@ -229,7 +229,7 @@ func TestAddSkippableFrame(t *testing.T) {
 	partitionFilepath, err := addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, testDir)
 	assert.NoError(t, err)
 
-	// Verify decosiapi.Compression with skippable frame
+	// Verify decompression with skippable frame
 	err = verifySkippableFrameDecompression(partitionRawFilepath, partitionFilepath)
 	assert.NoError(t, err)
 
