@@ -5,7 +5,6 @@ import logging
 import platform
 import random
 import string
-import tarfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -80,11 +79,6 @@ def run_pxe_test(
         image_file=input_image,
     )
 
-    pxe_artifacts_dir = test_temp_dir.joinpath("pxe-artifacts")
-    pxe_artifacts_dir.mkdir()
-    with tarfile.open(pxe_tar_path, "r:gz") as tar:
-        tar.extractall(pxe_artifacts_dir)
-
     customized_name = (
         "pxe_"
         + initramfs_type.replace("-", "_")
@@ -106,7 +100,7 @@ def run_pxe_test(
         libvirt_conn,
         network_name,
         bridge_name,
-        pxe_artifacts_dir,
+        pxe_tar_path,
         boot_loader_file,
         http_log_file_path,
     )

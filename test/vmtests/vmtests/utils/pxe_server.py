@@ -2,12 +2,17 @@
 # Licensed under the MIT License.
 
 import logging
+import multiprocessing
 import os
-import subprocess
+import shutil
 import sys
+import tarfile
+import tempfile
 import xml.etree.ElementTree as ET  # noqa: N817
+from functools import partial
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import IO, Optional
+from typing import Optional
 
 import libvirt  # type: ignore
 
@@ -62,17 +67,13 @@ def _make_world_readable(root: Path) -> None:
             os.chmod(os.path.join(dir_path, file_name), 0o644)
 
 
-def _make_ancestors_traversable(leaf: Path) -> None:
-    # Add the world-execute bit (traverse only, not read/list) to each ancestor that lacks it, all the way up to the
-    # filesystem root, so the artifacts stay reachable without widening read access to any directory's contents.
-    current = leaf.parent
-    while True:
-        mode = current.stat().st_mode
-        if not mode & 0o001:
-            os.chmod(current, mode | 0o001)
-        if current == current.parent:
-            break
-        current = current.parent
+def _serve_http(directory: Path, bind_ip: str, port: int, log_file_path: Path) -> None:
+    with open(log_file_path, "w", encoding="utf-8", buffering=1) as log_file:
+        sys.stdout = log_file
+        sys.stderr = log_file
+        handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
+        with HTTPServer((bind_ip, port), handler) as httpd:
+            httpd.serve_forever()
 
 
 # Stands up the network-boot environment a PXE VM test needs:
@@ -89,49 +90,46 @@ class PxeEnvironment:
         libvirt_conn: libvirt.virConnect,
         network_name: str,
         bridge_name: str,
-        artifacts_dir: Path,
+        pxe_tar_path: Path,
         boot_loader_file: str,
         http_log_file_path: Path,
     ):
         self.network_name: str = network_name
 
         self._network: Optional[libvirt.virNetwork] = None
-        self._http_process: Optional[subprocess.Popen[bytes]] = None
-        self._http_log: Optional[IO[str]] = None
-
-        # pytest runs as root (via sudo) and creates the intermediate temp directories with mkdtemp (mode 0700). The
-        # workspace root itself may be group-private (e.g. 0750). Since dnsmasq (TFTP) and qemu run as their own users,
-        # ensure the artifacts are readable by others and can traverse into the artifacts directory.
-        _make_world_readable(artifacts_dir)
-        _make_ancestors_traversable(artifacts_dir)
-
-        network_xml = _build_pxe_network_xml(network_name, bridge_name, str(artifacts_dir), boot_loader_file)
-        logging.debug(f"Creating PXE libvirt network:\n{network_xml}")
+        self._http_process: Optional[multiprocessing.Process] = None
+        self._artifacts_dir: Optional[Path] = None
 
         try:
+            # Extract the artifacts under /var/tmp. dnsmasq (TFTP) and qemu run as their own unprivileged users, so
+            # every directory from the filesystem root down to the artifacts must be traversable by others. /var/tmp is
+            # world-traversable (1777) and on disk, unlike the tmpfs-backed /tmp (the artifacts include the full-OS
+            # image, which is too large for RAM).
+            artifacts_dir = Path(tempfile.mkdtemp(prefix="pxe-artifacts-", dir="/var/tmp"))
+            self._artifacts_dir = artifacts_dir
+            with tarfile.open(pxe_tar_path, "r:gz") as tar:
+                tar.extractall(artifacts_dir)
+
+            # mkdtemp created the directory 0700 and the tarball preserves its own modes, so widen the extracted tree
+            # to be readable and traversable by others.
+            _make_world_readable(artifacts_dir)
+
+            network_xml = _build_pxe_network_xml(network_name, bridge_name, str(artifacts_dir), boot_loader_file)
+            logging.debug(f"Creating PXE libvirt network:\n{network_xml}")
             self._network = libvirt_conn.networkCreateXML(network_xml)
 
             logging.debug(f"Starting PXE HTTP server on port {PXE_HTTP_PORT} serving ({artifacts_dir})")
-            self._http_log = open(http_log_file_path, "w", encoding="utf-8")
-            self._http_process = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "http.server",
-                    str(PXE_HTTP_PORT),
-                    "--directory",
-                    str(artifacts_dir),
-                    # Bind only to the PXE NAT network's gateway IP, never 0.0.0.0. The artifacts are served
-                    # unauthenticated over plain HTTP and are world-readable, so the listener must not be reachable from
-                    # the build host's physical LAN. Binding to the gateway IP keeps it on the libvirt bridge interface
-                    # only, so the guest VM under test can still reach it while other physical machines on the LAN
-                    # cannot. The bridge interface already holds this IP because the libvirt network was created above.
-                    "--bind",
-                    PXE_NETWORK_GATEWAY_IP,
-                ],
-                stdout=self._http_log,
-                stderr=subprocess.STDOUT,
+            # Bind only to the PXE NAT network's gateway IP, never 0.0.0.0. The artifacts are served
+            # unauthenticated over plain HTTP and are world-readable, so the listener must not be reachable from
+            # the build host's physical LAN. Binding to the gateway IP keeps it on the libvirt bridge interface
+            # only, so the guest VM under test can still reach it while other physical machines on the LAN
+            # cannot. The bridge interface already holds this IP because the libvirt network was created above.
+            self._http_process = multiprocessing.Process(
+                target=_serve_http,
+                args=(artifacts_dir, PXE_NETWORK_GATEWAY_IP, PXE_HTTP_PORT, http_log_file_path),
+                daemon=True,
             )
+            self._http_process.start()
         except BaseException:
             self.close()
             raise
@@ -140,16 +138,12 @@ class PxeEnvironment:
         if self._http_process is not None:
             logging.debug("Stopping PXE HTTP server")
             self._http_process.terminate()
-            try:
-                self._http_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
+            self._http_process.join(timeout=10)
+            if self._http_process.is_alive():
                 self._http_process.kill()
+                self._http_process.join()
 
             self._http_process = None
-
-        if self._http_log is not None:
-            self._http_log.close()
-            self._http_log = None
 
         if self._network is not None:
             logging.debug(f"Destroying PXE libvirt network: {self.network_name}")
@@ -159,3 +153,8 @@ class PxeEnvironment:
                 logging.warning(f"PXE network destroy failed. {ex}")
 
             self._network = None
+
+        if self._artifacts_dir is not None:
+            logging.debug(f"Removing PXE artifacts directory: {self._artifacts_dir}")
+            shutil.rmtree(self._artifacts_dir, ignore_errors=True)
+            self._artifacts_dir = None
