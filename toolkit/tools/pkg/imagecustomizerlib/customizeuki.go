@@ -49,6 +49,12 @@ const (
 	UkiKernelInfoJson = "uki-kernel-info.json"
 	UkiBuildDir       = "UkiBuildDir"
 	UkiOutputDir      = "EFI/Linux"
+	// UkiExtractedKernelsDir is the build-directory subdirectory where kernel
+	// and initramfs images extracted from existing UKIs are staged. Staging
+	// them here (instead of on the image's /boot directory, which on some
+	// distros IS a space-constrained ESP) avoids exhausting the partition
+	// during re-customization.
+	UkiExtractedKernelsDir = "uki-extracted-kernels"
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
@@ -269,7 +275,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
 		}
 
-		err = copyUkiFiles(buildDir, nil, imageChroot, bootConfig, uki)
+		err = copyUkiFiles(buildDir, nil, imageChroot, bootConfig, uki, filepath.Join(imageChroot.RootDir(), BootDir))
 		if err != nil {
 			return err
 		}
@@ -302,13 +308,27 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
-	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir)
+
+	// When the base image already contained UKIs, the kernel and initramfs were
+	// extracted from those UKIs and staged in the build directory (see
+	// extractKernelAndInitramfsFromUkis) rather than written onto the ESP. Use
+	// that staging directory as the kernel source when it is present; otherwise
+	// fall back to /boot where the kernel/initramfs naturally live.
+	kernelSourceDir := bootDir
+	extractedKernelsDir := filepath.Join(buildDir, UkiExtractedKernelsDir)
+	if exists, err := file.DirExists(extractedKernelsDir); err != nil {
+		return fmt.Errorf("failed to check UKI extraction staging directory (%s):\n%w", extractedKernelsDir, err)
+	} else if exists {
+		kernelSourceDir = extractedKernelsDir
+	}
+
+	kernelToInitramfs, err := getKernelToInitramfsMap(kernelSourceDir)
 	if err != nil {
-		return fmt.Errorf("%w (bootDir='%s'):\n%w", ErrUKIKernelInitramfsMap, bootDir, err)
+		return fmt.Errorf("%w (kernelSourceDir='%s'):\n%w", ErrUKIKernelInitramfsMap, kernelSourceDir, err)
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
-	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig, uki)
+	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig, uki, kernelSourceDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
@@ -409,7 +429,7 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 }
 
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
-	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
+	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki, kernelSourceDir string,
 ) error {
 	// Resolve the EFI stub path
 	efiStubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath)
@@ -440,11 +460,20 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 		filesToCopy[osReleaseSrc] = filepath.Join(buildDir, UkiBuildDir, "os-release")
 
 		for kernel, initramfs := range kernelToInitramfs {
-			kernelSource := filepath.Join(imageChroot.RootDir(), BootDir, kernel)
+			kernelSource := filepath.Join(kernelSourceDir, kernel)
 			kernelDest := filepath.Join(buildDir, UkiBuildDir, kernel)
 			filesToCopy[kernelSource] = kernelDest
 
+			// Prefer an initramfs regenerated on the ESP (e.g. after verity,
+			// overlay, or partition changes) over the one staged from the
+			// original UKI. When no regeneration occurred, /boot has no such
+			// file and we fall back to the kernel source directory.
 			initramfsSource := filepath.Join(imageChroot.RootDir(), BootDir, initramfs)
+			if exists, err := file.PathExists(initramfsSource); err != nil {
+				return fmt.Errorf("failed to check initramfs (%s):\n%w", initramfsSource, err)
+			} else if !exists {
+				initramfsSource = filepath.Join(kernelSourceDir, initramfs)
+			}
 			initramfsDest := filepath.Join(buildDir, UkiBuildDir, initramfs)
 			filesToCopy[initramfsSource] = initramfsDest
 		}
@@ -1140,7 +1169,17 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		return nil
 	}
 
-	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
+	// Stage the extracted kernel and initramfs in the build directory instead
+	// of writing them onto the image's /boot directory. On some distros (e.g.
+	// ACL) /boot IS the ESP, which may be sized with little free space; writing
+	// a full kernel + initramfs there in addition to the existing UKIs can
+	// exhaust the partition. The staged files are consumed later by prepareUki
+	// when the UKIs are rebuilt.
+	extractedDir := filepath.Join(buildDir, UkiExtractedKernelsDir)
+	err = os.MkdirAll(extractedDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create UKI extraction staging directory:\n%w", err)
+	}
 
 	tempDir := filepath.Join(buildDir, "uki-extraction-temp")
 	err = os.MkdirAll(tempDir, 0o755)
@@ -1161,7 +1200,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		}
 
 		// Extract kernel from main UKI file
-		kernelPath := filepath.Join(bootDir, kernelName)
+		kernelPath := filepath.Join(extractedDir, kernelName)
 		logger.Log.Infof("Extracting kernel from main UKI (%s) to (%s)", ukiFile, kernelPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
 		if err != nil {
@@ -1169,7 +1208,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		}
 
 		initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
-		initramfsPath := filepath.Join(bootDir, initramfsName)
+		initramfsPath := filepath.Join(extractedDir, initramfsName)
 
 		logger.Log.Infof("Extracting initramfs from main UKI (%s) to (%s)", ukiFile, initramfsPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
