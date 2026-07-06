@@ -1,0 +1,6 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: artifacts-output-verity-azl3.yaml
+- path: toolsdir-azl3.yaml

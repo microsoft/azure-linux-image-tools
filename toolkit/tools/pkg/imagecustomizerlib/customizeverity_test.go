@@ -40,7 +40,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-config.yaml")
+	configFile := getRootVerityConfigFile(t, baseImageInfo, false /*useToolsDir*/)
 
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
@@ -59,6 +59,36 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	}
 
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath)
+}
+
+func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
+	toolsDirSuffix := ""
+	if useToolsDir {
+		toolsDirSuffix = "-toolsdir"
+	}
+
+	switch baseImageInfo.Distro {
+	case "azurelinux":
+		switch baseImageInfo.Version {
+		case "3.0", "2.0":
+			return filepath.Join(testDir, fmt.Sprintf("verity-root-azl3%s.yaml", toolsDirSuffix))
+
+		case "4.0":
+			return filepath.Join(testDir, fmt.Sprintf("verity-root-azl4%s.yaml", toolsDirSuffix))
+
+		default:
+			t.Fatalf("Unsupported AZL version (%s)", baseImageInfo.Version)
+			return ""
+		}
+
+	case "ubuntu":
+		// Future: Once Ubuntu has bootloader hard-reset support, switch this to an Ubuntu specific config file.
+		return filepath.Join(testDir, "verity-root-base.yaml")
+
+	default:
+		t.Fatalf("Unsupported distro (%s)", baseImageInfo.Distro)
+		return ""
+	}
 }
 
 func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
@@ -116,20 +146,32 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageVerityCosiExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageVerityCosiExtractHelper(t, baseImageInfo, false /*useToolsDir*/)
+		})
+
+		t.Run(baseImageInfo.Name+"ToolsDir", func(t *testing.T) {
+			testCustomizeImageVerityCosiExtractHelper(t, baseImageInfo, true /*useToolsDir*/)
 		})
 	}
 }
 
-func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageVerityCosiExtractHelper(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	toolsDir := ""
+	if useToolsDir {
+		toolsDir = testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version)
+	}
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageVerityCosiShrinkExtract"+baseImageInfo.Name)
+	if useToolsDir {
+		testTempDir += "ToolsDir"
+	}
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
-	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
+	configFile := filepath.Join(testDir, rootVerityPartLabelsConfigFile(t, baseImageInfo, useToolsDir))
 
 	espPartitionNum := 1
 	bootPartitionNum := 2
@@ -138,9 +180,16 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "cosi",
-		baseImageInfo.PreviewFeatures)
-
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "cosi",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -268,6 +317,25 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	// Verify that verity is configured correctly.
 	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
 		"PARTLABEL=roothash", "root", "rd.info", baseImageInfo, "panic-on-corruption", false /*inlineVerity*/)
+}
+
+func rootVerityPartLabelsConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
+	toolsDirSuffix := ""
+	if useToolsDir {
+		toolsDirSuffix = "-toolsdir"
+	}
+
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return fmt.Sprintf("verity-root-part-labels-azl3%s.yaml", toolsDirSuffix)
+
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-root-part-labels-azl4%s.yaml", toolsDirSuffix)
+
+	default:
+		t.Fatalf("unsupported base image version for test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevice string, dataId string, hashId string,
@@ -549,7 +617,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
-	stage1ConfigFile := filepath.Join(testDir, "verity-config.yaml")
+	stage1ConfigFile := getRootVerityConfigFile(t, baseImageInfo, false /*useToolsDir*/)
 	stage2aConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
 	stage2bConfigFile := filepath.Join(testDir, "verity-reinit-bootloader-reset.yaml")
 	stage1FilePath := filepath.Join(testTempDir, "image1.raw")

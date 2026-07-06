@@ -57,8 +57,9 @@ type DistroHandler interface {
 	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
 	GetPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 
-	// Get all installed packages from the chroot
-	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error)
+	// Get all installed packages from the chroot.
+	// toolsChroot has the same semantics as in IsPackageInstalled.
+	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

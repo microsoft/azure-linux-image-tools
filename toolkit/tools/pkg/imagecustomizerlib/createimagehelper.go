@@ -20,11 +20,11 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChroot, err := initToolsChroot(ctx, toolsDir)
+	toolsChrootOuter, err := initToolsChroot(ctx, toolsDir)
 	if err != nil {
 		return nil, "", err
 	}
-	defer toolsChroot.Close()
+	defer toolsChrootOuter.Close()
 
 	imageMountPoint := filepath.Join(toolsDir, toolsRootImageDir)
 
@@ -36,7 +36,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot.Chroot(), partitionsLayout, distroHandler)
+	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChrootOuter.Chroot(), partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -56,7 +56,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", err
 	}
 
-	err = toolsChroot.CleanClose()
+	err = toolsChrootOuter.CleanClose()
 	if err != nil {
 		return nil, "", err
 	}

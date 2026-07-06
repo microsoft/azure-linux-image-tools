@@ -1,0 +1,9 @@
+previewFeatures:
+- tools-dir
+
+os:
+  packages:
+    remove:
+      # Remove tdnf and rpm command to ensure the tools directory is used instead.
+    - tdnf
+    - rpm

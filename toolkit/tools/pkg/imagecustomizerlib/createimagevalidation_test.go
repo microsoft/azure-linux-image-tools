@@ -231,7 +231,7 @@ func testValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T, name str
 }
 
 func TestValidateCreateImageConfig_InvalidFieldsVerityConfig(t *testing.T) {
-	configFile := filepath.Join(testDir, "verity-config.yaml")
+	configFile := filepath.Join(testDir, "verity-root-base.yaml")
 
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)

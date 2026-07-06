@@ -24,6 +24,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
@@ -58,7 +59,7 @@ var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtifactsItemType,
 	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
-	previewFeatures []imagecustomizerapi.PreviewFeature, distroHandler DistroHandler,
+	distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -281,7 +282,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		}
 	}
 
-	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir, previewFeatures)
+	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
 	if err != nil {
 		return fmt.Errorf("%w (outputDir='%s'):\n%w", ErrArtifactInjectFilesYamlWrite, outputDir, err)
 	}
@@ -299,9 +300,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	return nil
 }
 
-func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
-) error {
+func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
 	injectPreviewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureInjectFiles}
 
 	yamlStruct := imagecustomizerapi.InjectFilesConfig{
@@ -371,6 +370,22 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 		return err
 	}
 
+	var toolsChrootOuter *ToolsChroot
+	var toolsChroot *safechroot.Chroot
+	if options.ToolsDir != "" {
+		if err := validateToolsDir(options.ToolsDir); err != nil {
+			return err
+		}
+
+		toolsChrootOuter, err = initToolsChroot(ctx, options.ToolsDir)
+		if err != nil {
+			return err
+		}
+		defer toolsChrootOuter.Close()
+
+		toolsChroot = toolsChrootOuter.Chroot()
+	}
+
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
 	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
@@ -393,9 +408,16 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	}
 
 	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
-		options.CosiCompressionLevel)
+		options.CosiCompressionLevel, toolsChroot)
 	if err != nil {
 		return err
+	}
+
+	if toolsChrootOuter != nil {
+		err = toolsChrootOuter.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
 	logger.Log.Infof("Success!")
@@ -462,10 +484,14 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 }
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
+	toolsChroot *safechroot.Chroot,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]cosiapi.OsPackage, [randomization.UuidSize]byte, string, *cosiapi.Bootloader, []string, error,
 ) {
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
+	if toolsChroot != nil {
+		imageMountPoint = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
+	}
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, distroHandler, err :=
 		connectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, true, true, nil)
@@ -480,7 +506,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, nil)
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, toolsChroot)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}

@@ -383,10 +383,6 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]cosiapi.OsPackage, error) {
-	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
-}
-
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (*cosiapi.Bootloader, error) {
