@@ -97,11 +97,11 @@ Can be one of:
   environment and the URL will be replaced with the chroot equivalent URL. A
   `file+rel://` URL is handled similarly but the host path is relative to the repo
   file's parent directory. A `file+chroot://` URL refers to a file within the chroot
-  itself. If the tools chroot is being used (e.g. when using the [create](create.md)
-  subcommand), then this path is within the tools chroot instead of the OS chroot.
+  itself. If the tools chroot is being used, then this path is within the tools chroot
+  instead of the OS chroot.
 
-  If you use a repo file pointing to local directory containing RPM files, then you must
-  call `createrepo_c` (or `createrepo`) on the directory before using it as a repo:
+  If you use a repo file pointing to a local directory containing RPM files, then you
+  must call `createrepo_c` (or `createrepo`) on the directory before using it as a repo:
 
   ```bash
   createrepo_c --compatibility --update <rpms-directory>
