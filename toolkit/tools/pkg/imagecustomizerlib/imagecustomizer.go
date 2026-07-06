@@ -43,7 +43,6 @@ var (
 	ErrPreviewDistroVersionFeatureRequired = NewImageCustomizerError("Validation:PreviewDistroVersionFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize a preview distro or distro version base image", imagecustomizerapi.PreviewFeatureDistroVersion))
 	ErrInputImageOciPreviewRequired        = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrToolsDirPreviewRequired             = NewImageCustomizerError("Validation:ToolsDirPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify tools directory", imagecustomizerapi.PreviewFeatureToolsDir))
-	ErrInjectFilesPreviewRequired          = NewImageCustomizerError("Validation:InjectFilesPreviewRequired", fmt.Sprintf("preview feature '%s' required to use inject-files command", imagecustomizerapi.PreviewFeatureInjectFiles))
 	ErrConvertUnsupportedInputFormat       = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
 	ErrConvertBuildDirRequired             = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")
 
@@ -235,7 +234,7 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 	// COSI metadata collection, and ISO/PXE conversion phases.
 	var toolsChrootOuter *ToolsChroot
 	var toolsChroot *safechroot.Chroot
-	if options.ToolsDir != "" {
+	if rc.Options.ToolsDir != "" {
 		if err := validateToolsDir(rc.Options.ToolsDir); err != nil {
 			return err
 		}
