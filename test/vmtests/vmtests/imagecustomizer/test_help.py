@@ -16,6 +16,7 @@ def test_container_help(
         image_customizer_container_url,
         ["--help"],
         detach=True,
+        privileged=False,
     )
 
 
@@ -29,4 +30,5 @@ def test_container_version(
         image_customizer_container_url,
         ["--version"],
         detach=True,
+        privileged=False,
     )

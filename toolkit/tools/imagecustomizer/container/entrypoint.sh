@@ -18,7 +18,7 @@ for arg in "$@"; do
 done
 
 # Start telemetry service if enabled and connection string is set
-if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRING" ]]; then
+if [[ "$HELP" == "false" ]] && [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRING" ]]; then
 
     export OTEL_PORT=4317
     export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
