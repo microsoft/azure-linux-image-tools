@@ -94,13 +94,24 @@ Can be one of:
 
   If the repo file's `baseurl` or `gpgkey` fields contain a `file://` URL, then the
   host's directories pointed to by the URL will be bind mounted into the chroot
-  environment and the URL will be replaced with the chroot equivalent URL.
+  environment and the URL will be replaced with the chroot equivalent URL. A
+  `file+rel://` URL is handled similarly but the host path is relative to the repo
+  file's parent directory. A `file+chroot://` URL refers to a file within the chroot
+  itself. If the tools chroot is being used, then this path is within the tools chroot
+  instead of the OS chroot.
+
+  If you use a repo file pointing to a local directory containing RPM files, then you
+  must call `createrepo_c` (or `createrepo`) on the directory before using it as a repo:
+
+  ```bash
+  createrepo_c --compatibility --update <rpms-directory>
+  ```
 
   GPG signature checking is enabled by default.
   If you wish to disable GPG checking, then set both `gpgcheck` and `repo_gpgcheck` to
   `0` in the repo file.
 
-  The repo file will only be used during image creation and will not be added to
+  The repo file will only be used during image customization and will not be added to
   the image.
   If you want to add the repo file to the image, then use
   [additionalFiles](../configuration/os.md#additionalfiles-additionalfile) to place
@@ -108,7 +119,8 @@ Can be one of:
 
 This option can be specified multiple times.
 
-RPM sources are specified in the order of priority from lowest to highest.
+If you need to prioritize one repo over another, then use a `*.repo` file and specify
+the `priority` field.
 
 See, [Building custom packages](../../reference/building-packages.md) for a guide on how to
 build your own packages for Azure Linux.
