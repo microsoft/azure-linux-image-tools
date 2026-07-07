@@ -136,15 +136,24 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 }
 
 // renderGrubMenuEntriesFromBLS reads the Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf and
-// renders an equivalent grub `menuentry` block for each non-recovery entry, in directory order, mirroring what grub's
-// `blscfg` command generates at boot. It is used where grub cannot run `blscfg` itself: over PXE the boot transport
-// (TFTP) cannot enumerate the entries directory, so the menu must be spelled out ahead of time.
+// renders an equivalent grub `menuentry` block for each non-recovery entry, ordered newest version first, matching the
+// rpm-style sort grub's `blscfg` command applies at boot (see the BLS spec's "Sorting" section). It is used where grub
+// cannot run `blscfg` itself: over PXE the boot transport (TFTP) cannot enumerate the entries directory, so the menu
+// must be spelled out ahead of time.
 func renderGrubMenuEntriesFromBLS(bootDir string) (string, error) {
 	entriesDir := filepath.Join(bootDir, "loader", "entries")
 	entries, err := os.ReadDir(entriesDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
 	}
+
+	// os.ReadDir returns the entry files in lexical order, but grub's `blscfg` presents them newest version first.
+	// Without matching that, booting menu entry 0 over PXE could select a different (older) kernel than a normal
+	// blscfg boot does when multiple kernels are installed. Sort by kernel version (numeric-aware, newest first) the
+	// way blscfg does so the first rendered menuentry is the newest kernel.
+	slices.SortStableFunc(entries, func(a, b os.DirEntry) int {
+		return compareKernelVersions(b.Name(), a.Name())
+	})
 
 	var builder strings.Builder
 	for _, entry := range entries {
@@ -229,6 +238,101 @@ func renderGrubMenuEntriesFromBLS(bootDir string) (string, error) {
 	}
 
 	return builder.String(), nil
+}
+
+// compareKernelVersions orders two kernel version strings the way grub's blscfg orders kernel entries: numeric
+// segments are compared as numbers (so "6.6.10" is newer than "6.6.9") rather than lexically, non-numeric segments
+// lexically, and a longer trailing version is newer. It returns 1 if a is newer than b, -1 if b is newer, and 0 if
+// equal.
+func compareKernelVersions(a, b string) int {
+	if a == b {
+		return 0
+	}
+
+	isDigit := func(c byte) bool {
+		return c >= '0' && c <= '9'
+	}
+	isAlpha := func(c byte) bool {
+		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	}
+	isAlnum := func(c byte) bool {
+		return isDigit(c) || isAlpha(c)
+	}
+
+	i, j := 0, 0
+	for i < len(a) || j < len(b) {
+		// Skip separators (any non-alphanumeric byte, e.g. '.', '-', '_').
+		for i < len(a) && !isAlnum(a[i]) {
+			i++
+		}
+		for j < len(b) && !isAlnum(b[j]) {
+			j++
+		}
+
+		if i >= len(a) || j >= len(b) {
+			break
+		}
+
+		// Grab the next wholly-numeric or wholly-alphabetic segment. The segment type is taken from a; if b's current
+		// segment is of the other type, b has no comparable segment here.
+		aStart, bStart := i, j
+		numeric := isDigit(a[i])
+		if numeric {
+			for i < len(a) && isDigit(a[i]) {
+				i++
+			}
+			for j < len(b) && isDigit(b[j]) {
+				j++
+			}
+		} else {
+			for i < len(a) && isAlpha(a[i]) {
+				i++
+			}
+			for j < len(b) && isAlpha(b[j]) {
+				j++
+			}
+		}
+
+		aSeg := a[aStart:i]
+		bSeg := b[bStart:j]
+
+		if len(bSeg) == 0 {
+			// A numeric segment is newer than a missing/alphabetic one.
+			if numeric {
+				return 1
+			}
+			return -1
+		}
+
+		if numeric {
+			// Leading zeros are insignificant, then the longer run of digits is the larger number.
+			aSeg = strings.TrimLeft(aSeg, "0")
+			bSeg = strings.TrimLeft(bSeg, "0")
+			if len(aSeg) > len(bSeg) {
+				return 1
+			}
+			if len(bSeg) > len(aSeg) {
+				return -1
+			}
+		}
+
+		if c := strings.Compare(aSeg, bSeg); c != 0 {
+			if c < 0 {
+				return -1
+			}
+			return 1
+		}
+	}
+
+	// All comparable segments were equal; whichever string still has characters is newer.
+	switch {
+	case i >= len(a) && j >= len(b):
+		return 0
+	case i >= len(a):
+		return -1
+	default:
+		return 1
+	}
 }
 
 // readNonRecoveryKernelCmdlinesFromBLS reads the first non-recovery kernel's command-line

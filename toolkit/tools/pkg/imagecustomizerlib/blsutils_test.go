@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -731,6 +732,48 @@ func TestFinalizeLiveOSPxeBLSEntriesFullOSNoOp(t *testing.T) {
 	grubCfgStr := string(grubCfg)
 	assert.Regexp(t, `(?m)^menuentry 'Azure Linux \(6\.18\.31-1\.5\.azl4\.x86_64\) 4\.0' \{$`, grubCfgStr)
 	assert.NotRegexp(t, `(?m)^[ \t]*blscfg[ \t]*$`, grubCfgStr)
+}
+
+func TestCompareKernelVersions(t *testing.T) {
+	// The 6.6.10 vs 6.6.9 case is the one a lexical sort gets backwards.
+	assert.Equal(t, 1, compareKernelVersions("6.6.10", "6.6.9"))
+	assert.Equal(t, -1, compareKernelVersions("6.6.9", "6.6.10"))
+	assert.Equal(t, 0, compareKernelVersions("6.6.10", "6.6.10"))
+	assert.Equal(t, 1, compareKernelVersions("6.6.64.1-1.azl4.x86_64", "6.6.57.1-6.azl4.x86_64"))
+	// A longer trailing version (e.g. a stable respin) is newer.
+	assert.Equal(t, 1, compareKernelVersions("6.6.10.1", "6.6.10"))
+}
+
+// TestRenderGrubMenuEntriesFromBLSOrdersNewestVersionFirst verifies the PXE menu lists the newest kernel first (so
+// `set default=0` matches a normal blscfg boot), even when the entry file names sort the other way lexically.
+func TestRenderGrubMenuEntriesFromBLSOrdersNewestVersionFirst(t *testing.T) {
+	bootDir := t.TempDir()
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	err := os.MkdirAll(entriesDir, 0o755)
+	assert.NoError(t, err)
+
+	older := "title Azure Linux (6.6.9.1-1.azl4.x86_64) 4.0\n" +
+		"linux /boot/vmlinuz-6.6.9.1-1.azl4.x86_64\n" +
+		"initrd /boot/initramfs-6.6.9.1-1.azl4.x86_64.img\n" +
+		"options root=UUID=aaaa\n"
+	newer := "title Azure Linux (6.6.10.1-1.azl4.x86_64) 4.0\n" +
+		"linux /boot/vmlinuz-6.6.10.1-1.azl4.x86_64\n" +
+		"initrd /boot/initramfs-6.6.10.1-1.azl4.x86_64.img\n" +
+		"options root=UUID=bbbb\n"
+
+	err = os.WriteFile(filepath.Join(entriesDir, "6.6.9.1-1.azl4.x86_64.conf"), []byte(older), 0o644)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(entriesDir, "6.6.10.1-1.azl4.x86_64.conf"), []byte(newer), 0o644)
+	assert.NoError(t, err)
+
+	got, err := renderGrubMenuEntriesFromBLS(bootDir)
+	assert.NoError(t, err)
+
+	newerIdx := strings.Index(got, "(6.6.10.1-1.azl4.x86_64) 4.0")
+	olderIdx := strings.Index(got, "(6.6.9.1-1.azl4.x86_64) 4.0")
+	assert.NotEqual(t, -1, newerIdx)
+	assert.NotEqual(t, -1, olderIdx)
+	assert.Less(t, newerIdx, olderIdx, "the newest kernel's menuentry must be rendered first")
 }
 
 func TestSetBLSEntryField(t *testing.T) {
