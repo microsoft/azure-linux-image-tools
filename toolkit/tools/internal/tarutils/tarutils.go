@@ -50,7 +50,17 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 			return walkErr
 		}
 
-		header, err := tar.FileInfoHeader(info, info.Name())
+		// For symlinks, capture the link target so it is preserved as a symlink in the archive rather than
+		// dereferenced. os.Open() would otherwise follow the link, and copying a followed directory fails.
+		linkTarget := ""
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err = os.Readlink(file)
+			if err != nil {
+				return err
+			}
+		}
+
+		header, err := tar.FileInfoHeader(info, linkTarget)
 		if err != nil {
 			return err
 		}
@@ -66,8 +76,8 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 			return err
 		}
 
-		// If it's a directory, nothing more to do
-		if info.IsDir() {
+		// Only regular files have contents to copy. Directories, symlinks, and other special files have no body.
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 
@@ -78,7 +88,7 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 		}
 		defer func() {
 			closeErr := f.Close()
-			if err != nil {
+			if err == nil {
 				err = closeErr
 			}
 		}()
@@ -88,9 +98,8 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 			return err
 		}
 
-		return err
+		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to create archive (%s):\n%w", outputArchivePath, err)
 	}
@@ -170,6 +179,23 @@ func ExpandTarGzArchive(sourceArchivePath, outputDir string) (err error) {
 
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to set permissions (%d) on (%s):\n%w", os.FileMode(header.Mode), target, err)
+			}
+		case tar.TypeSymlink:
+			// Matching the header.Name check above to ensure the link target doesn't point outside the expansion root.
+			if cleanLink := filepath.Clean(header.Linkname); strings.Contains(cleanLink, "..") || filepath.IsAbs(cleanLink) {
+				return fmt.Errorf("unallowed symlink in archive. (%s -> %s) may reference a file outside the expansion root (%s)",
+					header.Name, header.Linkname, outputDir)
+			}
+
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return fmt.Errorf("failed to create parent folder for (%s)\n%w", target, err)
+			}
+			// Remove any pre-existing entry so re-extraction is idempotent (os.Symlink fails if the target exists).
+			if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("failed to clear existing path (%s):\n%w", target, err)
+			}
+			if err := os.Symlink(header.Linkname, target); err != nil {
+				return fmt.Errorf("failed to create symlink (%s -> %s):\n%w", target, header.Linkname, err)
 			}
 		default:
 			return fmt.Errorf("failed to process unsupported file type in archive (%s): (%v)", target, header.Typeflag)
