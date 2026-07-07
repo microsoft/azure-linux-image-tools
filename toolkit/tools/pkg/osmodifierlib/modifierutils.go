@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -62,7 +63,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		return err
 	}
 
-	needsBootCustomizer := bootloaderType == imagecustomizerlib.BootloaderTypeGrub &&
+	needsBootCustomizer := bootloaderType == cosiapi.BootloaderTypeGrub &&
 		(osConfig.KernelCommandLine.ExtraCommandLine != nil ||
 			osConfig.Overlays != nil ||
 			osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault ||
@@ -118,7 +119,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 
 	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault &&
-		bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
+		bootloaderType == cosiapi.BootloaderTypeSystemdBoot {
 		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot, distroHandler)
 		if err != nil {
 			return err

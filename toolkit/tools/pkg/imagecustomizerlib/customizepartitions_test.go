@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -1041,7 +1042,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 		return
 	}
 
-	expectedCosiMetadata := MetadataJson{}
+	expectedCosiMetadata := cosiapi.MetadataJson{}
 	switch baseImageInfo.Distro {
 	case baseImageDistroAzureLinux:
 		expectedCosiMetadata, err = expectedCosiMetadataForAzureLinux(baseImageInfo)

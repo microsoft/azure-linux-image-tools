@@ -1,4 +1,4 @@
-package imagecustomizerlib
+package cosiapi
 
 type BootloaderType string
 
@@ -26,21 +26,21 @@ type SystemDBoot struct {
 	Entries []SystemDBootEntry `json:"entries"`
 }
 
-type CosiBootloader struct {
+type Bootloader struct {
 	Type        BootloaderType `json:"type"`
 	SystemdBoot *SystemDBoot   `json:"systemdBoot,omitempty"`
 }
 
 type MetadataJson struct {
-	Version     string         `json:"version"`
-	OsArch      string         `json:"osArch"`
-	Disk        Disk           `json:"disk"`
-	Images      []FileSystem   `json:"images"`
-	OsRelease   string         `json:"osRelease"`
-	Id          string         `json:"id"`
-	Bootloader  CosiBootloader `json:"bootloader"`
-	OsPackages  []OsPackage    `json:"osPackages"`
-	Compression Compression    `json:"compression"`
+	Version     string       `json:"version"`
+	OsArch      string       `json:"osArch"`
+	Disk        Disk         `json:"disk"`
+	Images      []FileSystem `json:"images"`
+	OsRelease   string       `json:"osRelease"`
+	Id          string       `json:"id"`
+	Bootloader  Bootloader   `json:"bootloader"`
+	OsPackages  []OsPackage  `json:"osPackages"`
+	Compression Compression  `json:"compression"`
 }
 
 type Compression struct {

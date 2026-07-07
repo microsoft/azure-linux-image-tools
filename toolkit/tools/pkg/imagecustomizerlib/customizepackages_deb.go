@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -349,7 +350,7 @@ func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName s
 }
 
 // getAllPackagesFromChrootDeb retrieves all installed packages from a DEB-based system.
-func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
@@ -359,7 +360,7 @@ func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]OsPa
 	}
 
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []OsPackage
+	var packages []cosiapi.OsPackage
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -371,7 +372,7 @@ func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]OsPa
 
 		// For dpkg, it does not have a separate release field.
 		// Version contains epoch:version-release, use the whole thing as version.
-		packages = append(packages, OsPackage{
+		packages = append(packages, cosiapi.OsPackage{
 			Name:    parts[0],
 			Version: parts[1],
 			// dpkg doesn't have separate release

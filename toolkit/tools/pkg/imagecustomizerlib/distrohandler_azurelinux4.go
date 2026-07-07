@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -151,13 +152,13 @@ func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot
 }
 
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
-) ([]OsPackage, error) {
+) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
-) (BootloaderType, error) {
+) (cosiapi.BootloaderType, error) {
 	var grubEfiPackages []string
 	switch runtime.GOARCH {
 	case "amd64":
@@ -170,7 +171,7 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	if err != nil {
 		return bootloaderType, err
 	}
-	if bootloaderType == BootloaderTypeSystemdBoot {
+	if bootloaderType == cosiapi.BootloaderTypeSystemdBoot {
 		d.warnIfUnsignedSystemdBootPackage(detectedPackage)
 	}
 	return bootloaderType, nil

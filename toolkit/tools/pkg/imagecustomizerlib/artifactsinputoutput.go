@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v3"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -462,7 +463,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
-	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
+	[]cosiapi.OsPackage, [randomization.UuidSize]byte, string, *cosiapi.Bootloader, []string, error,
 ) {
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
 

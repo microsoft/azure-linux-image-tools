@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"slices"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -170,13 +171,13 @@ func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
-) (BootloaderType, error) {
+) (cosiapi.BootloaderType, error) {
 	var grubEfiPackage string
 	switch runtime.GOARCH {
 	case "amd64":

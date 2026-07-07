@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
@@ -209,7 +210,7 @@ func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
 }
 
 // buildDiskMetadata constructs the Disk struct from extracted GPT data and partition metadata.
-func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partitionImages map[int]ImageFile) (Disk, error) {
+func buildDiskMetadata(gptData *GptExtractedData, gptImageFile cosiapi.ImageFile, partitionImages map[int]cosiapi.ImageFile) (cosiapi.Disk, error) {
 	pt := gptData.PartitionTable
 
 	sectorSize := pt.SectorSize
@@ -217,17 +218,17 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partit
 		sectorSize = 512
 	}
 
-	gptRegions := make([]GptDiskRegion, 0, 1+len(pt.Partitions))
+	gptRegions := make([]cosiapi.GptDiskRegion, 0, 1+len(pt.Partitions))
 
-	gptRegions = append(gptRegions, GptDiskRegion{
+	gptRegions = append(gptRegions, cosiapi.GptDiskRegion{
 		Image: gptImageFile,
-		Type:  RegionTypePrimaryGpt,
+		Type:  cosiapi.RegionTypePrimaryGpt,
 	})
 
 	for _, partition := range pt.Partitions {
 		partNum, err := getPartitionNum(partition.Path)
 		if err != nil {
-			return Disk{}, fmt.Errorf("failed to get partition number from path (%s):\n%w", partition.Path, err)
+			return cosiapi.Disk{}, fmt.Errorf("failed to get partition number from path (%s):\n%w", partition.Path, err)
 		}
 
 		partImage, exists := partitionImages[partNum]
@@ -235,17 +236,17 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partit
 			continue
 		}
 
-		region := GptDiskRegion{
+		region := cosiapi.GptDiskRegion{
 			Image:  partImage,
-			Type:   RegionTypePartition,
+			Type:   cosiapi.RegionTypePartition,
 			Number: &partNum,
 		}
 		gptRegions = append(gptRegions, region)
 	}
 
-	return Disk{
+	return cosiapi.Disk{
 		Size:       gptData.DiskSize,
-		Type:       DiskTypeGpt,
+		Type:       cosiapi.DiskTypeGpt,
 		LbaSize:    sectorSize,
 		GptRegions: gptRegions,
 	}, nil

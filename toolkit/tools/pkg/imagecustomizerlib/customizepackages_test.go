@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -961,9 +962,9 @@ func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, p
 	return versionOutput, nil
 }
 
-func ensurePackagesInstalled(t *testing.T, installedPackages []OsPackage, packages ...string) {
+func ensurePackagesInstalled(t *testing.T, installedPackages []cosiapi.OsPackage, packages ...string) {
 	for _, packageName := range packages {
-		assert.Truef(t, sliceutils.ContainsFunc(installedPackages, func(installedPackage OsPackage) bool {
+		assert.Truef(t, sliceutils.ContainsFunc(installedPackages, func(installedPackage cosiapi.OsPackage) bool {
 			return packageName == installedPackage.Name
 		}), "package not installed (%s)", packageName)
 	}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -339,7 +340,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 }
 
 // getAllPackagesFromChrootRpm retrieves all installed packages from an RPM-based system
-func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	out, _, err := shell.NewExecBuilder("rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
@@ -349,13 +350,13 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPa
 	}
 
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []OsPackage
+	var packages []cosiapi.OsPackage
 	for _, line := range lines {
 		parts := strings.Fields(line)
 		if len(parts) != 4 {
 			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
 		}
-		packages = append(packages, OsPackage{
+		packages = append(packages, cosiapi.OsPackage{
 			Name:    parts[0],
 			Version: parts[1],
 			Release: parts[2],
