@@ -136,10 +136,6 @@ def run_pxe_test(
         run_basic_checks(ssh_client, input_image_azl_release, test_temp_dir)
 
 
-@pytest.mark.skipif(
-    get_host_distro() == "azurelinux",
-    reason="PXE requires a network-enabled host UEFI firmware (EDK II NetworkPkg), which only Ubuntu hosts provide",
-)
 def test_pxe_bootstrap_efi_azl3(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -170,10 +166,6 @@ def test_pxe_bootstrap_efi_azl3(
     )
 
 
-@pytest.mark.skipif(
-    get_host_distro() == "azurelinux",
-    reason="PXE requires a network-enabled host UEFI firmware (EDK II NetworkPkg), which only Ubuntu hosts provide",
-)
 def test_pxe_bootstrap_efi_azl4(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -205,10 +197,6 @@ def test_pxe_bootstrap_efi_azl4(
     )
 
 
-@pytest.mark.skipif(
-    get_host_distro() == "azurelinux",
-    reason="PXE requires a network-enabled host UEFI firmware (EDK II NetworkPkg), which only Ubuntu hosts provide",
-)
 def test_pxe_full_os_efi_azl3(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -239,10 +227,6 @@ def test_pxe_full_os_efi_azl3(
     )
 
 
-@pytest.mark.skipif(
-    get_host_distro() == "azurelinux",
-    reason="PXE requires a network-enabled host UEFI firmware (EDK II NetworkPkg), which only Ubuntu hosts provide",
-)
 def test_pxe_full_os_efi_azl4(
     docker_client: DockerClient,
     image_customizer_container_url: str,

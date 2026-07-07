@@ -262,6 +262,15 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     video_model = ET.SubElement(video, "model")
     video_model.attrib["type"] = "vga"
 
+    # Provide a virtio RNG device. Azure Linux's OVMF builds its NetworkPkg drivers with a DXE dependency on
+    # EFI_RNG_PROTOCOL, which VirtioRngDxe only produces when a virtio-rng device is present. Without it the UEFI
+    # network stack never dispatches, so PXE/network boot silently falls through to the EFI shell.
+    rng = ET.SubElement(devices, "rng")
+    rng.attrib["model"] = "virtio"
+    rng_backend = ET.SubElement(rng, "backend")
+    rng_backend.attrib["model"] = "random"
+    rng_backend.text = "/dev/urandom"
+
     network_interface = ET.SubElement(devices, "interface")
     network_interface.attrib["type"] = "network"
 
