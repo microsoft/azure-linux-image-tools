@@ -20,6 +20,7 @@ type Config struct {
 	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 	Output          Output           `yaml:"output" json:"output,omitempty"`
 	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
+	SecurityProfile SecurityProfile  `yaml:"securityProfile" json:"securityProfile,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
