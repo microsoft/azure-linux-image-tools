@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import List, Tuple
 
 import libvirt  # type: ignore
-import pytest
 from docker import DockerClient
 
 from ..conftest import TEST_CONFIGS_DIR
