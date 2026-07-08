@@ -1,0 +1,19 @@
+previewFeatures:
+- tools-dir
+
+os:
+  packages:
+    remove:
+    #- dnf5
+    #- rpm
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Remove dnf and rpm command to ensure the tools directory is used instead.
+      # Ideally, 'os.packages.remove' would be used. But protected packages need to be disabled to remove dnf5. And rpm
+      # can't be removed until the 'postCustomization' stage, due to the workaround to remove grub2-efi-* in other
+      # config files.
+      dnf remove --assumeyes --setopt=protected_packages= dnf5 rpm

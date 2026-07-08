@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -77,7 +78,7 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if isCosiOutput {
 		err = convertImageToCosi(ctx, options.BuildDir, options.InputImageFile, options.OutputImageFile,
-			outputFormat, options.CosiCompressionLevel)
+			outputFormat, options.CosiCompressionLevel, options.ToolsDir)
 		if err != nil {
 			return err
 		}
@@ -95,7 +96,7 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 }
 
 func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile string, outputImageFile string,
-	outputFormat imagecustomizerapi.ImageFormatType, cosiCompressionLevel *int,
+	outputFormat imagecustomizerapi.ImageFormatType, cosiCompressionLevel *int, toolsDir string,
 ) error {
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
@@ -107,6 +108,22 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 		return err
 	}
 
+	var toolsChrootOuter *ToolsChroot
+	var toolsChroot *safechroot.Chroot
+	if toolsDir != "" {
+		if err := validateToolsDir(toolsDir); err != nil {
+			return err
+		}
+
+		toolsChrootOuter, err = initToolsChroot(ctx, toolsDir)
+		if err != nil {
+			return err
+		}
+		defer toolsChrootOuter.Close()
+
+		toolsChroot = toolsChrootOuter.Chroot()
+	}
+
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 	_, err = convertImageToRaw(inputImageFile, rawImageFile)
 	if err != nil {
@@ -114,9 +131,16 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 	}
 
 	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
-		outputImageFile, cosiCompressionLevel)
+		outputImageFile, cosiCompressionLevel, toolsChroot)
 	if err != nil {
 		return err
+	}
+
+	if toolsChrootOuter != nil {
+		err = toolsChrootOuter.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -124,11 +148,12 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 
 func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawImageFile string,
 	outputFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
+	toolsChroot *safechroot.Chroot,
 ) error {
 	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		// Convert subcommand doesn't support preview features - pass empty slice
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs)
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, toolsChroot)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrArtifactCosiImageInfoCollect, err)
 		}

@@ -93,8 +93,10 @@ func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot)
+func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]cosiapi.OsPackage, error) {
+	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

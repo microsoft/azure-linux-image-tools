@@ -119,15 +119,20 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	return d.packageManager.getPackageInformation(imageChroot, packageName)
 }
 
-func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
+func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]cosiapi.OsPackage, error) {
 	// This function is only used for metadata within a COSI file.
 	// So, it doesn't matter too much if the package list can't be provided.
 
 	// Check if the rpm command is available.
-	_, err := shell.LookPathChroot("rpm", imageChroot.ChrootDir())
-	if err != nil {
-		// RPM command is not found.
-		return nil, nil
+	// (If toolsChroot is being used, then assume that the rpm command is available.)
+	if toolsChroot == nil {
+		_, err := shell.LookPathChroot("rpm", imageChroot.ChrootDir())
+		if err != nil {
+			// RPM command is not found.
+			return nil, nil
+		}
 	}
 
 	// Check if the rpm database is available.
@@ -143,7 +148,7 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	}
 
 	// Get the list of packages.
-	packages, err := getAllPackagesFromChrootRpm(imageChroot)
+	packages, err := getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 	if err != nil {
 		return nil, err
 	}
