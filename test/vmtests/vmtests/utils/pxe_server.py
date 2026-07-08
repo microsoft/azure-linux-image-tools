@@ -60,12 +60,19 @@ def _build_pxe_network_xml(network_name: str, bridge_name: str, tftp_root: str, 
 
 
 def _make_world_readable(root: Path) -> None:
+    # os.chmod follows symlinks, so skip any symlink to avoid changing the permissions of its target, which could lie
+    # outside root. Real files and directories under root are widened; symlinks need no permissions of their own.
     os.chmod(root, 0o755)
     for dir_path, dir_names, file_names in os.walk(root):
         for dir_name in dir_names:
-            os.chmod(os.path.join(dir_path, dir_name), 0o755)
+            dir_full_path = os.path.join(dir_path, dir_name)
+            if not os.path.islink(dir_full_path):
+                os.chmod(dir_full_path, 0o755)
+
         for file_name in file_names:
-            os.chmod(os.path.join(dir_path, file_name), 0o644)
+            file_full_path = os.path.join(dir_path, file_name)
+            if not os.path.islink(file_full_path):
+                os.chmod(file_full_path, 0o644)
 
 
 def _serve_http(directory: Path, bind_ip: str, port: int, log_file_path: Path) -> None:
@@ -124,7 +131,10 @@ class PxeEnvironment:
             artifacts_dir = Path(tempfile.mkdtemp(prefix="pxe-artifacts-", dir="/var/tmp"))
             self._artifacts_dir = artifacts_dir
             with tarfile.open(pxe_tar_path, "r:gz") as tar:
-                tar.extractall(artifacts_dir)
+                # filter="data" rejects members with absolute paths, ".." traversal, or symlink/hardlink targets that
+                # point outside the destination, so the tarball (produced by the imagecustomizer container) cannot
+                # write outside artifacts_dir.
+                tar.extractall(artifacts_dir, filter="data")
 
             # mkdtemp created the directory 0700 and the tarball preserves its own modes, so widen the extracted tree
             # to be readable and traversable by others.

@@ -8,7 +8,7 @@ def get_host_distro() -> str:
     with open(file_path, "r") as file:
         for line in file:
             if line.startswith("ID="):
-                id_value = line.strip().split("=", 1)[1]
+                id_value = line.strip().split("=", 1)[1].strip("\"'")
                 break
 
     if id_value == "":

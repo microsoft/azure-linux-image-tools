@@ -116,7 +116,7 @@ func ExpandTarGzArchive(sourceArchivePath, outputDir string) (err error) {
 	}
 	defer func() {
 		closeErr := f.Close()
-		if err != nil {
+		if err == nil {
 			err = closeErr
 		}
 	}()
@@ -127,7 +127,7 @@ func ExpandTarGzArchive(sourceArchivePath, outputDir string) (err error) {
 	}
 	defer func() {
 		closeErr := gzr.Close()
-		if err != nil {
+		if err == nil {
 			err = closeErr
 		}
 	}()
