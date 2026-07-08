@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/tarutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -27,11 +28,13 @@ import (
 
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
-	selinuxMode imagecustomizerapi.SELinuxMode,
+	selinuxMode imagecustomizerapi.SELinuxMode, removeToolsPackages bool,
 ) *imagecustomizerapi.Config {
 	fileNamesArray := strings.Split(fileNames, ";")
 
 	pkgsToInstall := []string{}
+	baseConfigs := []imagecustomizerapi.BaseConfig{}
+
 	if bootstrapPrereqs {
 		liveOSRequiredPackages := liveOSRequiredPackagesAzl3
 		if baseImageVersion == baseImageVersionAzl4 {
@@ -59,12 +62,28 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 		pkgsToInstall = append(pkgsToInstall, kernelPackageName)
 	}
 
+	if removeToolsPackages {
+		toolsBaseConfig := ""
+		switch baseImageVersion {
+		case baseImageVersionAzl2, baseImageVersionAzl3:
+			toolsBaseConfig = "toolsdir-azl3.yaml"
+		case baseImageVersionAzl4:
+			toolsBaseConfig = "toolsdir-azl4.yaml"
+		default:
+			assert.NoError(t, fmt.Errorf("undefined image version"), "unsupported distro version")
+		}
+
+		baseConfigs = append(baseConfigs, imagecustomizerapi.BaseConfig{Path: toolsBaseConfig})
+	}
+
 	perms0o644 := imagecustomizerapi.FilePermissions(0o644)
 
 	config := imagecustomizerapi.Config{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureKdumpBootFiles,
+			imagecustomizerapi.PreviewFeatureBaseConfigs,
 		},
+		BaseConfigs: baseConfigs,
 		Iso: &imagecustomizerapi.Iso{
 			KdumpBootFiles: &kdumpBootFiles,
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
@@ -489,7 +508,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 	configA0 := createConfig(t, baseImageInfo.Version, kudmpFilePaths, "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -607,7 +626,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 	//
 	configB := createConfig(t, baseImageInfo.Version, "a.txt;boot/vmlinuz-6.6.65.1-2.npi", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -629,7 +648,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 	configC := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.npikdump.img;boot/vmlinuz-6.6.65.1-2.npi", "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -668,7 +687,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, true /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, true, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -697,15 +716,27 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSInitramfs1Helper(t, baseImageInfo)
+			testCustomizeImageLiveOSInitramfs1Helper(t, baseImageInfo, false)
+		})
+
+		t.Run(baseImageInfo.Name+"ToolsDir", func(t *testing.T) {
+			testCustomizeImageLiveOSInitramfs1Helper(t, baseImageInfo, true)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	toolsDir := ""
+	if useToolsDir {
+		toolsDir = testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version)
+	}
+
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1"+baseImageInfo.Name)
+	if useToolsDir {
+		testTempDir += "ToolsDir"
+	}
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -717,13 +748,27 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
 	}
 
+	previewFeatures := []imagecustomizerapi.PreviewFeature(nil)
+	previewFeatures = append(previewFeatures, baseImageInfo.PreviewFeatures...)
+	if useToolsDir {
+		previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureToolsDir)
+	}
+
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode, useToolsDir)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
-	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
+	err := CustomizeImage(t.Context(), testDir, configA, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeIso,
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -733,10 +778,18 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 	// ISO  {bootstrap} to ISO {bootstrap}, with no OS changes
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, false /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault, false)
 
-	err = basicCustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
+	err = CustomizeImage(t.Context(), testDir, configB, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeIso,
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -746,10 +799,18 @@ func testCustomizeImageLiveOSInitramfs1Helper(t *testing.T, baseImageInfo testBa
 	// - ISO {bootstrap} to ISO {full-os}, with selinux disabled
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled, false)
 
-	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
+	err = CustomizeImage(t.Context(), testDir, configC, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeIso,
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -775,7 +836,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -788,7 +849,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// ISO  {full-os} to ISO {full-os}, with selinux disabled
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err = basicCustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
 		baseImageInfo.PreviewFeatures)
@@ -808,7 +869,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode, false /*useToolsDir*/)
 
 	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -833,7 +894,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
@@ -858,7 +919,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		pxeBootstrapUrl, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
@@ -886,7 +947,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled, false /*useToolsDir*/)
 
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
