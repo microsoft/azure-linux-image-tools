@@ -123,7 +123,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		return fmt.Errorf("failed to finalize the PXE boot configuration:\n%w", err)
 	}
 
-	// Note that the moves/removes must take place afer the bootstrapped ISO is
+	// Note that the moves/removes must take place after the bootstrapped ISO is
 	// created because some of these files are needed by the ISO so it is
 	// bootable.
 
@@ -144,7 +144,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		targetPath := filepath.Join(outputPXEArtifactsDir, strings.ToLower(bootloaderFile))
 		err = file.Move(sourcePath, targetPath)
 		if err != nil {
-			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generated the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
+			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generating the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
 		}
 	}
 

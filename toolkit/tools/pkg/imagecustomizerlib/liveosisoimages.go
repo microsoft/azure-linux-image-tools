@@ -248,6 +248,9 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 	// consumers that extract the artifacts onto a real filesystem.
 	if info, lerr := os.Lstat(stageFile.sourcePath); lerr == nil && info.Mode()&os.ModeSymlink != 0 {
 		if _, serr := os.Stat(stageFile.sourcePath); serr != nil {
+			if !os.IsNotExist(serr) {
+				return fmt.Errorf("failed to stat symlink target while staging Live OS file (%s):\n%w", stageFile.sourcePath, serr)
+			}
 			logger.Log.Debugf("Skipping dangling symlink while staging Live OS file (%s)", stageFile.sourcePath)
 			return nil
 		}
