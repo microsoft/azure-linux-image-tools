@@ -24,7 +24,7 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 	}
 	defer func() {
 		closeErr := outFile.Close()
-		if err != nil {
+		if err == nil {
 			err = closeErr
 		}
 	}()
@@ -32,7 +32,7 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 	gw := gzip.NewWriter(outFile)
 	defer func() {
 		closeErr := gw.Close()
-		if err != nil {
+		if err == nil {
 			err = closeErr
 		}
 	}()
@@ -40,7 +40,7 @@ func CreateTarGzArchive(sourceDir, outputArchivePath string) (err error) {
 	tw := tar.NewWriter(gw)
 	defer func() {
 		closeErr := tw.Close()
-		if err != nil {
+		if err == nil {
 			err = closeErr
 		}
 	}()
