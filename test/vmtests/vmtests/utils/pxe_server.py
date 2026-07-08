@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -76,6 +77,20 @@ def _serve_http(directory: Path, bind_ip: str, port: int, log_file_path: Path) -
             httpd.serve_forever()
 
 
+def _open_http_firewall(bridge_name: str, port: int) -> None:
+    subprocess.run(
+        ["iptables", "-I", "LIBVIRT_INP", "-i", bridge_name, "-p", "tcp", "--dport", str(port), "-j", "ACCEPT"],
+        check=False,
+    )
+
+
+def _close_http_firewall(bridge_name: str, port: int) -> None:
+    subprocess.run(
+        ["iptables", "-D", "LIBVIRT_INP", "-i", bridge_name, "-p", "tcp", "--dport", str(port), "-j", "ACCEPT"],
+        check=False,
+    )
+
+
 # Stands up the network-boot environment a PXE VM test needs:
 #
 #   - A dedicated, transient libvirt NAT network whose embedded dnsmasq serves DHCP + TFTP. The TFTP root points at the
@@ -99,6 +114,7 @@ class PxeEnvironment:
         self._network: Optional[libvirt.virNetwork] = None
         self._http_process: Optional[multiprocessing.Process] = None
         self._artifacts_dir: Optional[Path] = None
+        self._firewall_bridge: Optional[str] = None
 
         try:
             # Extract the artifacts under /var/tmp. dnsmasq (TFTP) and qemu run as their own unprivileged users, so
@@ -117,6 +133,13 @@ class PxeEnvironment:
             network_xml = _build_pxe_network_xml(network_name, bridge_name, str(artifacts_dir), boot_loader_file)
             logging.debug(f"Creating PXE libvirt network:\n{network_xml}")
             self._network = libvirt_conn.networkCreateXML(network_xml)
+
+            # Azure Linux 3.0's INPUT policy defaults to DROP, and libvirt opens DHCP, DNS and TFTP to the
+            # host for the networks it manages, but not HTTP, which is needed for the bootstrap initramfs PXE tests.
+            # Open that port strictly on the transient PXE bridge.
+            logging.debug(f"Opening HTTP port {PXE_HTTP_PORT} on the PXE bridge {bridge_name}")
+            _open_http_firewall(bridge_name, PXE_HTTP_PORT)
+            self._firewall_bridge = bridge_name
 
             logging.debug(f"Starting PXE HTTP server on port {PXE_HTTP_PORT} serving ({artifacts_dir})")
             # Bind only to the PXE NAT network's gateway IP, never 0.0.0.0. The artifacts are served
@@ -144,6 +167,11 @@ class PxeEnvironment:
                 self._http_process.join()
 
             self._http_process = None
+
+        if self._firewall_bridge is not None:
+            logging.debug(f"Closing HTTP port {PXE_HTTP_PORT} on the PXE bridge {self._firewall_bridge}")
+            _close_http_firewall(self._firewall_bridge, PXE_HTTP_PORT)
+            self._firewall_bridge = None
 
         if self._network is not None:
             logging.debug(f"Destroying PXE libvirt network: {self.network_name}")
