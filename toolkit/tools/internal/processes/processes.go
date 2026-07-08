@@ -86,7 +86,7 @@ func GetProcessesUsingPath(path string) ([]ProcessRecord, error) {
 			}
 
 			record.ProcessRoot, err = os.Readlink(fmt.Sprintf("/proc/%d/root", record.ProcessId))
-			if err != nil {
+			if err != nil && os.IsNotExist(err) {
 				return nil, fmt.Errorf("failed to read process chroot path (%d):\n%w", record.ProcessId, err)
 			}
 
