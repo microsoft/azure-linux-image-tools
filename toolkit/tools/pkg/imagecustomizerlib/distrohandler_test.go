@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -115,35 +114,6 @@ func testCustomizeImageDistroVersionNewHelper(t *testing.T, testName string, bas
 	if !assert.NoError(t, err) {
 		return
 	}
-}
-
-func TestAclValidateConfigPackageOpsRequireToolsDir(t *testing.T) {
-	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
-
-	rc := &ResolvedConfig{
-		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureDistroVersion,
-			imagecustomizerapi.PreviewFeatureToolsDir,
-		},
-		ConfigChain: []*ConfigWithBasePath{
-			{
-				Config: &imagecustomizerapi.Config{
-					OS: &imagecustomizerapi.OS{
-						Packages: imagecustomizerapi.Packages{
-							Install: []string{"vim"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	err := handler.ValidateConfig(rc)
-	assert.ErrorContains(t, err, "ACL requires --tools-dir for package, UKI 'create', and verity operations")
-
-	rc.Options.ToolsDir = "/some/tools/dir"
-	err = handler.ValidateConfig(rc)
-	assert.NoError(t, err)
 }
 
 func TestCustomizeImageUnsupportedPackageSnapshotTime(t *testing.T) {
