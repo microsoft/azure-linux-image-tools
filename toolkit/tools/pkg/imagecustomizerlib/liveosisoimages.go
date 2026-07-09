@@ -161,7 +161,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 
 		bindMount, err = safemount.NewMount(writeableRootfsDir, chrootDir, "", unix.MS_BIND, "", true)
 		if err != nil {
-			return fmt.Errorf("failed to create image bind mount in toold dir:\n%w", err)
+			return fmt.Errorf("failed to create image bind mount in tools dir:\n%w", err)
 		}
 		defer bindMount.Close()
 	}
