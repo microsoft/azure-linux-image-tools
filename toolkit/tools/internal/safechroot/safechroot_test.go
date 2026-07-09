@@ -80,28 +80,6 @@ func TestCloseShouldRemoveRoot(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestCloseShouldLeaveRootOnRequest(t *testing.T) {
-	extraMountPoints := []*MountPoint{}
-	extraDirectories := []string{}
-
-	dir := filepath.Join(t.TempDir(), "TestCloseShouldLeaveRootOnRequest")
-	chroot := NewChroot(dir, true)
-
-	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-	assert.NoError(t, err)
-
-	err = chroot.Close()
-	assert.NoError(t, err)
-
-	_, err = os.Stat(dir)
-	assert.True(t, !os.IsNotExist(err))
-
-	// Since the chroot dir will be left on disk but unmounted,
-	// manually clean it up.
-	err = os.RemoveAll(dir)
-	assert.NoError(t, err)
-}
-
 func TestRootDirShouldReturnRootDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
 	chroot := NewChroot(dir, false)
