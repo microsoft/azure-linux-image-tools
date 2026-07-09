@@ -17,6 +17,8 @@ from typing import Optional
 
 import libvirt  # type: ignore
 
+from .host_utils import get_host_distro
+
 # Fixed addressing for the dedicated PXE network. These must not collide with libvirt's default network
 # (192.168.122.0/24).
 PXE_NETWORK_GATEWAY_IP = "192.168.123.1"
@@ -144,12 +146,14 @@ class PxeEnvironment:
             logging.debug(f"Creating PXE libvirt network:\n{network_xml}")
             self._network = libvirt_conn.networkCreateXML(network_xml)
 
-            # Azure Linux 3.0's INPUT policy defaults to DROP, and libvirt opens DHCP, DNS and TFTP to the
-            # host for the networks it manages, but not HTTP, which is needed for the bootstrap initramfs PXE tests.
-            # Open that port strictly on the transient PXE bridge.
-            logging.debug(f"Opening HTTP port {PXE_HTTP_PORT} on the PXE bridge {bridge_name}")
-            _open_http_firewall(bridge_name, PXE_HTTP_PORT)
-            self._firewall_bridge = bridge_name
+            # Only Azure Linux hosts need this. Their INPUT policy defaults to DROP, and libvirt opens DHCP, DNS and
+            # TFTP to the host for the networks it manages, but not our HTTP port, which the bootstrap initramfs needs.
+            # Ubuntu hosts already accept it, and Fedora hosts do not use iptables, so restrict the rule to Azure Linux
+            # and open the port strictly on the transient PXE bridge.
+            if get_host_distro() == "azurelinux":
+                logging.debug(f"Opening HTTP port {PXE_HTTP_PORT} on the PXE bridge {bridge_name}")
+                _open_http_firewall(bridge_name, PXE_HTTP_PORT)
+                self._firewall_bridge = bridge_name
 
             logging.debug(f"Starting PXE HTTP server on port {PXE_HTTP_PORT} serving ({artifacts_dir})")
             # Bind only to the PXE NAT network's gateway IP, never 0.0.0.0. The artifacts are served
