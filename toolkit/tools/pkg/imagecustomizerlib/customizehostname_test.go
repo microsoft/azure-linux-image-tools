@@ -27,7 +27,7 @@ func TestUpdateHostname(t *testing.T) {
 	chroot := safechroot.NewChroot(proposedDir, false)
 	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
 	assert.NoError(t, err)
-	defer chroot.Close(false)
+	defer chroot.Close()
 
 	err = os.MkdirAll(filepath.Join(chroot.RootDir(), "etc"), os.ModePerm)
 	assert.NoError(t, err)

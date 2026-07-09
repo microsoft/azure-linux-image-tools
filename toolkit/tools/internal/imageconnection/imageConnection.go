@@ -13,10 +13,9 @@ import (
 )
 
 type ImageConnection struct {
-	loopback            *safeloopback.Loopback
-	chroot              *safechroot.Chroot
-	chrootIsExistingDir bool
-	ownedDirectories    []string
+	loopback         *safeloopback.Loopback
+	chroot           *safechroot.Chroot
+	ownedDirectories []string
 }
 
 func NewImageConnection() *ImageConnection {
@@ -49,7 +48,6 @@ func (c *ImageConnection) ConnectChroot(rootDir string, isExistingDir bool, extr
 		return err
 	}
 	c.chroot = chroot
-	c.chrootIsExistingDir = isExistingDir
 
 	return nil
 }
@@ -68,7 +66,7 @@ func (c *ImageConnection) Loopback() *safeloopback.Loopback {
 
 func (c *ImageConnection) Close() {
 	if c.chroot != nil {
-		c.chroot.Close(c.chrootIsExistingDir)
+		c.chroot.Close()
 	}
 
 	for _, dir := range slices.Backward(c.ownedDirectories) {
@@ -81,7 +79,7 @@ func (c *ImageConnection) Close() {
 }
 
 func (c *ImageConnection) CleanClose() error {
-	err := c.chroot.Close(c.chrootIsExistingDir)
+	err := c.chroot.Close()
 	if err != nil {
 		return err
 	}

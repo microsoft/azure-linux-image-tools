@@ -63,7 +63,7 @@ func (t *ToolsChroot) CleanClose() error {
 	}
 	t.resolvConf = nil
 
-	if err := t.chroot.Close(true); err != nil {
+	if err := t.chroot.Close(); err != nil {
 		return fmt.Errorf("failed to close tools chroot (%s):\n%w", t.toolsDir, err)
 	}
 
@@ -81,7 +81,7 @@ func (t *ToolsChroot) Close() {
 	}
 
 	if t.chroot != nil {
-		if err := t.chroot.Close(true); err != nil {
+		if err := t.chroot.Close(); err != nil {
 			logger.Log.Warnf("Failed to close tools chroot (%s): %v", t.toolsDir, err)
 		}
 	}
