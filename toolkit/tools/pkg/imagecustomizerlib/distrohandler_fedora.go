@@ -303,6 +303,18 @@ func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, b
 	return updateLiveOSGrubCfgBLSForIso(grubCfgContent, bootDir, initramfsType)
 }
 
+func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForPxe(grubCfgContent)
+}
+
+func (d *fedoraDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	return finalizeLiveOSPxeBLSEntries(pxeBootDir, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+}
+
 func (d *fedoraDistroHandler) ShimPackage() string {
 	switch runtime.GOARCH {
 	case "amd64":

@@ -107,6 +107,7 @@ class LibvirtVm:
         ssh_private_key_path: Path,
         test_temp_dir: Path,
         username: str,
+        ip_wait_time_extra: int = 0,
     ) -> SshClient:
 
         ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -117,6 +118,8 @@ class LibvirtVm:
         ip_wait_time = 30
         if platform.machine() == "aarch64":
             ip_wait_time = 300
+
+        ip_wait_time += ip_wait_time_extra
 
         # For arm64 runs, we are seeing a behavior where the first IP address that
         # gets assigned becomes unusable by the time we try to ssh into the machine

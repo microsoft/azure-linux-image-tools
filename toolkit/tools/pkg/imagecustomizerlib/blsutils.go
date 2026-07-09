@@ -135,6 +135,206 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 	return kernelToArgs, nil
 }
 
+// renderGrubMenuEntriesFromBLS reads the Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf and
+// renders an equivalent grub `menuentry` block for each non-recovery entry, ordered newest version first, matching the
+// rpm-style sort grub's `blscfg` command applies at boot (see the BLS spec's "Sorting" section). It is used where grub
+// cannot run `blscfg` itself: over PXE the boot transport (TFTP) cannot enumerate the entries directory, so the menu
+// must be spelled out ahead of time.
+func renderGrubMenuEntriesFromBLS(bootDir string) (string, error) {
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	// os.ReadDir returns the entry files in lexical order, but grub's `blscfg` presents them newest version first.
+	// Without matching that, booting menu entry 0 over PXE could select a different (older) kernel than a normal
+	// blscfg boot does when multiple kernels are installed. Sort by kernel version (numeric-aware, newest first) the
+	// way blscfg does so the first rendered menuentry is the newest kernel.
+	slices.SortStableFunc(entries, func(a, b os.DirEntry) int {
+		return compareKernelVersions(b.Name(), a.Name())
+	})
+
+	var builder strings.Builder
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			logger.Log.Debugf("Skipping non-.conf BLS entry file (%s) in directory (%s)", entry.Name(), entriesDir)
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		var title string
+		var titleSeen bool
+		var linux string
+		var initrd string
+		var options string
+		var optionsSeen bool
+
+		for _, field := range bls.ParseFields(string(content)) {
+			switch field.Key {
+			case "linux":
+				if linux != "" {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				if field.Value == "" {
+					return "", fmt.Errorf("BLS entry (%s) 'linux' key has empty value", absPath)
+				}
+				linux = field.Value
+			case "initrd":
+				if initrd != "" {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				initrd = field.Value
+			case "title":
+				// Per BLS spec each non-options key may appear at most once. An empty title value is still a valid
+				// (normal) entry, so track its presence explicitly rather than inferring from title != "".
+				if titleSeen {
+					return "", fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				titleSeen = true
+				title = field.Value
+			case "efi", "uki", "uki-url":
+				return "", fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, field.Key)
+			case "options":
+				// "options" may appear multiple times per BLS spec; concatenate in source order so the kernel command
+				// line is preserved verbatim.
+				if optionsSeen {
+					options += " " + field.Value
+				} else {
+					options = field.Value
+					optionsSeen = true
+				}
+			}
+		}
+
+		if linux == "" {
+			return "", fmt.Errorf("BLS entry (%s) is missing 'linux' key", absPath)
+		}
+
+		// Entries without titles are treated as normal entries.
+		if bls.IsRescueEntryTitle(title) {
+			logger.Log.Debugf("Skipping recovery/rescue BLS entry with title (%s) in file (%s)", title, absPath)
+			continue
+		}
+
+		// A grub single-quoted string cannot contain a literal single quote; use the '\'' idiom to embed one.
+		quotedTitle := strings.ReplaceAll(title, "'", `'\''`)
+
+		builder.WriteString(fmt.Sprintf("menuentry '%s' {\n", quotedTitle))
+		if options != "" {
+			builder.WriteString(fmt.Sprintf("\tlinux %s %s\n", linux, options))
+		} else {
+			builder.WriteString(fmt.Sprintf("\tlinux %s\n", linux))
+		}
+		if initrd != "" {
+			builder.WriteString(fmt.Sprintf("\tinitrd %s\n", initrd))
+		}
+		builder.WriteString("}\n")
+	}
+
+	return builder.String(), nil
+}
+
+// compareKernelVersions orders two kernel version strings the way grub's blscfg orders kernel entries: numeric
+// segments are compared as numbers (so "6.6.10" is newer than "6.6.9") rather than lexically, non-numeric segments
+// lexically, and a longer trailing version is newer. It returns 1 if a is newer than b, -1 if b is newer, and 0 if
+// equal.
+func compareKernelVersions(a, b string) int {
+	if a == b {
+		return 0
+	}
+
+	isDigit := func(c byte) bool {
+		return c >= '0' && c <= '9'
+	}
+	isAlpha := func(c byte) bool {
+		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	}
+	isAlnum := func(c byte) bool {
+		return isDigit(c) || isAlpha(c)
+	}
+
+	i, j := 0, 0
+	for i < len(a) || j < len(b) {
+		// Skip separators (any non-alphanumeric byte, e.g. '.', '-', '_').
+		for i < len(a) && !isAlnum(a[i]) {
+			i++
+		}
+		for j < len(b) && !isAlnum(b[j]) {
+			j++
+		}
+
+		if i >= len(a) || j >= len(b) {
+			break
+		}
+
+		// Grab the next wholly-numeric or wholly-alphabetic segment. The segment type is taken from a; if b's current
+		// segment is of the other type, b has no comparable segment here.
+		aStart, bStart := i, j
+		numeric := isDigit(a[i])
+		if numeric {
+			for i < len(a) && isDigit(a[i]) {
+				i++
+			}
+			for j < len(b) && isDigit(b[j]) {
+				j++
+			}
+		} else {
+			for i < len(a) && isAlpha(a[i]) {
+				i++
+			}
+			for j < len(b) && isAlpha(b[j]) {
+				j++
+			}
+		}
+
+		aSeg := a[aStart:i]
+		bSeg := b[bStart:j]
+
+		if len(bSeg) == 0 {
+			// A numeric segment is newer than a missing/alphabetic one.
+			if numeric {
+				return 1
+			}
+			return -1
+		}
+
+		if numeric {
+			// Leading zeros are insignificant, then the longer run of digits is the larger number.
+			aSeg = strings.TrimLeft(aSeg, "0")
+			bSeg = strings.TrimLeft(bSeg, "0")
+			if len(aSeg) > len(bSeg) {
+				return 1
+			}
+			if len(bSeg) > len(aSeg) {
+				return -1
+			}
+		}
+
+		if c := strings.Compare(aSeg, bSeg); c != 0 {
+			if c < 0 {
+				return -1
+			}
+			return 1
+		}
+	}
+
+	// All comparable segments were equal; whichever string still has characters is newer.
+	switch {
+	case i >= len(a) && j >= len(b):
+		return 0
+	case i >= len(a):
+		return -1
+	default:
+		return 1
+	}
+}
+
 // readNonRecoveryKernelCmdlinesFromBLS reads the first non-recovery kernel's command-line
 // arguments from BLS entry files.
 func readNonRecoveryKernelCmdlinesFromBLS(bootDir string, argNames []string) (map[string]string, error) {

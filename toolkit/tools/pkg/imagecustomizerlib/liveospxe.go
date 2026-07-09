@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -45,7 +46,8 @@ func getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl string) (string,
 func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType,
 	initramfsType imagecustomizerapi.InitramfsImageType, artifactsStore *IsoArtifactsStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	bootstrapBaseUrl, bootstrapFileUrl, outputPath string, distroHandler DistroHandler) (err error) {
+	bootstrapBaseUrl, bootstrapFileUrl, outputPath string, distroHandler DistroHandler,
+) (err error) {
 	logger.Log.Infof("Creating PXE output at (%s)", outputPath)
 
 	outputPXEArtifactsDir := ""
@@ -112,7 +114,16 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		}
 	}
 
-	// Note that the moves/removes must take place afer the bootstrapped ISO is
+	// Finalize the pxe boot configuration. It must run after the embedded ISO above is sealed, since that ISO is built
+	// from the iso-flavored (root=live:LABEL) entries. For inline-grub distros this is a no-op
+	// (the pxe grub.cfg already carries the arg).
+	err = distroHandler.FinalizeLiveOSPxeBootConfig(filepath.Join(outputPXEArtifactsDir, "boot"), initramfsType,
+		bootstrapBaseUrl, bootstrapFileUrl)
+	if err != nil {
+		return fmt.Errorf("failed to finalize the PXE boot configuration:\n%w", err)
+	}
+
+	// Note that the moves/removes must take place after the bootstrapped ISO is
 	// created because some of these files are needed by the ISO so it is
 	// bootable.
 
@@ -127,10 +138,13 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 
 	for _, bootloaderFile := range bootloaderFiles {
 		sourcePath := filepath.Join(bootloaderSrcDir, bootloaderFile)
-		targetPath := filepath.Join(outputPXEArtifactsDir, bootloaderFile)
+		// The PXE TFTP root uses the conventional lowercase boot loader names (bootx64.efi, grubx64.efi) documented in
+		// the PXE layout. Some distros name the ESP shim in uppercase (Fedora and Azure Linux 4 ship BOOTX64.EFI), so
+		// normalize the name at the PXE root.
+		targetPath := filepath.Join(outputPXEArtifactsDir, strings.ToLower(bootloaderFile))
 		err = file.Move(sourcePath, targetPath)
 		if err != nil {
-			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generated the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
+			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generating the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
 		}
 	}
 
@@ -139,6 +153,16 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 	err = os.RemoveAll(isoEFIDir)
 	if err != nil {
 		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)
+	}
+
+	// Some distros (Azure Linux 4.0, Fedora) ship a grub EFI binary whose baked-in prefix points at
+	// EFI/<distro> rather than the TFTP root, so over PXE grub looks for <prefix>/grub.cfg initially. Write a
+	// redirector here that chains to /boot/grub2/grub.cfg.
+	if grubPrefixDir := distroHandler.LiveOSGrubEfiPrefixDir(); grubPrefixDir != "" {
+		err = writeGrubPrefixRedirector(outputPXEArtifactsDir, grubPrefixDir, "" /*searchVolumeId*/)
+		if err != nil {
+			return err
+		}
 	}
 
 	// If a tar.gz is requested, create the archive

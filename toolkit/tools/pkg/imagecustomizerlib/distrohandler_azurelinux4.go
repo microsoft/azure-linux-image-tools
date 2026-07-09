@@ -115,17 +115,9 @@ func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	return nil
 }
 
-var ErrAzureLinux4PxeUnsupported = NewImageCustomizerError("Validation:AzureLinux4PxeUnsupported",
-	"PXE output format is not supported yet for Azure Linux 4.0 images")
-
 func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.HasPackageSnapshotTime() {
 		return ErrUnsupportedPackageSnapshotTime
-	}
-
-	switch rc.OutputImageFormat {
-	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
-		return ErrAzureLinux4PxeUnsupported
 	}
 
 	return nil
@@ -313,6 +305,18 @@ func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent stri
 	initramfsType imagecustomizerapi.InitramfsImageType,
 ) (string, error) {
 	return updateLiveOSGrubCfgBLSForIso(grubCfgContent, bootDir, initramfsType)
+}
+
+func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) (string, error) {
+	return updateLiveOSGrubCfgBLSForPxe(grubCfgContent)
+}
+
+func (d *azureLinux4DistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	return finalizeLiveOSPxeBLSEntries(pxeBootDir, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
 }
 
 func (d *azureLinux4DistroHandler) warnIfUnsignedSystemdBootPackage(detectedPackage string) {

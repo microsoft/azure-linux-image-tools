@@ -35,9 +35,9 @@ Customizing such a version requires this feature to be set.
 | &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Yes             | Preview             | Preview                   |
 | &emsp;&emsp;`baremetal-image`                                                                       | Yes             | Yes             | Preview             | No                        |
 | &emsp;&emsp;`cosi`                                                                                  | Yes             | Yes             | Preview             | No                        |
-| &emsp;&emsp;`iso`                                                                                   | Yes             | No              | No                  | No                        |
-| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | No              | No                  | No                        |
-| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | No              | No                  | No                        |
+| &emsp;&emsp;`iso`                                                                                   | Yes             | Yes             | No                  | No                        |
+| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | Yes             | No                  | No                        |
+| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | Yes             | No                  | No                        |
 | &emsp;&emsp;`qcow2`                                                                                 | Yes             | Yes             | Preview             | Preview                   |
 | &emsp;&emsp;`raw`                                                                                   | Yes             | Yes             | Preview             | Preview                   |
 | &emsp;&emsp;`vhd-fixed`                                                                             | Yes             | Yes             | Preview             | Preview                   |
@@ -60,8 +60,8 @@ Customizing such a version requires this feature to be set.
 | [input.image.oci](./configuration/inputImage.md#oci-ociimage)                            | Yes                   | Yes                   | No                  | No                        |
 | [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)       | Yes                   | Yes                   | N/A                 | N/A                       |
 | [storage](./configuration/config.md#storage-storage)                                     | Yes                   | Yes                   | No                  | No                        |
-| [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | No                    | No                  | No                        |
-| [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | No                    | No                  | No                        |
+| [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | Yes                   | No                  | No                        |
+| [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | Yes                   | No                  | No                        |
 | [os.hostname](./configuration/os.md#hostname-string)                                     | Yes                   | Yes                   | Preview             | Preview                   |
 | [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes                   | Yes                   | No                  | Preview                   |
 | [os.packages](./configuration/os.md#packages-packages)                                   | Yes                   | Yes                   | Preview             | No                        |

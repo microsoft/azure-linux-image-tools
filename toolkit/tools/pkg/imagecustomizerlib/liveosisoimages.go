@@ -267,10 +267,22 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", targetDir, err)
 	}
 
-	// Preserve symlinks rather than dereferencing them. Some kernel boot files (e.g. Azure Linux 4.0's
-	// symvers-<ver>.xz) are symlinks into the rootfs that dangle in the flattened artifacts directory. The
-	// artifacts were copied in with --no-dereference, so stage them the same way; mkisofs records the symlinks
-	// via Rock Ridge. Regular files fall through to a normal copy.
+	// Skip dangling symlinks. Some kernel boot files (e.g. Azure Linux 4.0's symvers-<ver>.xz, a symlink into
+	// /lib/modules/<ver>/) dangle in the flattened artifacts directory. They are kernel module-build artifacts that
+	// are not needed to boot, and a dangling symlink on the boot media serves no purpose while potentially breaking
+	// consumers that extract the artifacts onto a real filesystem.
+	if info, lerr := os.Lstat(stageFile.sourcePath); lerr == nil && info.Mode()&os.ModeSymlink != 0 {
+		if _, serr := os.Stat(stageFile.sourcePath); serr != nil {
+			if !os.IsNotExist(serr) {
+				return fmt.Errorf("failed to stat symlink target while staging Live OS file (%s):\n%w", stageFile.sourcePath, serr)
+			}
+			logger.Log.Debugf("Skipping dangling symlink while staging Live OS file (%s)", stageFile.sourcePath)
+			return nil
+		}
+	}
+
+	// Preserve symlinks rather than dereferencing them. The artifacts were copied in with --no-dereference, so stage
+	// them the same way; mkisofs records the symlinks via Rock Ridge. Regular files fall through to a normal copy.
 	err = file.NewFileCopyBuilder(stageFile.sourcePath, targetPath).
 		SetNoDereference().
 		Run()
@@ -462,7 +474,7 @@ func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsI
 	}
 
 	if grubPrefixDir := distroHandler.LiveOSGrubEfiPrefixDir(); grubPrefixDir != "" {
-		err = writeIsoGrubPrefixRedirector(stagingDir, grubPrefixDir)
+		err = writeGrubPrefixRedirector(stagingDir, grubPrefixDir, isogenerator.DefaultVolumeId)
 		if err != nil {
 			return fmt.Errorf("failed to stage grub prefix redirector:\n%w", err)
 		}
@@ -478,17 +490,23 @@ func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsI
 	return nil
 }
 
-// writeIsoGrubPrefixRedirector writes a minimal grub.cfg into grubPrefixDir (the directory the ISO's grub EFI binary
-// uses as its baked-in 'prefix', e.g. EFI/azurelinux) within stagingPath. BLS-style distros (Azure Linux 4.0, Fedora)
-// ship a grub binary whose prefix points at EFI/<distro> rather than the boot media root, so without this file grub
-// would look for <prefix>/grub.cfg, find nothing, and drop to the 'grub>' rescue prompt. The redirector locates the
-// LiveOS volume by label and chains to the real configuration at isoGrubCfgPath.
-func writeIsoGrubPrefixRedirector(stagingPath string, grubPrefixDir string) error {
-	redirector := fmt.Sprintf("search --label %s --set root\n"+
-		"set prefix=($root)%s\n"+
-		"configfile ($root)%s\n", isogenerator.DefaultVolumeId, grubCfgDir, isoGrubCfgPath)
+// writeGrubPrefixRedirector writes a minimal grub.cfg into grubPrefixDir (the directory the grub EFI binary uses as
+// its baked-in 'prefix', e.g. EFI/azurelinux) within rootDir, and chains to the real configuration at isoGrubCfgPath.
+// BLS-style distros (Azure Linux 4.0, Fedora) ship a grub binary whose prefix points at EFI/<distro> rather than the
+// boot media root, so without this file grub would look for <prefix>/grub.cfg, find nothing, and drop to the 'grub>'
+// rescue prompt.
+//
+// How $root is established before chaining depends on the boot media: for media grub must locate by filesystem label
+// (the ISO), pass its volume id in searchVolumeId so the redirector issues a 'search --label'; for network boot (PXE)
+// pass "" because $root is already the TFTP device grub was network-loaded from.
+func writeGrubPrefixRedirector(rootDir, grubPrefixDir, searchVolumeId string) error {
+	redirector := ""
+	if searchVolumeId != "" {
+		redirector = fmt.Sprintf("search --label %s --set root\n", searchVolumeId)
+	}
+	redirector += fmt.Sprintf("set prefix=($root)%s\nconfigfile ($root)%s\n", grubCfgDir, isoGrubCfgPath)
 
-	targetPath := filepath.Join(stagingPath, grubPrefixDir, isoGrubCfg)
+	targetPath := filepath.Join(rootDir, grubPrefixDir, isoGrubCfg)
 	err := os.MkdirAll(filepath.Dir(targetPath), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create grub prefix directory (%s):\n%w", filepath.Dir(targetPath), err)

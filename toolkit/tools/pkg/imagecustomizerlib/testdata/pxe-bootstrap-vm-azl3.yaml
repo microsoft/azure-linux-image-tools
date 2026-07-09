@@ -1,0 +1,30 @@
+# Azure Linux 3.0 PXE (bootstrap) VM test config.
+#
+# The bootstrap initramfs downloads the full-OS image (image.iso) over the network at boot time. The download URL is
+# derived from pxe.bootstrapBaseUrl, which is injected by the test at run time (it must match the HTTP server the test
+# stands up), so it is intentionally not set here.
+#
+# Differs from pxe-bootstrap-vm-azl4 only in the SELinux package set: Azure Linux 3.0 additionally requires
+# selinux-policy-modules.
+pxe:
+  initramfsType: bootstrap
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs so the booted OS can be reached over SSH.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+
+os:
+  selinux:
+    mode: enforcing
+
+  packages:
+    install:
+    # iso/pxe required packages
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
+    # Required packages for SELinux.
+    - selinux-policy
+    - selinux-policy-modules

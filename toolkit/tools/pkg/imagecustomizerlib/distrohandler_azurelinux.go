@@ -238,6 +238,18 @@ func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent strin
 	return updateGrubCfgForIso(grubCfgContent, initramfsType)
 }
 
+func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) (string, error) {
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+}
+
+func (d *azureLinuxDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	return nil
+}
+
 func (d *azureLinuxDistroHandler) ShimPackage() string {
 	return shimPackageAzl3
 }

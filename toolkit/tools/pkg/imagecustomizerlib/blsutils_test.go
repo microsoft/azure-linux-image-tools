@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -594,6 +595,24 @@ func writeTestBLSEntry(t *testing.T, bootDir string) string {
 	return entryPath
 }
 
+// writeTestPxeGrubCfg creates a minimal AZL4-style grub.cfg with a `blscfg` invocation under {bootDir}/grub2 and
+// returns the grub.cfg's absolute path. It mirrors the relevant lines that finalizeLiveOSPxeBLSEntries rewrites.
+func writeTestPxeGrubCfg(t *testing.T, bootDir string) string {
+	grubDir := filepath.Join(bootDir, "grub2")
+	err := os.MkdirAll(grubDir, 0o755)
+	assert.NoError(t, err)
+
+	content := "### BEGIN /etc/grub.d/10_linux ###\n" +
+		"insmod blscfg\n" +
+		"blscfg\n" +
+		"### END /etc/grub.d/10_linux ###\n"
+
+	grubCfgPath := filepath.Join(grubDir, "grub.cfg")
+	err = os.WriteFile(grubCfgPath, []byte(content), 0o644)
+	assert.NoError(t, err)
+	return grubCfgPath
+}
+
 func TestUpdateLiveOSBLSEntriesFullOS(t *testing.T) {
 	bootDir := t.TempDir()
 	entryPath := writeTestBLSEntry(t, bootDir)
@@ -659,6 +678,102 @@ func TestSetLiveOSBLSEntriesRootForIso(t *testing.T) {
 
 	assert.Contains(t, gotStr, "root=live:LABEL=foo")
 	assert.NotContains(t, gotStr, "root=UUID=")
+}
+
+func TestFinalizeLiveOSPxeBLSEntries(t *testing.T) {
+	bootDir := t.TempDir()
+	entryPath := writeTestBLSEntry(t, bootDir)
+	grubCfgPath := writeTestPxeGrubCfg(t, bootDir)
+
+	err := finalizeLiveOSPxeBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeBootstrap,
+		"" /*bootstrapBaseUrl*/, "http://pxe-server/my.iso" /*bootstrapFileUrl*/)
+	assert.NoError(t, err)
+
+	got, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+	gotStr := string(got)
+
+	assert.Contains(t, gotStr, "root=live:http://pxe-server/my.iso")
+	assert.NotContains(t, gotStr, "root=UUID=")
+	assert.Contains(t, gotStr, "rd.live.azldownloader=enable")
+	assert.Regexp(t, `(?m)^options .*ip=dhcp`, gotStr)
+
+	// The BLS entry is expanded into an explicit grub menuentry.
+	grubCfg, err := os.ReadFile(grubCfgPath)
+	assert.NoError(t, err)
+	grubCfgStr := string(grubCfg)
+	assert.Regexp(t, `(?m)^menuentry 'Azure Linux \(6\.18\.31-1\.5\.azl4\.x86_64\) 4\.0' \{$`, grubCfgStr)
+	assert.Regexp(t, `(?m)^\tlinux /boot/vmlinuz-6\.18\.31-1\.5\.azl4\.x86_64 .*ip=dhcp`, grubCfgStr)
+	assert.Regexp(t, `(?m)^\tinitrd /boot/initramfs-6\.18\.31-1\.5\.azl4\.x86_64\.img$`, grubCfgStr)
+	assert.Contains(t, grubCfgStr, "set default=0")
+	assert.NotRegexp(t, `(?m)^[ \t]*blscfg[ \t]*$`, grubCfgStr)
+	assert.Contains(t, grubCfgStr, "insmod blscfg")
+}
+
+func TestFinalizeLiveOSPxeBLSEntriesFullOSNoOp(t *testing.T) {
+	bootDir := t.TempDir()
+	entryPath := writeTestBLSEntry(t, bootDir)
+	grubCfgPath := writeTestPxeGrubCfg(t, bootDir)
+
+	before, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+
+	// Full-OS pxe has no bootstrap url to inject, so the BLS entry's kernel args must be left untouched.
+	err = finalizeLiveOSPxeBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeFullOS, "", "")
+	assert.NoError(t, err)
+
+	after, err := os.ReadFile(entryPath)
+	assert.NoError(t, err)
+	assert.Equal(t, string(before), string(after))
+
+	// The grub.cfg is still expanded into menuentries.
+	grubCfg, err := os.ReadFile(grubCfgPath)
+	assert.NoError(t, err)
+	grubCfgStr := string(grubCfg)
+	assert.Regexp(t, `(?m)^menuentry 'Azure Linux \(6\.18\.31-1\.5\.azl4\.x86_64\) 4\.0' \{$`, grubCfgStr)
+	assert.NotRegexp(t, `(?m)^[ \t]*blscfg[ \t]*$`, grubCfgStr)
+}
+
+func TestCompareKernelVersions(t *testing.T) {
+	// The 6.6.10 vs 6.6.9 case is the one a lexical sort gets backwards.
+	assert.Equal(t, 1, compareKernelVersions("6.6.10", "6.6.9"))
+	assert.Equal(t, -1, compareKernelVersions("6.6.9", "6.6.10"))
+	assert.Equal(t, 0, compareKernelVersions("6.6.10", "6.6.10"))
+	assert.Equal(t, 1, compareKernelVersions("6.6.64.1-1.azl4.x86_64", "6.6.57.1-6.azl4.x86_64"))
+	// A longer trailing version (e.g. a stable respin) is newer.
+	assert.Equal(t, 1, compareKernelVersions("6.6.10.1", "6.6.10"))
+}
+
+// TestRenderGrubMenuEntriesFromBLSOrdersNewestVersionFirst verifies the PXE menu lists the newest kernel first (so
+// `set default=0` matches a normal blscfg boot), even when the entry file names sort the other way lexically.
+func TestRenderGrubMenuEntriesFromBLSOrdersNewestVersionFirst(t *testing.T) {
+	bootDir := t.TempDir()
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	err := os.MkdirAll(entriesDir, 0o755)
+	assert.NoError(t, err)
+
+	older := "title Azure Linux (6.6.9.1-1.azl4.x86_64) 4.0\n" +
+		"linux /boot/vmlinuz-6.6.9.1-1.azl4.x86_64\n" +
+		"initrd /boot/initramfs-6.6.9.1-1.azl4.x86_64.img\n" +
+		"options root=UUID=aaaa\n"
+	newer := "title Azure Linux (6.6.10.1-1.azl4.x86_64) 4.0\n" +
+		"linux /boot/vmlinuz-6.6.10.1-1.azl4.x86_64\n" +
+		"initrd /boot/initramfs-6.6.10.1-1.azl4.x86_64.img\n" +
+		"options root=UUID=bbbb\n"
+
+	err = os.WriteFile(filepath.Join(entriesDir, "6.6.9.1-1.azl4.x86_64.conf"), []byte(older), 0o644)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(entriesDir, "6.6.10.1-1.azl4.x86_64.conf"), []byte(newer), 0o644)
+	assert.NoError(t, err)
+
+	got, err := renderGrubMenuEntriesFromBLS(bootDir)
+	assert.NoError(t, err)
+
+	newerIdx := strings.Index(got, "(6.6.10.1-1.azl4.x86_64) 4.0")
+	olderIdx := strings.Index(got, "(6.6.9.1-1.azl4.x86_64) 4.0")
+	assert.NotEqual(t, -1, newerIdx)
+	assert.NotEqual(t, -1, olderIdx)
+	assert.Less(t, newerIdx, olderIdx, "the newest kernel's menuentry must be rendered first")
 }
 
 func TestSetBLSEntryField(t *testing.T) {

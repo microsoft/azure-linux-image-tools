@@ -297,6 +297,18 @@ func (d *aclDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, boot
 	return updateGrubCfgForIso(grubCfgContent, initramfsType)
 }
 
+func (d *aclDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) (string, error) {
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+}
+
+func (d *aclDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
+	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
+) error {
+	return nil
+}
+
 func (d *aclDistroHandler) ShimPackage() string {
 	// ACL uses systemd-boot + UKI (no shim/grub from a package).
 	return ""
