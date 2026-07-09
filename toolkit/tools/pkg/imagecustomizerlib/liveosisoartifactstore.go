@@ -16,7 +16,9 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -407,42 +409,67 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 }
 
 func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, distroHandler DistroHandler,
+	toolsChroot *safechroot.Chroot,
 ) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
-	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
+	var bindMount *safemount.Mount
+	chrootDir := imageRootDir
+	if toolsChroot != nil {
+		chrootDir = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
+
+		bindMount, err = safemount.NewMount(imageRootDir, chrootDir, "", unix.MS_BIND, "", true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create image bind mount in tools dir:\n%w", err)
+		}
+		defer bindMount.Close()
+	}
+
+	chroot := safechroot.NewChroot(chrootDir, true /*isExistingDir*/)
 	if chroot == nil {
-		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", imageRootDir)
+		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
 	}
 	defer chroot.Close(true /*leaveOnDisk*/)
 
 	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", imageRootDir, err)
+		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", chrootDir, err)
 	}
 
 	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot, distroHandler)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine SELinux mode for (%s):\n%w", imageRootDir, err)
+		return nil, fmt.Errorf("failed to determine SELinux mode for (%s):\n%w", chrootDir, err)
 	}
 	infoStore.seLinuxMode = imageSELinuxMode
 
-	infoStore.dracutPackageInfo, err = distroHandler.GetPackageInformation(chroot, "dracut")
+	infoStore.dracutPackageInfo, err = distroHandler.GetPackageInformation(chroot, toolsChroot, "dracut")
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine package information for dracut under (%s):\n%w", imageRootDir, err)
+		return nil, fmt.Errorf("failed to determine package information for dracut under (%s):\n%w", chrootDir, err)
 	}
 
 	// Note the MIC allows the user to install other selinux policy packages.
 	// So, the absence of selinux-policy does not mean that there are no selinux
 	// policy packages.
-	selinuxPolicyInstalled, err := distroHandler.IsPackageInstalled(chroot, nil, "selinux-policy")
+	selinuxPolicyInstalled, err := distroHandler.IsPackageInstalled(chroot, toolsChroot, "selinux-policy")
 	if err != nil {
-		return nil, fmt.Errorf("failed to check if selinux-policy is installed under (%s):\n%w", imageRootDir, err)
+		return nil, fmt.Errorf("failed to check if selinux-policy is installed under (%s):\n%w", chrootDir, err)
 	}
 	if selinuxPolicyInstalled {
-		infoStore.selinuxPolicyPackageInfo, err = distroHandler.GetPackageInformation(chroot, "selinux-policy")
+		infoStore.selinuxPolicyPackageInfo, err = distroHandler.GetPackageInformation(chroot, toolsChroot, "selinux-policy")
 		if err != nil {
-			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", imageRootDir, err)
+			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", chrootDir, err)
+		}
+	}
+
+	err = chroot.Close(true /*leaveOnDisk*/)
+	if err != nil {
+		return nil, err
+	}
+
+	if bindMount != nil {
+		err := bindMount.CleanClose()
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -592,7 +619,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 }
 
 func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string,
-	storeDir string, distroHandler DistroHandler,
+	storeDir string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (artifactStore *IsoArtifactsStore, err error) {
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
@@ -607,7 +634,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler)
+	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler, toolsChroot)
 	if err != nil {
 		return nil, err
 	}
