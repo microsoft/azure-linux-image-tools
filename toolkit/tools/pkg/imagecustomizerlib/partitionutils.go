@@ -1148,7 +1148,9 @@ func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", cmdlinePath.Name(), err)
 	}
 
-	return string(content), nil
+	// objcopy --dump-section writes NUL padding up to PE FileAlignment;
+	// strings.TrimSpace in callers doesn't strip NUL. Strip here.
+	return strings.Trim(string(content), "\x00"), nil
 }
 
 func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPath string, buildDir string,
