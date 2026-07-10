@@ -168,9 +168,6 @@ func NewChroot(rootDir string, isExistingDir bool) *Chroot {
 func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMountPoints []*MountPoint,
 	includeDefaultMounts bool,
 ) (err error) {
-	// On failed initialization, cleanup all chroot files
-	const leaveChrootOnDisk = false
-
 	// Acquire a lock on the global activeChrootsMutex to ensure SIGTERM
 	// teardown doesn't happen mid-initialization.
 	activeChrootsMutex.Lock()
@@ -206,7 +203,7 @@ func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMoun
 		if err != nil {
 			// mount/unmount is only supported in regular pipeline
 			// Best effort cleanup in case mountpoint creation failed mid-way through. We will not try again so treat as final attempt.
-			cleanupErr := c.unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
+			cleanupErr := c.unmountAndRemove(unmountTypeLazy)
 			if cleanupErr != nil {
 				logger.Log.Warnf("Failed to cleanup chroot (%s) during failed initialization:\n%s", c.rootDir, cleanupErr)
 			}
@@ -382,7 +379,7 @@ func (c *Chroot) ChrootDir() string {
 // Close will unmount the chroot and cleanup its files.
 // This call will block until the chroot cleanup runs.
 // Only one Chroot will close at a given time.
-func (c *Chroot) Close(leaveOnDisk bool) (err error) {
+func (c *Chroot) Close() (err error) {
 	// Acquire a lock on the global activeChrootsMutex to ensure SIGTERM
 	// teardown doesn't happen mid-close.
 	activeChrootsMutex.Lock()
@@ -410,10 +407,10 @@ func (c *Chroot) Close(leaveOnDisk bool) (err error) {
 	}
 
 	// mount is only supported in regular pipeline
-	err = c.unmountAndRemove(leaveOnDisk, unmountTypeNormal)
+	err = c.unmountAndRemove(unmountTypeNormal)
 	if err != nil {
 		logger.Log.Warnf("Chroot cleanup failed, will retry with lazy unmount. Error: %s", err)
-		err = c.unmountAndRemove(leaveOnDisk, unmountTypeLazy)
+		err = c.unmountAndRemove(unmountTypeLazy)
 	}
 	if err == nil {
 		const emptyLen = 0
@@ -458,8 +455,6 @@ func cleanupAllChroots() {
 	// but really it has already been cleaned up.
 
 	const (
-		// On cleanup, remove all chroot files
-		leaveChrootOnDisk = false
 		// On cleanup SIGKILL all children processes.
 		stopSignal = unix.SIGKILL
 	)
@@ -478,7 +473,7 @@ func cleanupAllChroots() {
 	logger.Log.Debug("Cleaning up all active chroots")
 	for i := len(activeChroots) - 1; i >= 0; i-- {
 		logger.Log.Debugf("Cleaning up chroot (%s)", activeChroots[i].rootDir)
-		err := activeChroots[i].unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
+		err := activeChroots[i].unmountAndRemove(unmountTypeLazy)
 		// Perform best effort cleanup: unmount as many chroots as possible,
 		// even if one fails.
 		if err != nil {
@@ -499,7 +494,7 @@ func cleanupAllChroots() {
 // This is to avoid leaving folders like /dev mounted when the chroot folder is forcefully deleted in cleanup.
 // Iff all mounts were successfully unmounted, the chroot's root directory will be removed if requested.
 // If doLazyUnmount is true, use the lazy unmount flag which will allow the unmount to succeed even if the mount point is busy.
-func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
+func (c *Chroot) unmountAndRemove(lazyUnmount bool) (err error) {
 	const (
 		retryDuration      = time.Second
 		totalAttempts      = 3
@@ -560,7 +555,7 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 		}
 	}
 
-	if !leaveOnDisk {
+	if !c.isExistingDir {
 		err = os.RemoveAll(c.rootDir)
 	}
 

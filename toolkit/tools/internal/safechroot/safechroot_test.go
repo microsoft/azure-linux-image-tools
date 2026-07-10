@@ -14,11 +14,9 @@ import (
 )
 
 const (
-	testTar            = "testchroot.tar.gz"
-	emptyPath          = ""
-	emptyFlags         = 0
-	isExistingDir      = false
-	defaultLeaveOnDisk = false
+	testTar    = "testchroot.tar.gz"
+	emptyPath  = ""
+	emptyFlags = 0
 )
 
 var (
@@ -52,12 +50,12 @@ func TestInitializeShouldCreateRoot(t *testing.T) {
 	extraDirectories := []string{}
 
 	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCreateRoot")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
 	assert.NoError(t, err)
 
-	defer chroot.Close(defaultLeaveOnDisk)
+	defer chroot.Close()
 
 	_, err = os.Stat(chroot.RootDir())
 	assert.True(t, !os.IsNotExist(err))
@@ -68,48 +66,23 @@ func TestCloseShouldRemoveRoot(t *testing.T) {
 	extraDirectories := []string{}
 
 	dir := filepath.Join(t.TempDir(), "TestCloseShouldRemoveRoot")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
 	assert.NoError(t, err)
 
 	// save away chroot location and close
 	chrootDir := chroot.RootDir()
-	err = chroot.Close(defaultLeaveOnDisk)
+	err = chroot.Close()
 	assert.NoError(t, err)
 
 	_, err = os.Stat(chrootDir)
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestCloseShouldLeaveRootOnRequest(t *testing.T) {
-	// this test only apply to "regular build" pipeline
-	const leaveOnDisk = true
-
-	extraMountPoints := []*MountPoint{}
-	extraDirectories := []string{}
-
-	dir := filepath.Join(t.TempDir(), "TestCloseShouldLeaveRootOnRequest")
-	chroot := NewChroot(dir, isExistingDir)
-
-	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-	assert.NoError(t, err)
-
-	err = chroot.Close(leaveOnDisk)
-	assert.NoError(t, err)
-
-	_, err = os.Stat(dir)
-	assert.True(t, !os.IsNotExist(err))
-
-	// Since the chroot dir will be left on disk but unmounted,
-	// manually clean it up.
-	err = os.RemoveAll(dir)
-	assert.NoError(t, err)
-}
-
 func TestRootDirShouldReturnRootDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 	assert.Equal(t, dir, chroot.RootDir())
 }
 
@@ -121,11 +94,11 @@ func TestInitializeShouldExtractTar(t *testing.T) {
 	extraDirectories := []string{}
 
 	dir := filepath.Join(t.TempDir(), "TestInitializeShouldExtractTar")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(tarPath, extraDirectories, extraMountPoints, true)
 	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
+	defer chroot.Close()
 
 	fullPath := filepath.Join(chroot.RootDir(), expectedFile)
 	_, err = os.Stat(fullPath)
@@ -142,11 +115,11 @@ func TestInitializeShouldCreateCustomMountPoints(t *testing.T) {
 	}
 
 	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCreateCustomMountPoints")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
 	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
+	defer chroot.Close()
 
 	fullPath := filepath.Join(dir, expectedFile)
 	_, err = os.Stat(fullPath)
@@ -162,7 +135,7 @@ func TestInitializeShouldCleanupOnBadMountPoint(t *testing.T) {
 	}
 
 	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCleanupOnBadMountPoint")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
 	assert.Error(t, err)
@@ -178,11 +151,11 @@ func TestInitializeShouldCreateExtraDirectories(t *testing.T) {
 	extraMountPoints := []*MountPoint{}
 
 	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCreateExtraDirectories")
-	chroot := NewChroot(dir, isExistingDir)
+	chroot := NewChroot(dir, false)
 
 	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
 	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
+	defer chroot.Close()
 
 	fullPath := filepath.Join(chroot.RootDir(), expectedExtraDirectory)
 	_, err = os.Stat(fullPath)

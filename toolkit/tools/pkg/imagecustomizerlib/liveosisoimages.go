@@ -170,7 +170,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	if chroot == nil {
 		return fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
 	}
-	defer chroot.Close(true /*leaveOnDisk*/)
+	defer chroot.Close()
 
 	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
 	if err != nil {
@@ -205,7 +205,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		return fmt.Errorf("failed to run dracut:\n%w", err)
 	}
 
-	err = chroot.Close(true /*leaveOnDisk*/)
+	err = chroot.Close()
 	if err != nil {
 		return err
 	}

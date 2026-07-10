@@ -429,7 +429,7 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	if chroot == nil {
 		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
 	}
-	defer chroot.Close(true /*leaveOnDisk*/)
+	defer chroot.Close()
 
 	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
 	if err != nil {
@@ -461,7 +461,7 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 		}
 	}
 
-	err = chroot.Close(true /*leaveOnDisk*/)
+	err = chroot.Close()
 	if err != nil {
 		return nil, err
 	}

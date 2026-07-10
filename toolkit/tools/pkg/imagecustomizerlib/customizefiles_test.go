@@ -31,7 +31,7 @@ func TestCopyAdditionalFiles(t *testing.T) {
 
 	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
 	assert.NoError(t, err)
-	defer chroot.Close(false)
+	defer chroot.Close()
 
 	copy_2_filemode := os.FileMode(0o777)
 
@@ -173,7 +173,7 @@ func TestCopyAdditionalDirs(t *testing.T) {
 
 	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
 	assert.NoError(t, err)
-	defer chroot.Close(false)
+	defer chroot.Close()
 
 	// Copy the directory.
 	err = copyAdditionalDirs(t.Context(), baseConfigPath,
