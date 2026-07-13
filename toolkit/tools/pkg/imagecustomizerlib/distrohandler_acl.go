@@ -131,8 +131,9 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	if toolsChroot == nil {
 		_, err := shell.LookPathChroot("rpm", imageChroot.ChrootDir())
 		if err != nil {
-			// RPM command is not found.
-			return nil, nil
+			// RPM command is not found. Return an empty list so the COSI
+			// metadata's osPackages field is populated (as []) rather than null.
+			return []cosiapi.OsPackage{}, nil
 		}
 	}
 
@@ -144,8 +145,9 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	}
 
 	if !exists {
-		// RPM database doesn't exist.
-		return nil, nil
+		// RPM database doesn't exist. Return an empty list so the COSI
+		// metadata's osPackages field is populated (as []) rather than null.
+		return []cosiapi.OsPackage{}, nil
 	}
 
 	// Get the list of packages.

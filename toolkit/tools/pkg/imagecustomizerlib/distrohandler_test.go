@@ -10,8 +10,26 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 )
+
+// Ensure the ACL package list is populated as an empty (non-nil) list when the
+// rpm database can't be read, so the COSI metadata's osPackages field
+// serializes as [] rather than null.
+func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpm(t *testing.T) {
+	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+
+	// An empty chroot dir has no rpm command and no rpm database.
+	chrootDir := t.TempDir()
+	chroot := safechroot.NewChroot(chrootDir, true)
+
+	packages, err := handler.GetAllPackagesFromChroot(chroot, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, packages)
+	assert.Empty(t, packages)
+}
 
 // Ensure unsupported-distro-version preview feature flag is required when distro version can't be parsed.
 func TestCustomizeImageDistroVersionInvalid(t *testing.T) {
