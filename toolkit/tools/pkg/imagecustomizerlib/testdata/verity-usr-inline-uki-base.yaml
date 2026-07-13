@@ -1,0 +1,68 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: boot
+      size: 1G
+
+    - id: usr
+      size: 2G
+
+    - id: root
+      size: 2G
+
+    - id: var
+      size: 1G
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usr
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+      options: noexec
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    mode: create

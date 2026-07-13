@@ -1148,7 +1148,14 @@ func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", cmdlinePath.Name(), err)
 	}
 
-	return string(content), nil
+	// The `.cmdline` PE section holds a NUL-terminated string. Tools that rewrite the section with
+	// shorter content (for example `objcopy --update-section`) keep the section's original size and
+	// zero-pad the freed bytes, so the dumped contents may carry trailing NUL padding. Trim the
+	// trailing NUL bytes so the padding is not treated as part of the command line, which would
+	// otherwise corrupt downstream parsing (e.g. the numeric hash-offset in systemd.verity_*_options).
+	cmdline := strings.TrimRight(string(content), "\x00")
+
+	return cmdline, nil
 }
 
 func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPath string, buildDir string,

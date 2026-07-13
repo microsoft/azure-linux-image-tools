@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -586,6 +588,20 @@ func verityRootUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) stri
 	}
 }
 
+// verityUsrInlineUkiConfigFile returns the verity-usr-inline-uki test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func verityUsrInlineUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-usr-inline-uki-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-usr-inline-uki-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for verity-usr-inline-uki test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
 // calculateUkiFileChecksums generates SHA256 checksums for a list of UKI files.
 // Returns nil if any error occurs during checksum calculation.
 func calculateUkiFileChecksums(t *testing.T, ukiFiles []string) map[string]string {
@@ -661,4 +677,140 @@ func TestGetKernelNameFromUki(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdline is the end-to-end regression test for a failure where
+// re-customizing a UKI usr-verity image aborted because its addon `.cmdline` PE section carried trailing NUL padding.
+//
+// The base-image validation reads the UKI addon `.cmdline`, discovers the usr-verity partition, and parses
+// `systemd.verity_usr_options` (including the numeric `hash-offset` at the end), then re-provisions verity and rebuilds
+// the UKI.
+//
+// A `.cmdline` section holds a NUL-terminated string. When a tool rewrites it with shorter content
+// (for example `objcopy --update-section`), the section keeps its original size and the freed bytes are zero-filled,
+// leaving trailing NUL padding after the last argument. If that padding is not stripped, the trailing `hash-offset
+// value fails to parse and customization aborts with "cannot validate target OS of the base image".
+//
+// This test builds an inline-usr-verity UKI image (inline verity, where data and hash is on the same partition, makes
+// IC append `...,hash-offset=<N>` to the addon command line), rewrites the addon `.cmdline` with shorter NUL-terminated
+// content to recreate the padding, then re-customizes and asserts success.
+func TestCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdline(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	for _, command := range []string{"ukify", "objcopy"} {
+		exists, err := file.CommandExists(command)
+		assert.NoError(t, err)
+		if !exists {
+			t.Skipf("The '%s' command is not available", command)
+		}
+	}
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdline_%s",
+		baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+
+	// Build an inline-usr-verity UKI image whose addon command line ends with
+	// `systemd.verity_usr_options=...,hash-offset=<N>`.
+	ukiImageFilePath := filepath.Join(testTempDir, "uki-verity.raw")
+	configFile := filepath.Join(testDir, verityUsrInlineUkiConfigFile(t, baseImageInfo))
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, ukiImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Rewrite the addon `.cmdline` with shorter, NUL-terminated content so the re-read command line carries trailing
+	// NUL padding after its last argument.
+	if !injectAddonCmdlineNulPadding(t, buildDir, ukiImageFilePath) {
+		return
+	}
+
+	// Re-customize.
+	outImageFilePath := filepath.Join(testTempDir, "recustomized.raw")
+	reinitConfigFile := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, reinitConfigFile, ukiImageFilePath, outImageFilePath,
+		"raw", baseImageInfo.PreviewFeatures)
+	assert.NoError(t, err)
+}
+
+// injectAddonCmdlineNulPadding rewrites every UKI addon `.cmdline` section on the image's ESP with shorter,
+// NUL-terminated content using `objcopy --update-section`, so the re-read command line carries trailing NUL padding
+// after its last argument.
+//
+// `objcopy --update-section` keeps the section's original size and zero-pads the freed bytes, which is how trailing
+// NULs end up in a `.cmdline` section in practice. The content is shortened by dropping the ` rd.info` argument added
+// by the build config, keeping the verity `hash-offset` value last so the padding lands on it.
+//
+// Returns false (after failing the test) if no addon carrying the command line was found to patch.
+func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath string) bool {
+	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
+		[]testutils.MountPoint{
+			{
+				PartitionNum:   1,
+				Path:           "/boot/efi",
+				FileSystemType: "vfat",
+			},
+		})
+	if !assert.NoError(t, err) {
+		return false
+	}
+	defer imageConnection.Close()
+
+	espDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	addonFiles, err := getUkiAddonFiles(espDir)
+	if !assert.NoError(t, err) {
+		return false
+	}
+	if !assert.NotEmpty(t, addonFiles, "expected at least one UKI addon on the ESP") {
+		return false
+	}
+
+	dumpPath := filepath.Join(buildDir, "addon-cmdline-orig.bin")
+	shortPath := filepath.Join(buildDir, "addon-cmdline-short.bin")
+
+	patched := false
+	for _, addonFile := range addonFiles {
+		_, _, err := shell.Execute("objcopy", "--dump-section", ".cmdline="+dumpPath, addonFile)
+		if !assert.NoError(t, err) {
+			return false
+		}
+
+		content, err := os.ReadFile(dumpPath)
+		if !assert.NoError(t, err) {
+			return false
+		}
+
+		// IC writes a clean command line (no NULs). Drop ` rd.info` to make the content shorter than the section, then
+		// re-terminate with a single NUL. objcopy keeps the original section size and zero-pads the freed bytes,
+		// leaving trailing NULs after the last argument.
+		cmdline := string(content)
+		shortened := strings.Replace(cmdline, " rd.info", "", 1)
+		if shortened == cmdline {
+			// Not the addon carrying the verity / rd.info command line; leave it untouched.
+			continue
+		}
+
+		err = os.WriteFile(shortPath, append([]byte(shortened), 0), 0o644)
+		if !assert.NoError(t, err) {
+			return false
+		}
+
+		_, _, err = shell.Execute("objcopy", "--update-section", ".cmdline="+shortPath, addonFile)
+		if !assert.NoError(t, err) {
+			return false
+		}
+		patched = true
+	}
+
+	return assert.True(t, patched, "no addon carrying the ' rd.info' command line was found to patch")
 }
