@@ -31,6 +31,29 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpm(t *testing.T) {
 	assert.Empty(t, packages)
 }
 
+// Ensure the ACL package list is populated as an empty (non-nil) list when the
+// rpm command exists but the rpm database is missing, so the COSI metadata's
+// osPackages field serializes as [] rather than null. This exercises the
+// rpm-db-missing branch (the no-rpm test above returns before reaching it).
+func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
+	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+
+	// Provide an rpm command in the chroot PATH but no rpm database.
+	chrootDir := t.TempDir()
+	rpmBinDir := filepath.Join(chrootDir, "usr", "bin")
+	err := os.MkdirAll(rpmBinDir, 0o755)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(rpmBinDir, "rpm"), []byte("#!/bin/sh\n"), 0o755)
+	assert.NoError(t, err)
+
+	chroot := safechroot.NewChroot(chrootDir, true)
+
+	packages, err := handler.GetAllPackagesFromChroot(chroot, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, packages)
+	assert.Empty(t, packages)
+}
+
 // Ensure unsupported-distro-version preview feature flag is required when distro version can't be parsed.
 func TestCustomizeImageDistroVersionInvalid(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
