@@ -740,7 +740,13 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 	reinitConfigFile := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, reinitConfigFile, ukiImageFilePath, outImageFilePath,
 		"raw", baseImageInfo.PreviewFeatures)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Validate the re-customized image. Reading the UKI addon command line back is the code path the fix touches, so
+	// this also confirms the usr-verity configuration is well-formed, including a parseable inline hash-offset.
+	verifyUsrInlineVerityUki(t, buildDir, outImageFilePath)
 }
 
 // injectAddonCmdlineNulPadding rewrites every UKI addon `.cmdline` section on the image's ESP with shorter,
@@ -813,4 +819,39 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 	}
 
 	return assert.True(t, patched, "no addon carrying the ' rd.info' command line was found to patch")
+}
+
+// verifyUsrInlineVerityUki validates that an inline-usr-verity UKI image is well-formed. It reads the usr-verity
+// kernel command line back from the UKI addons on the ESP (the code path the NUL-trim fix touches), checks the
+// systemd.verity_usr_* arguments including a parseable inline hash-offset, and runs `veritysetup verify` against the
+// usr partition.
+func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath string) {
+	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
+		[]testutils.MountPoint{
+			{
+				PartitionNum:   1,
+				Path:           "/boot/efi",
+				FileSystemType: "vfat",
+			},
+		})
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	if !assert.NoError(t, err, "get disk partitions") {
+		return
+	}
+
+	// Inline verity keeps the usr data and hash tree on the same partition, so the data and hash device and id are
+	// both the usr partition.
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
+	usrPartUuid := "PARTUUID=" + partitions[3].PartUuid
+	verifyVerityUki(t, espPath, usrDevice, usrDevice, usrPartUuid, usrPartUuid, "usr", buildDir, "rd.info",
+		"panic-on-corruption", true /*inlineVerity*/)
+
+	err = imageConnection.CleanClose()
+	assert.NoError(t, err)
 }
