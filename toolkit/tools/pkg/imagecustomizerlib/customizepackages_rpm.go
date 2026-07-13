@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
@@ -21,29 +19,19 @@ import (
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 	snapshotTime imagecustomizerapi.PackageSnapshotTime, pmHandler rpmPackageManagerHandler,
-) error {
-	var err error
-
+) (err error) {
 	packageManagerChroot := imageChroot
 	if toolsChroot != nil {
 		packageManagerChroot = toolsChroot
 	}
 
-	// Validate that snapshot time is only used with package managers that support it
-	if snapshotTime != "" && !pmHandler.supportsSnapshotTime() {
-		return fmt.Errorf("%w: package manager %s does not support snapshot time",
-			ErrSnapshotTimeNotSupported, pmHandler.getPackageManagerBinary())
-	}
-
-	// Setup distribution-specific configuration if needed
-	if pmHandler.supportsSnapshotTime() && snapshotTime != "" {
-		// Setup Azure Linux specific TDNF configuration with snapshot
-		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, snapshotTime)
+	if snapshotTime != "" {
+		cleanup, err := pmHandler.configureSnapshotTime(packageManagerChroot, snapshotTime)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			if cleanupErr := cleanupSnapshotTimeConfig(packageManagerChroot); cleanupErr != nil && err == nil {
+			if cleanupErr := cleanup(); cleanupErr != nil && err == nil {
 				err = cleanupErr
 			}
 		}()
@@ -108,30 +96,6 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	return nil
 }
 
-// executeRpmPackageManagerCommand runs a package manager command with proper chroot handling
-func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
-) error {
-	pmChroot := imageChroot
-	if toolsChroot != nil {
-		pmChroot = toolsChroot
-	}
-
-	if _, err := os.Stat(filepath.Join(pmChroot.RootDir(), pmHandler.getConfigFile())); err == nil {
-		args = append([]string{"--config", "/" + pmHandler.getConfigFile()}, args...)
-	}
-
-	// Use package manager specific output callback
-	stdoutCallback := pmHandler.createOutputCallback()
-
-	return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
-		StdoutCallback(stdoutCallback).
-		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
-		ErrorStderrLines(1).
-		Chroot(pmChroot.ChrootDir()).
-		Execute()
-}
-
 func installRpmPackages(ctx context.Context, allPackages []string,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
@@ -145,7 +109,7 @@ func installRpmPackages(ctx context.Context, allPackages []string,
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "install", "--assumeyes", "--cacheonly"}
+	args := []string{"install", "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -162,7 +126,7 @@ func installRpmPackages(ctx context.Context, allPackages []string,
 		}, args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackages, err)
 	}
@@ -182,7 +146,7 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "update", "--assumeyes", "--cacheonly"}
+	args := []string{"update", "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -199,7 +163,7 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 		}, args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, allPackages, err)
 	}
@@ -216,7 +180,7 @@ func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chro
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "update", "--assumeyes", "--cacheonly"}
+	args := []string{"update", "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -231,7 +195,7 @@ func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chro
 		}, args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
@@ -252,7 +216,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "remove", "--assumeyes", "--disablerepo", "*"}
+	args := []string{"remove", "--assumeyes", "--disablerepo", "*"}
 	args = append(args, allPackagesToRemove...)
 
 	if toolsChroot != nil {
@@ -261,7 +225,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 			args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
@@ -288,7 +252,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	// package install operations and to catch any typos in user-provided repository configuration. Otherwise, the wrong
 	// package versions might be silently installed.
 	args := []string{
-		pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes",
+		"check-update", "--refresh", "--assumeyes",
 		"--setopt=skip_if_unavailable=False",
 	}
 
@@ -301,7 +265,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 		}, args...)
 	}
 
-	err = executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		// For DNF/TDNF check-update, exit code 100 means updates are available
 		var exitErr *exec.ExitError
@@ -323,7 +287,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "clean", "all"}
+	args := []string{"clean", "all"}
 
 	if toolsChroot != nil {
 		args = append([]string{
@@ -332,7 +296,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 		}, args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 	}
