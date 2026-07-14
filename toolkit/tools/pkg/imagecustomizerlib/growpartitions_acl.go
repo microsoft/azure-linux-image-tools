@@ -82,11 +82,12 @@ type aclPartitionTable struct {
 // growAclStandardPartitions clones baseImageFile into newImageFile, growing the requested ACL
 // standard partitions to their target sizes. It operates purely at the GPT/block level: it
 // preserves every partition's type GUID, PARTUUID, label, and GPT attribute bits (the systemd A/B
-// bits) exactly, copies all partition content verbatim, and grows the trailing ROOT ext4
-// filesystem to fill the enlarged disk. ESP (vfat) is recreated at the larger size preserving its
-// volume id, label, and files. The btrfs /usr filesystem is NOT resized here; that happens after
-// the image is connected (see growAclUsrFilesystem), so the base verity superblock stays intact
-// for base-image verity discovery.
+// bits) exactly, and copies all partition content verbatim. Growth is absorbed by enlarging the
+// total disk by exactly the growth delta, so the trailing ROOT partition keeps its original size
+// and is merely shifted to a later offset (never shrunk). ESP (vfat) is recreated at the larger
+// size preserving its volume id, label, and files. The btrfs /usr filesystem is NOT resized here;
+// that happens after the image is connected (see growAclUsrFilesystem), so the base verity
+// superblock stays intact for base-image verity discovery.
 func growAclStandardPartitions(ctx context.Context, acl *imagecustomizerapi.Acl, baseImageFile string,
 	newImageFile string,
 ) error {
@@ -118,10 +119,12 @@ func growAclStandardPartitions(ctx context.Context, acl *imagecustomizerapi.Acl,
 		return errAclGrowNoOp
 	}
 
-	// Recompute the new (contiguous) layout.
-	espRecreated := applyAclGrownLayout(table, requestedSizes)
+	// Recompute the new layout. This grows the requested partitions, shifts the following ones
+	// right, and keeps the trailing ROOT partition at its original size (so ROOT is merely moved,
+	// never shrunk). The total growth (in bytes) is returned so the disk is enlarged to match.
+	growthBytes, espRecreated := applyAclGrownLayout(table, requestedSizes)
 
-	newDiskBytes := aclNewDiskSizeBytes(baseImageFile, table, requestedSizes)
+	newDiskBytes := aclAlignedDiskSize(baseImageFile, growthBytes)
 
 	// Create the new disk file and restore the edited GPT.
 	err = diskutils.CreateSparseDisk(newImageFile, newDiskBytes/diskutils.MiB, 0o644)
@@ -152,12 +155,6 @@ func growAclStandardPartitions(ctx context.Context, acl *imagecustomizerapi.Acl,
 
 	// Copy every partition's content verbatim.
 	err = cloneAclPartitionContents(partitions, newPartitions, requestedSizes, espRecreated)
-	if err != nil {
-		return err
-	}
-
-	// Grow the trailing ROOT ext4 filesystem to fill its enlarged partition.
-	err = growAclRootFilesystem(newLoopback.DevicePath(), newPartitions)
 	if err != nil {
 		return err
 	}
@@ -353,10 +350,13 @@ func resolveAclRequestedSizes(acl *imagecustomizerapi.Acl, table *aclPartitionTa
 }
 
 // applyAclGrownLayout rewrites the table's partition starts/sizes to grow the requested partitions
-// and re-pack all partitions contiguously. The trailing ROOT partition's size is cleared so sfdisk
-// extends it to fill the enlarged disk. Returns whether the ESP was grown (and must be recreated).
-func applyAclGrownLayout(table *aclPartitionTable, requestedSizes map[string]uint64) bool {
+// and re-pack all partitions contiguously. Every partition (including the trailing ROOT) keeps its
+// original size except the ones being grown; growth is absorbed by enlarging the total disk, so
+// ROOT is merely shifted to a later offset, never shrunk. Returns the total growth in bytes and
+// whether the ESP was grown (and must be recreated).
+func applyAclGrownLayout(table *aclPartitionTable, requestedSizes map[string]uint64) (uint64, bool) {
 	espRecreated := false
+	var growthSectors uint64
 
 	var nextStart uint64
 	for i, p := range table.partitions {
@@ -369,6 +369,8 @@ func applyAclGrownLayout(table *aclPartitionTable, requestedSizes map[string]uin
 
 		if newSize, grow := requestedSizes[p.label]; grow {
 			newSizeSect := newSize / table.sectorSize
+			// Accumulate growth using the original size, before mutating it.
+			growthSectors += newSizeSect - p.sizeSect
 			setAclField(p, "size", strconv.FormatUint(newSizeSect, 10))
 			p.sizeSect = newSizeSect
 			if p.label == aclPartLabelEsp {
@@ -376,15 +378,10 @@ func applyAclGrownLayout(table *aclPartitionTable, requestedSizes map[string]uin
 			}
 		}
 
-		// The last partition (ROOT) fills the remaining disk: drop its explicit size.
-		if i == len(table.partitions)-1 {
-			removeAclField(p, "size")
-		}
-
 		nextStart = p.startSect + p.sizeSect
 	}
 
-	return espRecreated
+	return growthSectors * table.sectorSize, espRecreated
 }
 
 func setAclField(entry *aclPartitionEntry, key string, value string) {
@@ -398,36 +395,17 @@ func setAclField(entry *aclPartitionEntry, key string, value string) {
 	entry.fields = append(entry.fields, sfdiskField{key: key, value: value})
 }
 
-func removeAclField(entry *aclPartitionEntry, key string) {
-	filtered := entry.fields[:0]
-	for _, f := range entry.fields {
-		if f.key != key {
-			filtered = append(filtered, f)
-		}
-	}
-	entry.fields = filtered
-}
-
-// aclNewDiskSizeBytes computes the size of the grown disk: the base disk size plus the sum of the
-// per-partition growth deltas, aligned up to a whole MiB.
-func aclNewDiskSizeBytes(baseImageFile string, table *aclPartitionTable, requestedSizes map[string]uint64) uint64 {
+// aclAlignedDiskSize computes the size of the grown disk: the base disk size plus the total
+// partition growth, aligned up to a whole MiB. Enlarging the disk by exactly the growth means the
+// trailing ROOT partition keeps its original size and is simply shifted to a later offset.
+func aclAlignedDiskSize(baseImageFile string, growthBytes uint64) uint64 {
 	stat, err := os.Stat(baseImageFile)
 	baseBytes := uint64(0)
 	if err == nil {
 		baseBytes = uint64(stat.Size())
 	}
 
-	// Sum the growth deltas.
-	currentSizes := make(map[string]uint64)
-	for _, p := range table.partitions {
-		currentSizes[p.label] = p.sizeSect * table.sectorSize
-	}
-	var delta uint64
-	for label, newSize := range requestedSizes {
-		delta += newSize - currentSizes[label]
-	}
-
-	total := baseBytes + delta
+	total := baseBytes + growthBytes
 	// Align up to MiB.
 	if rem := total % diskutils.MiB; rem != 0 {
 		total += diskutils.MiB - rem
@@ -521,31 +499,6 @@ func partitionsByLabel(partitions []diskutils.PartitionInfo) map[string]diskutil
 		}
 	}
 	return result
-}
-
-// growAclRootFilesystem grows the ROOT ext4 filesystem to fill its (enlarged) partition.
-func growAclRootFilesystem(diskDevPath string, newPartitions []diskutils.PartitionInfo) error {
-	rootPart, ok := partitionsByLabel(newPartitions)[aclPartLabelRoot]
-	if !ok {
-		return fmt.Errorf("%w: ROOT partition not found on new disk", ErrAclGrowFilesystem)
-	}
-
-	// resize2fs requires a clean filesystem.
-	err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", rootPart.Path)
-	if err != nil {
-		return fmt.Errorf("%w: e2fsck failed on ROOT (%s):\n%w", ErrAclGrowFilesystem, rootPart.Path, err)
-	}
-
-	// With no explicit size, resize2fs grows the filesystem to fill the partition.
-	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevPath, "resize2fs", rootPart.Path).
-		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
-		ErrorStderrLines(1).
-		Execute()
-	if err != nil {
-		return fmt.Errorf("%w: resize2fs failed on ROOT (%s):\n%w", ErrAclGrowFilesystem, rootPart.Path, err)
-	}
-
-	return nil
 }
 
 // recreateAclEspFilesystem recreates the ESP vfat filesystem at the enlarged partition size,

@@ -6,11 +6,13 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,6 +37,9 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 		imagecustomizerapi.PreviewFeatureReinitializeVerity,
 	}
 
+	// Capture the base layout so we can assert ROOT is preserved and the disk grew by the delta.
+	baseDiskSize, baseSizes := readAclLayoutForTest(t, baseImage)
+
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
 		previewFeatures)
 	if !assert.NoError(t, err) {
@@ -44,10 +49,24 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 	const targetUsrSize = uint64(2 * 1024 * 1024 * 1024)
 
 	// Both USR partitions must have grown to (at least) the requested size, preserving the A/B pair.
-	verifyAclPartitionSizes(t, outImageFilePath, map[string]uint64{
-		aclPartLabelUsrA: targetUsrSize,
-		aclPartLabelUsrB: targetUsrSize,
-	})
+	grownDiskSize, grownSizes := readAclLayoutForTest(t, outImageFilePath)
+	assert.GreaterOrEqual(t, grownSizes[aclPartLabelUsrA], targetUsrSize, "USR-A should be >= 2 GiB")
+	assert.GreaterOrEqual(t, grownSizes[aclPartLabelUsrB], targetUsrSize, "USR-B should be >= 2 GiB")
+
+	// The trailing ROOT partition must keep its original size (merely shifted, never shrunk).
+	assert.Equal(t, baseSizes[aclPartLabelRoot], grownSizes[aclPartLabelRoot],
+		"ROOT should keep its original size")
+
+	// ESP and OEM are unchanged.
+	assert.Equal(t, baseSizes[aclPartLabelEsp], grownSizes[aclPartLabelEsp], "ESP should be unchanged")
+	assert.Equal(t, baseSizes[aclPartLabelOem], grownSizes[aclPartLabelOem], "OEM should be unchanged")
+
+	// The overall disk must grow by exactly the USR growth delta (2 x (2 GiB - 1 GiB) = 2 GiB),
+	// allowing for MiB rounding.
+	expectedDelta := (grownSizes[aclPartLabelUsrA] - baseSizes[aclPartLabelUsrA]) +
+		(grownSizes[aclPartLabelUsrB] - baseSizes[aclPartLabelUsrB])
+	assert.InDelta(t, float64(baseDiskSize+expectedDelta), float64(grownDiskSize), float64(1024*1024),
+		"disk should grow by exactly the partition growth delta")
 
 	// Verify /usr verity still validates: connecting with read-only verity mounts /usr through the
 	// verity device, which fails if the re-seal / hash-offset is wrong.
@@ -84,26 +103,36 @@ func TestCustomizeImageAclGrowRejectedForNonAcl(t *testing.T) {
 	assert.ErrorContains(t, err, "only supported for Azure Container Linux")
 }
 
-func verifyAclPartitionSizes(t *testing.T, imageFile string, expectedMinSizes map[string]uint64) {
-	loopback, err := safeloopback.NewLoopback(imageFile)
+// readAclLayoutForTest returns the image's virtual disk size and a map of ACL standard partition
+// label -> size in bytes. The image is converted to raw for inspection if it is not already raw.
+func readAclLayoutForTest(t *testing.T, imageFile string) (uint64, map[string]uint64) {
+	rawFile := imageFile
+	if ext := strings.ToLower(filepath.Ext(imageFile)); ext != ".raw" && ext != ".img" {
+		rawFile = filepath.Join(t.TempDir(), "inspect-"+filepath.Base(imageFile)+".raw")
+		err := shell.ExecuteLive(true /*squashErrors*/, "qemu-img", "convert", "-O", "raw", imageFile, rawFile)
+		require.NoError(t, err, "converting %s to raw for inspection", imageFile)
+	}
+
+	stat, err := os.Stat(rawFile)
+	require.NoError(t, err)
+	diskSize := uint64(stat.Size())
+
+	loopback, err := safeloopback.NewLoopback(rawFile)
 	require.NoError(t, err)
 	defer loopback.Close()
 
 	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	require.NoError(t, err)
 
-	byLabel := partitionsByLabel(partitions)
-	for label, minSize := range expectedMinSizes {
-		part, ok := byLabel[label]
-		if !assert.Truef(t, ok, "partition %s not found", label) {
-			continue
-		}
-		assert.GreaterOrEqualf(t, part.SizeInBytes, minSize,
-			"partition %s size %d should be >= %d", label, part.SizeInBytes, minSize)
+	sizes := make(map[string]uint64)
+	for label, part := range partitionsByLabel(partitions) {
+		sizes[label] = part.SizeInBytes
 	}
 
 	err = loopback.CleanClose()
 	assert.NoError(t, err)
+
+	return diskSize, sizes
 }
 
 func verifyAclUsrVerity(t *testing.T, buildDir string, imageFile string) {

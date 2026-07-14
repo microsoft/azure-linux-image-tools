@@ -4,6 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -108,12 +111,18 @@ func TestResolveAclRequestedSizesNoOp(t *testing.T) {
 func TestApplyAclGrownLayoutUsr(t *testing.T) {
 	table := parseAclSample(t)
 
+	// Capture ROOT's original size before growing.
+	origRootSizeSect := table.partitions[4].sizeSect
+
 	requestedSizes := map[string]uint64{
 		aclPartLabelUsrA: 2 * 1024 * 1024 * 1024,
 		aclPartLabelUsrB: 2 * 1024 * 1024 * 1024,
 	}
-	espRecreated := applyAclGrownLayout(table, requestedSizes)
+	growthBytes, espRecreated := applyAclGrownLayout(table, requestedSizes)
 	assert.False(t, espRecreated)
+
+	// Growth is the sum of the per-partition deltas: 2 x (2 GiB - 1 GiB) = 2 GiB.
+	assert.Equal(t, uint64(2*1024*1024*1024), growthBytes)
 
 	// USR-A and USR-B grown to 2 GiB (4194304 sectors).
 	assert.Equal(t, uint64(4194304), table.partitions[1].sizeSect)
@@ -126,27 +135,54 @@ func TestApplyAclGrownLayoutUsr(t *testing.T) {
 			"partition %d start is not contiguous", i)
 	}
 
-	// ROOT (last) has its explicit size removed so it fills the disk.
+	// ROOT (last) keeps its original size and is merely shifted right (never shrunk).
+	assert.Equal(t, origRootSizeSect, table.partitions[4].sizeSect,
+		"ROOT should keep its original size")
+	hasSize := false
 	for _, f := range table.partitions[4].fields {
-		assert.NotEqual(t, "size", f.key, "ROOT should have no explicit size")
+		if f.key == "size" {
+			hasSize = true
+			assert.Equal(t, strconv.FormatUint(origRootSizeSect, 10), f.value)
+		}
 	}
+	assert.True(t, hasSize, "ROOT should keep an explicit size")
 }
 
 func TestApplyAclGrownLayoutEsp(t *testing.T) {
 	table := parseAclSample(t)
 
+	origRootSizeSect := table.partitions[4].sizeSect
+
 	requestedSizes := map[string]uint64{
 		aclPartLabelEsp: 512 * 1024 * 1024,
 	}
-	espRecreated := applyAclGrownLayout(table, requestedSizes)
+	growthBytes, espRecreated := applyAclGrownLayout(table, requestedSizes)
 	assert.True(t, espRecreated)
 	assert.Equal(t, uint64(512*1024*1024/512), table.partitions[0].sizeSect)
+
+	// Growth is ESP delta: 512 MiB - 256 MiB = 256 MiB.
+	assert.Equal(t, uint64(256*1024*1024), growthBytes)
 
 	// Everything after ESP shifts right and stays contiguous.
 	for i := 1; i < len(table.partitions); i++ {
 		prev := table.partitions[i-1]
 		assert.Equal(t, prev.startSect+prev.sizeSect, table.partitions[i].startSect)
 	}
+
+	// ROOT keeps its original size.
+	assert.Equal(t, origRootSizeSect, table.partitions[4].sizeSect)
+}
+
+func TestAclAlignedDiskSizeGrowsByDelta(t *testing.T) {
+	// A base file whose size is a whole MiB; growth of 2 GiB yields base + 2 GiB.
+	tmpFile := filepath.Join(t.TempDir(), "base.raw")
+	const baseBytes = uint64(30 * 1024 * 1024 * 1024)
+	require.NoError(t, os.WriteFile(tmpFile, nil, 0o644))
+	require.NoError(t, os.Truncate(tmpFile, int64(baseBytes)))
+
+	growth := uint64(2 * 1024 * 1024 * 1024)
+	got := aclAlignedDiskSize(tmpFile, growth)
+	assert.Equal(t, baseBytes+growth, got)
 }
 
 func TestRestoreAclPartitionTableRoundTrip(t *testing.T) {
@@ -167,6 +203,8 @@ func TestRestoreAclPartitionTableRoundTrip(t *testing.T) {
 	// PARTUUIDs preserved.
 	assert.Contains(t, script, "uuid=91BCEEAE-BA93-4CAE-BD12-11694ED8B8C5")
 	assert.Contains(t, script, "uuid=17CA28A9-E145-48C6-BC2D-7D7D125804CE")
+	// ROOT keeps an explicit size (it is not filled/shrunk).
+	assert.Contains(t, script, "size=58720256")
 }
 
 func TestParseAclPartitionTableRejectsEmpty(t *testing.T) {
