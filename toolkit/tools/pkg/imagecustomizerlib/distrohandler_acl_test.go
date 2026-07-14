@@ -28,3 +28,18 @@ func TestAclDracutRegenerateArgsUsesExplicitTmpdir(t *testing.T) {
 	assert.Equal(t, "/"+aclDracutTmpDirName, tmpdir)
 	assert.NotEqual(t, "/var/tmp", tmpdir, "dracut tmpdir must not be the default /var/tmp")
 }
+
+func TestAclDracutRegenerateArgsUsesAclConfDir(t *testing.T) {
+	// The regenerated initramfs must include ACL's verity/storage dracut modules, which come from
+	// ACL's config file /usr/share/distro/etc/dracut.conf.d/99-acl.conf. dracut's --confdir points
+	// directly at the directory it globs *.conf files from (it does not descend into a dracut.conf.d
+	// subdir), and dracut does not read that path by default (the image's /etc is empty), so
+	// --confdir must point straight at ACL's dracut.conf.d.
+	args := aclDracutRegenerateArgs()
+
+	confdirIdx := slices.Index(args, "--confdir")
+	require.GreaterOrEqual(t, confdirIdx, 0, "expected --confdir in dracut args")
+	require.Less(t, confdirIdx+1, len(args), "expected a value after --confdir")
+
+	assert.Equal(t, "/usr/share/distro/etc/dracut.conf.d", args[confdirIdx+1])
+}

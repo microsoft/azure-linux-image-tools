@@ -343,12 +343,27 @@ const (
 	// aclDracutBtrfsImageSizeMiB sizes the backing image generously; --regenerate-all staging is a
 	// few hundred MiB, and the sparse image only consumes what is actually written.
 	aclDracutBtrfsImageSizeMiB = 2048
+
+	// aclDracutConfDir is ACL's dracut config directory. ACL's config that force-includes the
+	// verity/storage modules (add_dracutmodules+=" dm crypt systemd-veritysetup ", nvme/virtio/btrfs
+	// drivers, compress="zstd") is the file 99-acl.conf in this directory. dracut's --confdir points
+	// directly at the directory it globs "*.conf" files from (it does NOT descend into a
+	// dracut.conf.d subdir), and dracut only reads /etc/dracut.conf.d and
+	// /usr/lib/dracut/dracut.conf.d by default while the image's /etc is empty. So point --confdir
+	// straight at ACL's dracut.conf.d, matching ACL's stock initramfs build.
+	aclDracutConfDir = "/usr/share/distro/etc/dracut.conf.d"
 )
 
-// aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images with
-// an explicit staging directory (backed by a dedicated loopback btrfs; see RegenerateInitramfs).
+// aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images. It
+// points dracut at ACL's config dir (so the regenerated initramfs pulls in the systemd-veritysetup
+// / dm / crypt modules, storage drivers, and zstd compression, matching ACL's stock initramfs) and
+// at an explicit staging directory (backed by a dedicated loopback btrfs; see RegenerateInitramfs).
 func aclDracutRegenerateArgs() []string {
-	return []string{"--force", "--regenerate-all", "--tmpdir", "/" + aclDracutTmpDirName}
+	return []string{
+		"--force", "--regenerate-all",
+		"--confdir", aclDracutConfDir,
+		"--tmpdir", "/" + aclDracutTmpDirName,
+	}
 }
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
