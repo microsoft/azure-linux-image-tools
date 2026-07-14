@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,9 +13,11 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 )
 
 // TestCustomizeImageAclGrowUsr grows ACL's /usr to 2 GiB, installs packages, and verifies the
@@ -72,6 +75,10 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 	// The extra kernel cmdline args (uki: mode: create) must be baked into the regenerated UKIs,
 	// even though ACL has no grub.cfg.
 	verifyAclUkiCmdline(t, buildDir, outImageFilePath, []string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
+
+	// The regenerated initramfs must be zstd-compressed and include the systemd-veritysetup module;
+	// otherwise /dev/mapper/usr never comes up and the image drops to an emergency shell.
+	verifyAclInitramfsHasVerity(t, buildDir, outImageFilePath)
 
 	// Verify /usr verity still validates: connecting with read-only verity mounts /usr through the
 	// verity device, which fails if the re-seal / hash-offset is wrong.
@@ -188,4 +195,77 @@ func verifyAclUkiCmdline(t *testing.T, buildDir string, imageFile string, expect
 
 	err = loopback.CleanClose()
 	assert.NoError(t, err)
+}
+
+// verifyAclInitramfsHasVerity asserts that each regenerated UKI's embedded initramfs is
+// zstd-compressed and contains the systemd-veritysetup module (required to bring up the /usr
+// dm-verity device at boot).
+func verifyAclInitramfsHasVerity(t *testing.T, buildDir string, imageFile string) {
+	loopback, err := safeloopback.NewLoopback(imageFile)
+	require.NoError(t, err)
+	defer loopback.Close()
+
+	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	require.NoError(t, err)
+
+	espPart, ok := partitionsByLabel(partitions)[aclPartLabelEsp]
+	require.True(t, ok, "ESP partition not found")
+
+	espMountDir := filepath.Join(t.TempDir(), "esp")
+	espMount, err := safemount.NewMount(espPart.Path, espMountDir, espPart.FileSystemType, unix.MS_RDONLY, "", true)
+	require.NoError(t, err)
+	defer espMount.Close()
+
+	ukiFiles, err := getUkiFiles(espMountDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, ukiFiles, "expected at least one UKI on the ESP")
+
+	_, lsinitrdErr := exec.LookPath("lsinitrd")
+	lsinitrdAvailable := lsinitrdErr == nil
+
+	for _, uki := range ukiFiles {
+		initrdPath := filepath.Join(t.TempDir(), "initrd.img")
+		err := extractSectionFromUkiWithObjcopy(uki, ".initrd", initrdPath, buildDir)
+		require.NoError(t, err, "extract .initrd from UKI (%s)", uki)
+
+		assertInitramfsIsZstd(t, initrdPath)
+
+		if lsinitrdAvailable {
+			stdout, _, err := shell.Execute("lsinitrd", initrdPath)
+			require.NoError(t, err, "lsinitrd on %s", initrdPath)
+			assert.Contains(t, stdout, "systemd-veritysetup",
+				"regenerated initramfs (%s) is missing the systemd-veritysetup module", uki)
+		} else {
+			t.Log("lsinitrd not available; skipping systemd-veritysetup module content check")
+		}
+	}
+
+	err = espMount.CleanClose()
+	assert.NoError(t, err)
+}
+
+// assertInitramfsIsZstd fails if the initramfs is gzip-compressed (the symptom of a broken regen)
+// and passes when it is zstd. If the leading bytes are neither (e.g. an uncompressed early-CPIO
+// microcode image precedes the main archive), the check is skipped since compression can't be
+// determined from the header alone.
+func assertInitramfsIsZstd(t *testing.T, initrdPath string) {
+	f, err := os.Open(initrdPath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	magic := make([]byte, 4)
+	_, err = f.Read(magic)
+	require.NoError(t, err)
+
+	gzipMagic := []byte{0x1f, 0x8b}
+	zstdMagic := []byte{0x28, 0xb5, 0x2f, 0xfd}
+
+	switch {
+	case string(magic[:2]) == string(gzipMagic):
+		t.Errorf("regenerated initramfs is gzip-compressed; expected zstd (ACL mandates compress=zstd)")
+	case string(magic) == string(zstdMagic):
+		// Expected.
+	default:
+		t.Logf("initramfs compression could not be determined from header (%x); skipping zstd check", magic)
+	}
 }
