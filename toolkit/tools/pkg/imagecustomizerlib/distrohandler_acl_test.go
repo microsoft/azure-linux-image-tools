@@ -28,24 +28,3 @@ func TestAclDracutRegenerateArgsUsesExplicitTmpdir(t *testing.T) {
 	assert.Equal(t, "/"+aclDracutTmpDirName, tmpdir)
 	assert.NotEqual(t, "/var/tmp", tmpdir, "dracut tmpdir must not be the default /var/tmp")
 }
-
-func TestAclEtcOverlayOptions(t *testing.T) {
-	// The scoped /etc overlay must layer ACL's factory /etc (lower) under the image's /etc (upper),
-	// with the work dir on the same filesystem as the upper (the image ROOT).
-	opts := aclEtcOverlayOptions(
-		"/mnt/imageroot/usr/share/distro/etc",
-		"/mnt/imageroot/etc",
-		"/mnt/imageroot/.ic-etc-overlay-work",
-	)
-
-	assert.Contains(t, opts, "lowerdir=/mnt/imageroot/usr/share/distro/etc")
-	assert.Contains(t, opts, "upperdir=/mnt/imageroot/etc")
-	assert.Contains(t, opts, "workdir=/mnt/imageroot/.ic-etc-overlay-work")
-	assert.Contains(t, opts, "redirect_dir=on")
-	assert.Contains(t, opts, "metacopy=off")
-}
-
-func TestAclFactoryEtcDirIsDistroEtc(t *testing.T) {
-	// The lowerdir must be ACL's factory /etc (the source of 99-acl.conf).
-	assert.Equal(t, "usr/share/distro/etc", aclFactoryEtcDir)
-}

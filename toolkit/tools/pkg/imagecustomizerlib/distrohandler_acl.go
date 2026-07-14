@@ -308,18 +308,6 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, buildDir str
 	}
 	defer btrfsMount.Close()
 
-	// ACL materializes its factory config (/usr/share/distro/etc) into /etc via an overlay at boot,
-	// but that overlay is not active during IC's offline chroot, so /etc is empty and dracut misses
-	// ACL's /etc/dracut.conf.d/99-acl.conf (which force-includes the dm/crypt/systemd-veritysetup
-	// modules, storage drivers, and compress="zstd"). Reproduce the boot-time /etc with a scoped
-	// overlay for the duration of the dracut run only, mirroring ACL's initrd-setup-root. dracut
-	// only reads /etc, so nothing is written to the upperdir and teardown leaves /etc untouched.
-	etcOverlayCleanup, err := d.mountFactoryEtcOverlay(imageChroot)
-	if err != nil {
-		return err
-	}
-	defer etcOverlayCleanup()
-
 	err = shell.NewExecBuilder("dracut", aclDracutRegenerateArgs()...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
@@ -327,12 +315,6 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, buildDir str
 		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to rebuild initramfs for ACL:\n%w", err)
-	}
-
-	// Tear the /etc overlay down before unmounting the staging dir / resealing verity.
-	err = etcOverlayCleanup()
-	if err != nil {
-		return err
 	}
 
 	err = btrfsMount.CleanClose()
@@ -348,77 +330,6 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, buildDir str
 	return nil
 }
 
-// mountFactoryEtcOverlay overlays ACL's factory /etc (/usr/share/distro/etc) onto the image's /etc
-// so tools that read /etc (e.g. dracut) see the boot-equivalent config during offline
-// customization. It returns a cleanup function that unmounts the overlay and removes the overlay
-// work directory; the cleanup is idempotent and safe to call more than once (e.g. explicitly then
-// via defer).
-//
-// The overlay work directory must live on the same filesystem as the upperdir (/etc, on the image
-// ROOT ext4), so it is placed on the ROOT partition — which is sealed into the output image and
-// therefore must be removed after regeneration. dracut only reads /etc, so the upperdir is not
-// modified and no whiteouts/opaque markers leak into the sealed /etc.
-func (d *aclDistroHandler) mountFactoryEtcOverlay(imageChroot *safechroot.Chroot) (func() error, error) {
-	factoryEtcDir := filepath.Join(imageChroot.RootDir(), aclFactoryEtcDir)
-
-	// Defensive: if the factory /etc is absent (not a stock ACL image), skip the overlay rather than
-	// hard-fail; dracut then runs against whatever /etc exists.
-	exists, err := file.DirExists(factoryEtcDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check ACL factory /etc (%s):\n%w", factoryEtcDir, err)
-	}
-	if !exists {
-		logger.Log.Warnf("ACL factory /etc (%s) not found; regenerating initramfs without /etc overlay",
-			factoryEtcDir)
-		return func() error { return nil }, nil
-	}
-
-	etcDir := filepath.Join(imageChroot.RootDir(), "etc")
-	etcWorkDir := filepath.Join(imageChroot.RootDir(), aclEtcOverlayWorkDirName)
-
-	err = os.RemoveAll(etcWorkDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clean /etc overlay work dir (%s):\n%w", etcWorkDir, err)
-	}
-	err = os.MkdirAll(etcWorkDir, 0o755)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create /etc overlay work dir (%s):\n%w", etcWorkDir, err)
-	}
-
-	overlayOpts := aclEtcOverlayOptions(factoryEtcDir, etcDir, etcWorkDir)
-	etcOverlayMount, err := safemount.NewMount("overlay", etcDir, "overlay", 0, overlayOpts, false /*makeAndDeleteDir*/)
-	if err != nil {
-		os.RemoveAll(etcWorkDir)
-		return nil, fmt.Errorf("failed to mount ACL factory /etc overlay:\n%w", err)
-	}
-
-	cleanedUp := false
-	cleanup := func() error {
-		if cleanedUp {
-			return nil
-		}
-		err := etcOverlayMount.CleanClose()
-		if err != nil {
-			return fmt.Errorf("failed to unmount ACL factory /etc overlay:\n%w", err)
-		}
-		err = os.RemoveAll(etcWorkDir)
-		if err != nil {
-			return fmt.Errorf("failed to remove /etc overlay work dir (%s):\n%w", etcWorkDir, err)
-		}
-		cleanedUp = true
-		return nil
-	}
-
-	return cleanup, nil
-}
-
-// aclEtcOverlayOptions builds the overlay mount options for the scoped factory /etc overlay.
-// redirect_dir=on and metacopy=off match ACL's boot-time /etc overlay behavior.
-func aclEtcOverlayOptions(lowerDir string, upperDir string, workDir string) string {
-	return fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s,redirect_dir=on,metacopy=off",
-		lowerDir, upperDir, workDir)
-}
-
 const (
 	// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir. It is
 	// backed by a dedicated loopback btrfs (see RegenerateInitramfs) because ACL's /usr files carry
@@ -432,15 +343,6 @@ const (
 	// aclDracutBtrfsImageSizeMiB sizes the backing image generously; --regenerate-all staging is a
 	// few hundred MiB, and the sparse image only consumes what is actually written.
 	aclDracutBtrfsImageSizeMiB = 2048
-
-	// aclFactoryEtcDir is ACL's factory /etc, overlaid onto /etc at boot. IC overlays it onto /etc
-	// during offline initramfs regeneration so dracut sees ACL's config (chroot-relative path).
-	aclFactoryEtcDir = "usr/share/distro/etc"
-
-	// aclEtcOverlayWorkDirName is the overlayfs work directory for the scoped /etc overlay. It must
-	// live on the same filesystem as the upperdir (/etc, on the image ROOT ext4), so it is placed on
-	// the ROOT partition and removed after regeneration.
-	aclEtcOverlayWorkDirName = ".ic-etc-overlay-work"
 )
 
 // aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images with
