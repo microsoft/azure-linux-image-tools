@@ -26,7 +26,8 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	}
 
 	if snapshotTime != "" {
-		cleanup, err := pmHandler.configureSnapshotTime(packageManagerChroot, snapshotTime)
+		var cleanup func() error
+		cleanup, err = pmHandler.configureSnapshotTime(packageManagerChroot, snapshotTime)
 		if err != nil {
 			return err
 		}
