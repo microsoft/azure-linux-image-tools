@@ -228,6 +228,33 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	return nil
 }
 
+// saveUkiBaseCmdlineForCreate extracts the current kernel command-line from each existing UKI
+// (main UKI plus addons) and saves them to uki-kernel-info.json. A UKI base image has no
+// grub.cfg, so the cmdline is read directly from the UKIs.
+func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot,
+	distroHandler DistroHandler,
+) error {
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
+
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract base kernel command-line from UKIs:\n%w", err)
+	}
+
+	kernelInfo := make(map[string]UkiKernelInfo, len(kernelToArgs))
+	for kernel, cmdline := range kernelToArgs {
+		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline}
+	}
+
+	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
+	}
+
+	return nil
+}
+
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
