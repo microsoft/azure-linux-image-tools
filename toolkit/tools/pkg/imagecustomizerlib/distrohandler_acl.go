@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
@@ -256,11 +257,12 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
-	// dracut's default staging directory (/var/tmp) in the customize chroot can live on a mount
-	// (overlay/tmpfs) that rejects security.* xattrs (ENOTSUP), which breaks dracut-install's
-	// `cp --preserve=xattr` and fails the whole regeneration. Point dracut at a dedicated staging
-	// directory on the image's root filesystem (ext4, which supports xattrs) via a root-level path
-	// that is not shadowed by any mount.
+	// dracut-install copies files into its staging dir with `cp --preserve=xattr`. The image ROOT
+	// filesystem, as composed into the customize chroot, rejects setxattr for security.* attributes
+	// (ENOTSUP) — even though a plain ext4 mount in the same environment does not — which aborts the
+	// whole regeneration. Mount a dedicated tmpfs for dracut's staging dir: tmpfs supports
+	// security.* xattrs and is independent of however the image root is mounted. tmpfs is sized to
+	// the kernel default (half of RAM), which comfortably covers --regenerate-all staging.
 	dracutTmpDirHost := filepath.Join(imageChroot.RootDir(), aclDracutTmpDirName)
 	err := os.RemoveAll(dracutTmpDirHost)
 	if err != nil {
@@ -272,6 +274,14 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 	}
 	defer os.RemoveAll(dracutTmpDirHost)
 
+	// Note: makeAndDeleteDir is false because the "tmpfs" source is not a real path to stat; the
+	// mount directory is created above.
+	tmpfsMount, err := safemount.NewMount("tmpfs", dracutTmpDirHost, "tmpfs", 0, "", false /*makeAndDeleteDir*/)
+	if err != nil {
+		return fmt.Errorf("failed to mount tmpfs for dracut tmpdir (%s):\n%w", dracutTmpDirHost, err)
+	}
+	defer tmpfsMount.Close()
+
 	err = shell.NewExecBuilder("dracut", aclDracutRegenerateArgs()...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
@@ -281,16 +291,21 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 		return fmt.Errorf("failed to rebuild initramfs for ACL:\n%w", err)
 	}
 
+	err = tmpfsMount.CleanClose()
+	if err != nil {
+		return fmt.Errorf("failed to unmount dracut tmpdir tmpfs (%s):\n%w", dracutTmpDirHost, err)
+	}
+
 	return nil
 }
 
-// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir, chosen so
-// it lands on the image's root ext4 (which supports xattrs) rather than the default /var/tmp,
-// which may be shadowed by a mount that rejects security.* xattrs.
+// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir. A dedicated
+// tmpfs is mounted here for regeneration because the image root mount rejects security.* xattrs,
+// which dracut-install requires; the default /var/tmp has the same problem.
 const aclDracutTmpDirName = "ic-dracut-tmp"
 
 // aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images with
-// an explicit, xattr-capable staging directory.
+// an explicit staging directory (backed by a dedicated tmpfs; see RegenerateInitramfs).
 func aclDracutRegenerateArgs() []string {
 	return []string{"--force", "--regenerate-all", "--tmpdir", "/" + aclDracutTmpDirName}
 }
