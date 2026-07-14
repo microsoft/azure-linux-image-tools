@@ -1,6 +1,7 @@
 # ACL-only, preview-gated config: grow /usr (and re-seal verity) so packages that would overflow
-# the stock 1 GiB /usr fit. Requires the 'acl-grow-partitions' and 'reinitialize-verity' preview
-# features and an ACL target image.
+# the stock 1 GiB /usr fit, and set extra kernel cmdline args baked into the regenerated UKIs.
+# Requires the 'acl-grow-partitions', 'reinitialize-verity', and 'uki' preview features and an ACL
+# target image.
 storage:
   reinitializeVerity: all
 
@@ -9,6 +10,15 @@ acl:
     size: 2G
 
 os:
+  uki:
+    kernels: auto
+    mode: create
+
+  kernelCommandLine:
+    extraCommandLine:
+    - flatcar.autologin
+    - console=ttyAMA0,115200n8
+
   packages:
     install:
     - vim

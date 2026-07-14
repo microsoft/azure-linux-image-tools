@@ -141,15 +141,23 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		b.grubCfgContent = grubCfgContent
 
 	case bootConfigTypeUki:
-		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args cannot be modified in passthrough mode.
-		if b.ukiMode != imagecustomizerapi.UkiModeModify {
+		switch b.ukiMode {
+		case imagecustomizerapi.UkiModeModify:
+			// For modify mode, append args to the UKI cmdline file.
+			err := b.appendToUkiCmdlineFile(combinedArgs)
+			if err != nil {
+				return err
+			}
+
+		case imagecustomizerapi.UkiModeCreate:
+			// For create mode, there is no grub config to write to (e.g. ACL uses systemd-boot with
+			// no grub.cfg). The extra kernel cmdline args are applied when the UKIs are regenerated,
+			// see prepareUkiHelper (which appends them to every kernel's cmdline). Nothing to do here.
+
+		default:
+			// Passthrough (or unspecified) mode: the existing UKI boot config is preserved and the
+			// cmdline cannot be modified.
 			return ErrBootUkiPassthroughCmdlineModified
-		}
-		// For modify mode, append args to the UKI cmdline file.
-		err := b.appendToUkiCmdlineFile(combinedArgs)
-		if err != nil {
-			return err
 		}
 	}
 

@@ -344,3 +344,37 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 	}
 	return b
 }
+
+func TestBootCustomizerAddKernelCommandLineUkiCreateNoOp(t *testing.T) {
+	// On UKI-only images (e.g. ACL / systemd-boot, no grub.cfg) in create mode, the extra kernel
+	// cmdline args are applied later during UKI regeneration, so AddKernelCommandLine must not error.
+	b := &BootCustomizer{
+		bootConfigType: bootConfigTypeUki,
+		ukiMode:        imagecustomizerapi.UkiModeCreate,
+	}
+
+	err := b.AddKernelCommandLine([]string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
+	assert.NoError(t, err)
+}
+
+func TestBootCustomizerAddKernelCommandLineUkiPassthroughError(t *testing.T) {
+	// In passthrough mode the existing UKI boot config is preserved and the cmdline cannot change.
+	b := &BootCustomizer{
+		bootConfigType: bootConfigTypeUki,
+		ukiMode:        imagecustomizerapi.UkiModePassthrough,
+	}
+
+	err := b.AddKernelCommandLine([]string{"console=ttyAMA0,115200n8"})
+	assert.ErrorIs(t, err, ErrBootUkiPassthroughCmdlineModified)
+}
+
+func TestBootCustomizerAddKernelCommandLineUkiUnspecifiedError(t *testing.T) {
+	// With no UKI mode specified, treat it as passthrough and reject cmdline changes.
+	b := &BootCustomizer{
+		bootConfigType: bootConfigTypeUki,
+		ukiMode:        imagecustomizerapi.UkiModeUnspecified,
+	}
+
+	err := b.AddKernelCommandLine([]string{"console=ttyAMA0,115200n8"})
+	assert.ErrorIs(t, err, ErrBootUkiPassthroughCmdlineModified)
+}

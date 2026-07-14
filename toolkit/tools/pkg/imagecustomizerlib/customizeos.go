@@ -203,7 +203,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler,
+		rc.OsKernelCommandLine.ExtraCommandLine)
 	if err != nil {
 		return err
 	}

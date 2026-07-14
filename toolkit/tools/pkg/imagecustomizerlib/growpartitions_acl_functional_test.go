@@ -35,6 +35,7 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 		imagecustomizerapi.PreviewFeatureDistroVersion,
 		imagecustomizerapi.PreviewFeatureAclGrowPartitions,
 		imagecustomizerapi.PreviewFeatureReinitializeVerity,
+		imagecustomizerapi.PreviewFeatureUki,
 	}
 
 	// Capture the base layout so we can assert ROOT is preserved and the disk grew by the delta.
@@ -67,6 +68,10 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 		(grownSizes[aclPartLabelUsrB] - baseSizes[aclPartLabelUsrB])
 	assert.InDelta(t, float64(baseDiskSize+expectedDelta), float64(grownDiskSize), float64(1024*1024),
 		"disk should grow by exactly the partition growth delta")
+
+	// The extra kernel cmdline args (uki: mode: create) must be baked into the regenerated UKIs,
+	// even though ACL has no grub.cfg.
+	verifyAclUkiCmdline(t, buildDir, outImageFilePath, []string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
 
 	// Verify /usr verity still validates: connecting with read-only verity mounts /usr through the
 	// verity device, which fails if the re-seal / hash-offset is wrong.
@@ -154,5 +159,33 @@ func verifyAclUsrVerity(t *testing.T, buildDir string, imageFile string) {
 	assert.True(t, hasUsr, "expected a /usr verity device")
 
 	err = imageConnection.CleanClose()
+	assert.NoError(t, err)
+}
+
+// verifyAclUkiCmdline asserts that the regenerated UKIs on the output image's ESP carry the given
+// kernel cmdline args (baked in via uki: mode: create, despite ACL having no grub.cfg).
+func verifyAclUkiCmdline(t *testing.T, buildDir string, imageFile string, expectedArgs []string) {
+	loopback, err := safeloopback.NewLoopback(imageFile)
+	require.NoError(t, err)
+	defer loopback.Close()
+
+	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	require.NoError(t, err)
+
+	espPart, ok := partitionsByLabel(partitions)[aclPartLabelEsp]
+	require.True(t, ok, "ESP partition not found")
+
+	args, err := extractKernelCmdlineFromUki(&espPart, buildDir)
+	require.NoError(t, err)
+
+	argSet := make(map[string]bool)
+	for _, a := range args {
+		argSet[a.Arg] = true
+	}
+	for _, expected := range expectedArgs {
+		assert.Truef(t, argSet[expected], "expected UKI cmdline to contain %q; got %v", expected, args)
+	}
+
+	err = loopback.CleanClose()
 	assert.NoError(t, err)
 }

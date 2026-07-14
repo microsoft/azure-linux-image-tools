@@ -228,10 +228,28 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	return nil
 }
 
+// isUkiOnlyBootConfig reports whether the image boots via UKI with no grub config (e.g. ACL /
+// systemd-boot). In that case there is no grub file to carry kernel cmdline changes, so they must
+// be baked directly into the regenerated UKIs. The check is based solely on the absence of a grub
+// config (not on UKI file presence), so it is robust to the UKIs having already been cleaned from
+// the boot directory during regeneration.
+func isUkiOnlyBootConfig(imageChroot *safechroot.Chroot, distroHandler DistroHandler) (bool, error) {
+	grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageChroot)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	return grubCfgContent == "", nil
+}
+
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
+	extraCommandLine []string,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, extraCommandLine)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -241,6 +259,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
+	extraCommandLine []string,
 ) error {
 	var err error
 
@@ -333,6 +352,22 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
 	}
 
+	// For images that boot via UKI with no grub config (e.g. ACL / systemd-boot), there is no grub
+	// file for BootCustomizer.AddKernelCommandLine to write kernel cmdline args into. Instead, the
+	// requested extraCommandLine is appended here to every kernel's cmdline as the UKIs are
+	// regenerated. This is robust to kernel swaps (e.g. removing 'kernel' and installing
+	// 'kernel-hwe'), since the args are applied to all kernels rather than matched by name.
+	extraArgs := ""
+	if len(extraCommandLine) > 0 {
+		isUkiOnly, err := isUkiOnlyBootConfig(imageChroot, distroHandler)
+		if err != nil {
+			return err
+		}
+		if isUkiOnly {
+			extraArgs = GrubArgsToString(extraCommandLine)
+		}
+	}
+
 	kernelInfo := make(map[string]UkiKernelInfo)
 
 	for kernel, initramfs := range kernelToInitramfs {
@@ -345,6 +380,10 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			if !exists {
 				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
 			}
+		}
+
+		if extraArgs != "" {
+			cmdline = strings.TrimSpace(strings.TrimSpace(cmdline) + " " + extraArgs)
 		}
 
 		kernelInfo[kernel] = UkiKernelInfo{
