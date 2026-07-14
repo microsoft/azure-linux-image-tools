@@ -173,13 +173,20 @@ func (c *Config) IsValid() (err error) {
 	}
 
 	if c.Acl != nil {
-		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclGrowPartitions) {
-			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl'",
+		if err := c.Acl.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'acl' field:\n%w", err)
+		}
+
+		if (c.Acl.Usr != nil || c.Acl.Esp != nil) &&
+			!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclGrowPartitions) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.usr'/'acl.esp'",
 				PreviewFeatureAclGrowPartitions)
 		}
 
-		if err := c.Acl.IsValid(); err != nil {
-			return fmt.Errorf("invalid 'acl' field:\n%w", err)
+		if c.Acl.OemId != "" &&
+			!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclOemId) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.oemId'",
+				PreviewFeatureAclOemId)
 		}
 	}
 

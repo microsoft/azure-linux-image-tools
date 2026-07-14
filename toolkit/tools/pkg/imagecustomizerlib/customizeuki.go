@@ -247,9 +247,10 @@ func isUkiOnlyBootConfig(imageChroot *safechroot.Chroot, distroHandler DistroHan
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
-	extraCommandLine []string,
+	extraCommandLine []string, aclOemId string,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, extraCommandLine)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, extraCommandLine,
+		aclOemId)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -259,7 +260,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
-	extraCommandLine []string,
+	extraCommandLine []string, aclOemId string,
 ) error {
 	var err error
 
@@ -399,6 +400,10 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			cmdline = strings.TrimSpace(strings.TrimSpace(cmdline) + " " + extraArgs)
 		}
 
+		if aclOemId != "" {
+			cmdline = applyAclOemId(cmdline, aclOemId)
+		}
+
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
 			Initramfs: initramfs,
@@ -460,6 +465,38 @@ func inheritedBaseCmdline(kernelToArgs map[string]string) (string, bool) {
 		}
 	}
 	return candidate, found
+}
+
+// applyAclOemId rewrites the OEM id on a kernel cmdline: it strips every existing flatcar.oem.id=*
+// and coreos.oem.id=* token (both the flatcar and legacy coreos spellings) and appends
+// flatcar.oem.id=<oemId> exactly once. This fixes the platform id (parsed last-occurrence-wins) and
+// clears presence-based ConditionKernelCommandLine matches on the old OEM id, so no OEM-specific
+// unit (e.g. the azure metadata/hostname agent) activates. Only the modern flatcar spelling is
+// written (ignition checks flatcar.oem.id first, then coreos.oem.id). Idempotent.
+func applyAclOemId(cmdline string, oemId string) string {
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		logger.Log.Errorf("Failed to tokenize cmdline while applying ACL oemId: %v", err)
+		return cmdline
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		logger.Log.Errorf("Failed to parse cmdline args while applying ACL oemId: %v", err)
+		return cmdline
+	}
+
+	filteredArgs := []string{}
+	for _, arg := range args {
+		if strings.HasPrefix(arg.Arg, "flatcar.oem.id=") || strings.HasPrefix(arg.Arg, "coreos.oem.id=") {
+			continue
+		}
+		filteredArgs = append(filteredArgs, arg.Arg)
+	}
+
+	filteredArgs = append(filteredArgs, fmt.Sprintf("flatcar.oem.id=%s", oemId))
+
+	return GrubArgsToString(filteredArgs)
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,

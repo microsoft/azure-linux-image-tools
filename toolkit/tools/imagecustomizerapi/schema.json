@@ -10,6 +10,9 @@
         },
         "esp": {
           "$ref": "#/$defs/AclPartitionGrow"
+        },
+        "oemId": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

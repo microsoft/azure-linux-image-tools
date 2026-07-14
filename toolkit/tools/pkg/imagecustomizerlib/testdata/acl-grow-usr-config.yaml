@@ -8,6 +8,7 @@ storage:
 acl:
   usr:
     size: 2G
+  oemId: metal
 
 os:
   uki:

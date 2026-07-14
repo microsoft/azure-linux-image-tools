@@ -203,8 +203,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
+	aclOemId := ""
+	if rc.Acl != nil {
+		aclOemId = rc.Acl.OemId
+	}
+
 	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler,
-		rc.OsKernelCommandLine.ExtraCommandLine)
+		rc.OsKernelCommandLine.ExtraCommandLine, aclOemId)
 	if err != nil {
 		return err
 	}

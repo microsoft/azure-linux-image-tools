@@ -54,6 +54,10 @@ const (
 	// PreviewFeatureAclGrowPartitions enables the narrow, ACL-only API for growing ACL's standard
 	// partitions (e.g. /usr, esp) to explicit target sizes.
 	PreviewFeatureAclGrowPartitions PreviewFeature = "acl-grow-partitions"
+
+	// PreviewFeatureAclOemId enables the narrow, ACL-only API for overriding the flatcar OEM id
+	// (flatcar.oem.id) on the boot kernel command line.
+	PreviewFeatureAclOemId PreviewFeature = "acl-oem-id"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -62,7 +66,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureAclGrowPartitions:
+		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

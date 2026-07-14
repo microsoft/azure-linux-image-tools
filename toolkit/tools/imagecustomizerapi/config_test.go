@@ -893,7 +893,7 @@ func TestConfigIsValidAclMissingPreviewFeature(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "the 'acl-grow-partitions' preview feature must be enabled to use 'acl'")
+	assert.ErrorContains(t, err, "the 'acl-grow-partitions' preview feature must be enabled to use 'acl.usr'/'acl.esp'")
 }
 
 func TestConfigIsValidAclWithPreviewFeature(t *testing.T) {
@@ -917,4 +917,41 @@ func TestConfigIsValidAclInvalidWithPreviewFeature(t *testing.T) {
 	err := config.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid 'acl' field")
+}
+
+func TestConfigIsValidAclOemIdMissingPreviewFeature(t *testing.T) {
+	config := &Config{
+		Acl:             &Acl{OemId: "metal"},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'acl-oem-id' preview feature must be enabled to use 'acl.oemId'")
+}
+
+func TestConfigIsValidAclOemIdWithPreviewFeature(t *testing.T) {
+	config := &Config{
+		Acl:             &Acl{OemId: "metal"},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureAclOemId},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidAclOemIdDoesNotRequireGrowFeature(t *testing.T) {
+	// oemId-only must not require the acl-grow-partitions feature.
+	config := &Config{
+		Acl:             &Acl{OemId: "metal"},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureAclOemId},
+	}
+	assert.NoError(t, config.IsValid())
+
+	// Conversely, grow-only must not require the acl-oem-id feature.
+	config = &Config{
+		Acl:             &Acl{Usr: &AclPartitionGrow{Size: 2 * diskGiB}},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureAclGrowPartitions},
+	}
+	assert.NoError(t, config.IsValid())
 }

@@ -34,6 +34,7 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 	previewFeatures := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureDistroVersion,
 		imagecustomizerapi.PreviewFeatureAclGrowPartitions,
+		imagecustomizerapi.PreviewFeatureAclOemId,
 		imagecustomizerapi.PreviewFeatureReinitializeVerity,
 		imagecustomizerapi.PreviewFeatureUki,
 	}
@@ -69,9 +70,12 @@ func TestCustomizeImageAclGrowUsr(t *testing.T) {
 	assert.InDelta(t, float64(baseDiskSize+expectedDelta), float64(grownDiskSize), float64(1024*1024),
 		"disk should grow by exactly the partition growth delta")
 
-	// The extra kernel cmdline args (uki: mode: create) must be baked into the regenerated UKIs,
-	// even though ACL has no grub.cfg.
-	verifyAclUkiCmdline(t, buildDir, outImageFilePath, []string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
+	// The extra kernel cmdline args (uki: mode: create) must be baked into the regenerated UKIs, and
+	// the OEM id override must replace the inherited flatcar.oem.id=azure with =metal (no azure token
+	// left), even though ACL has no grub.cfg.
+	verifyAclUkiCmdline(t, buildDir, outImageFilePath,
+		[]string{"flatcar.autologin", "console=ttyAMA0,115200n8", "flatcar.oem.id=metal"},
+		[]string{"flatcar.oem.id=azure", "coreos.oem.id=azure"})
 
 	// Verify /usr verity still validates: connecting with read-only verity mounts /usr through the
 	// verity device, which fails if the re-seal / hash-offset is wrong.
@@ -164,7 +168,9 @@ func verifyAclUsrVerity(t *testing.T, buildDir string, imageFile string) {
 
 // verifyAclUkiCmdline asserts that the regenerated UKIs on the output image's ESP carry the given
 // kernel cmdline args (baked in via uki: mode: create, despite ACL having no grub.cfg).
-func verifyAclUkiCmdline(t *testing.T, buildDir string, imageFile string, expectedArgs []string) {
+func verifyAclUkiCmdline(t *testing.T, buildDir string, imageFile string, expectedArgs []string,
+	forbiddenArgs []string,
+) {
 	loopback, err := safeloopback.NewLoopback(imageFile)
 	require.NoError(t, err)
 	defer loopback.Close()
@@ -184,6 +190,9 @@ func verifyAclUkiCmdline(t *testing.T, buildDir string, imageFile string, expect
 	}
 	for _, expected := range expectedArgs {
 		assert.Truef(t, argSet[expected], "expected UKI cmdline to contain %q; got %v", expected, args)
+	}
+	for _, forbidden := range forbiddenArgs {
+		assert.Falsef(t, argSet[forbidden], "expected UKI cmdline to NOT contain %q; got %v", forbidden, args)
 	}
 
 	err = loopback.CleanClose()
