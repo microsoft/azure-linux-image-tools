@@ -346,10 +346,12 @@ const (
 
 	// aclDracutConfDir is ACL's dracut config directory. ACL's config that force-includes the
 	// verity/storage modules (add_dracutmodules+=" dm crypt systemd-veritysetup ", nvme/virtio/btrfs
-	// drivers, compress="zstd") lives at <confdir>/dracut.conf.d/99-acl.conf. dracut only reads
-	// /etc/dracut.conf.d and /usr/lib/dracut/dracut.conf.d by default, and the image's /etc is empty,
-	// so ACL's stock initramfs is built with `dracut --confdir /usr/share/distro/etc`; match that.
-	aclDracutConfDir = "/usr/share/distro/etc"
+	// drivers, compress="zstd") is the file 99-acl.conf in this directory. dracut's --confdir points
+	// directly at the directory it globs "*.conf" files from (it does NOT descend into a
+	// dracut.conf.d subdir), and dracut only reads /etc/dracut.conf.d and
+	// /usr/lib/dracut/dracut.conf.d by default while the image's /etc is empty. So point --confdir
+	// straight at ACL's dracut.conf.d, matching ACL's stock initramfs build.
+	aclDracutConfDir = "/usr/share/distro/etc/dracut.conf.d"
 )
 
 // aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images. It
