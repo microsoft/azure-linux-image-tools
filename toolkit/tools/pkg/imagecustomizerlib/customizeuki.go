@@ -327,7 +327,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// an initramfs per kernel, so regenerate any that are missing before building the map. (The
 	// general initramfs-regeneration gate in doOsCustomizations does not fire for a bare package
 	// swap.)
-	err = regenerateMissingInitramfs(ctx, bootDir, imageChroot, distroHandler)
+	err = regenerateMissingInitramfs(ctx, buildDir, bootDir, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -555,13 +555,13 @@ func findKernelsMissingInitramfs(bootDir string) ([]string, error) {
 // initramfsRegenerator regenerates the initramfs for an image. DistroHandler satisfies it; a narrow
 // interface keeps regenerateMissingInitramfs unit-testable.
 type initramfsRegenerator interface {
-	RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error
+	RegenerateInitramfs(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot) error
 }
 
 // regenerateMissingInitramfs regenerates the initramfs for any installed kernel that is missing one
 // (e.g. after a kernel package swap). It is a no-op when every kernel already has an initramfs.
-func regenerateMissingInitramfs(ctx context.Context, bootDir string, imageChroot *safechroot.Chroot,
-	regenerator initramfsRegenerator,
+func regenerateMissingInitramfs(ctx context.Context, buildDir string, bootDir string,
+	imageChroot *safechroot.Chroot, regenerator initramfsRegenerator,
 ) error {
 	missing, err := findKernelsMissingInitramfs(bootDir)
 	if err != nil {
@@ -574,7 +574,7 @@ func regenerateMissingInitramfs(ctx context.Context, bootDir string, imageChroot
 
 	logger.Log.Infof("Regenerating initramfs for kernel(s) missing one: %v", missing)
 
-	err = regenerator.RegenerateInitramfs(ctx, imageChroot)
+	err = regenerator.RegenerateInitramfs(ctx, buildDir, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to regenerate initramfs for newly installed kernel(s) %v:\n%w", missing, err)
 	}

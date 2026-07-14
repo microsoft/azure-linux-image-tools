@@ -20,7 +20,7 @@ type fakeInitramfsRegenerator struct {
 	err    error
 }
 
-func (f *fakeInitramfsRegenerator) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func (f *fakeInitramfsRegenerator) RegenerateInitramfs(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot) error {
 	f.called++
 	return f.err
 }
@@ -56,7 +56,7 @@ func TestRegenerateMissingInitramfsRegeneratesWhenMissing(t *testing.T) {
 	writeFile(t, filepath.Join(bootDir, "vmlinuz-6.18.36.1-1.azl3"))
 
 	regen := &fakeInitramfsRegenerator{}
-	err := regenerateMissingInitramfs(context.Background(), bootDir, nil, regen)
+	err := regenerateMissingInitramfs(context.Background(), t.TempDir(), bootDir, nil, regen)
 	require.NoError(t, err)
 	assert.Equal(t, 1, regen.called, "RegenerateInitramfs should be called when a kernel lacks an initramfs")
 }
@@ -67,7 +67,7 @@ func TestRegenerateMissingInitramfsNoOpWhenPresent(t *testing.T) {
 	writeFile(t, filepath.Join(bootDir, "initramfs-6.6.0-1.azl3.img"))
 
 	regen := &fakeInitramfsRegenerator{}
-	err := regenerateMissingInitramfs(context.Background(), bootDir, nil, regen)
+	err := regenerateMissingInitramfs(context.Background(), t.TempDir(), bootDir, nil, regen)
 	require.NoError(t, err)
 	assert.Equal(t, 0, regen.called, "RegenerateInitramfs should not be called when all kernels have an initramfs")
 }

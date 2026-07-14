@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -251,18 +252,19 @@ func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string, imageChroot 
 	return fs.ErrNotExist
 }
 
-func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, buildDir string,
+	imageChroot *safechroot.Chroot,
+) error {
 	logger.Log.Infof("Regenerating initramfs for ACL")
 
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
-	// dracut-install copies files into its staging dir with `cp --preserve=xattr`. The image ROOT
-	// filesystem, as composed into the customize chroot, rejects setxattr for security.* attributes
-	// (ENOTSUP) — even though a plain ext4 mount in the same environment does not — which aborts the
-	// whole regeneration. Mount a dedicated tmpfs for dracut's staging dir: tmpfs supports
-	// security.* xattrs and is independent of however the image root is mounted. tmpfs is sized to
-	// the kernel default (half of RAM), which comfortably covers --regenerate-all staging.
+	// dracut-install copies files into its staging dir with `cp --preserve=xattr`. Every file on
+	// ACL's btrfs /usr carries a btrfs-only xattr ("btrfs.compression"), and reproducing that xattr
+	// on the destination fails with ENOTSUP on any non-btrfs filesystem (ext4, tmpfs, ...), which
+	// aborts the whole regeneration. So the dracut staging dir must itself be btrfs: back it with a
+	// dedicated loopback btrfs image mounted at the staging path for the duration of the regen.
 	dracutTmpDirHost := filepath.Join(imageChroot.RootDir(), aclDracutTmpDirName)
 	err := os.RemoveAll(dracutTmpDirHost)
 	if err != nil {
@@ -274,13 +276,37 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 	}
 	defer os.RemoveAll(dracutTmpDirHost)
 
-	// Note: makeAndDeleteDir is false because the "tmpfs" source is not a real path to stat; the
-	// mount directory is created above.
-	tmpfsMount, err := safemount.NewMount("tmpfs", dracutTmpDirHost, "tmpfs", 0, "", false /*makeAndDeleteDir*/)
+	// Create and format the backing btrfs image in the build dir (which has space).
+	btrfsImagePath := filepath.Join(buildDir, aclDracutBtrfsImageName)
+	err = os.RemoveAll(btrfsImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to mount tmpfs for dracut tmpdir (%s):\n%w", dracutTmpDirHost, err)
+		return fmt.Errorf("failed to clean dracut btrfs image (%s):\n%w", btrfsImagePath, err)
 	}
-	defer tmpfsMount.Close()
+	err = diskutils.CreateSparseDisk(btrfsImagePath, aclDracutBtrfsImageSizeMiB, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to create dracut btrfs image (%s):\n%w", btrfsImagePath, err)
+	}
+	defer os.Remove(btrfsImagePath)
+
+	loopback, err := safeloopback.NewLoopback(btrfsImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to attach loopback for dracut btrfs image:\n%w", err)
+	}
+	defer loopback.Close()
+
+	err = shell.NewExecBuilder("mkfs.btrfs", "-q", loopback.DevicePath()).
+		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to format dracut btrfs image:\n%w", err)
+	}
+
+	btrfsMount, err := safemount.NewMount(loopback.DevicePath(), dracutTmpDirHost, "btrfs", 0, "", false /*makeAndDeleteDir*/)
+	if err != nil {
+		return fmt.Errorf("failed to mount dracut btrfs staging dir (%s):\n%w", dracutTmpDirHost, err)
+	}
+	defer btrfsMount.Close()
 
 	err = shell.NewExecBuilder("dracut", aclDracutRegenerateArgs()...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
@@ -291,21 +317,36 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 		return fmt.Errorf("failed to rebuild initramfs for ACL:\n%w", err)
 	}
 
-	err = tmpfsMount.CleanClose()
+	err = btrfsMount.CleanClose()
 	if err != nil {
-		return fmt.Errorf("failed to unmount dracut tmpdir tmpfs (%s):\n%w", dracutTmpDirHost, err)
+		return fmt.Errorf("failed to unmount dracut btrfs staging dir (%s):\n%w", dracutTmpDirHost, err)
+	}
+
+	err = loopback.CleanClose()
+	if err != nil {
+		return fmt.Errorf("failed to detach dracut btrfs loopback:\n%w", err)
 	}
 
 	return nil
 }
 
-// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir. A dedicated
-// tmpfs is mounted here for regeneration because the image root mount rejects security.* xattrs,
-// which dracut-install requires; the default /var/tmp has the same problem.
-const aclDracutTmpDirName = "ic-dracut-tmp"
+const (
+	// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir. It is
+	// backed by a dedicated loopback btrfs (see RegenerateInitramfs) because ACL's /usr files carry
+	// the btrfs-only "btrfs.compression" xattr, which dracut-install's `cp --preserve=xattr` can
+	// only reproduce onto a btrfs destination (ext4/tmpfs return ENOTSUP).
+	aclDracutTmpDirName = "ic-dracut-tmp"
+
+	// aclDracutBtrfsImageName is the loopback btrfs image backing the dracut staging dir.
+	aclDracutBtrfsImageName = "ic-dracut-tmp.btrfs.img"
+
+	// aclDracutBtrfsImageSizeMiB sizes the backing image generously; --regenerate-all staging is a
+	// few hundred MiB, and the sparse image only consumes what is actually written.
+	aclDracutBtrfsImageSizeMiB = 2048
+)
 
 // aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images with
-// an explicit staging directory (backed by a dedicated tmpfs; see RegenerateInitramfs).
+// an explicit staging directory (backed by a dedicated loopback btrfs; see RegenerateInitramfs).
 func aclDracutRegenerateArgs() []string {
 	return []string{"--force", "--regenerate-all", "--tmpdir", "/" + aclDracutTmpDirName}
 }

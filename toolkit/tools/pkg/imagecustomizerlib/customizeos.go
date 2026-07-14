@@ -189,7 +189,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if partitionsCustomized || overlayUpdated || verityUpdated {
-		err = distroHandler.RegenerateInitramfs(ctx, imageChroot)
+		err = distroHandler.RegenerateInitramfs(ctx, rc.BuildDirAbs, imageChroot)
 		if err != nil {
 			return err
 		}

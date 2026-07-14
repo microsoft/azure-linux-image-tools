@@ -112,7 +112,8 @@ type DistroHandler interface {
 	WriteGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error
 
 	// RegenerateInitramfs regenerates the initramfs/initrd using the distro-appropriate tool.
-	RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error
+	// buildDir is a writable host directory (with space) usable for scratch/staging.
+	RegenerateInitramfs(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot) error
 
 	// ConfigureDiskBootLoader performs the full bootloader configuration for a disk image.
 	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,

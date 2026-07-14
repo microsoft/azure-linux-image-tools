@@ -245,7 +245,9 @@ func (d *fedoraDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 	return writeGrub2ConfigFile(grub2Config, imageChroot, installutils.FedoraGrubCfgFile)
 }
 
-func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, buildDir string,
+	imageChroot *safechroot.Chroot,
+) error {
 	logger.Log.Infof("Regenerating initramfs file")
 
 	ctx, span := startRegenerateInitramfsSpan(ctx)
