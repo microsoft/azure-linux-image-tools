@@ -20,6 +20,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const nulPaddingFillerArg = "rd.debug"
+
 func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -754,8 +756,9 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 // after its last argument.
 //
 // `objcopy --update-section` keeps the section's original size and zero-pads the freed bytes, which is how trailing
-// NULs end up in a `.cmdline` section in practice. The content is shortened by dropping the ` rd.info` argument added
-// by the build config, keeping the verity `hash-offset` value last so the padding lands on it.
+// NULs end up in a `.cmdline` section in practice. The content is shortened by dropping the throwaway
+// nulPaddingFillerArg argument added by the build config, keeping the verity `hash-offset` value last so the padding
+// lands on it.
 //
 // Returns false (after failing the test) if no addon carrying the command line was found to patch.
 func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath string) bool {
@@ -796,13 +799,13 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 			return false
 		}
 
-		// IC writes a clean command line (no NULs). Drop ` rd.info` to make the content shorter than the section, then
-		// re-terminate with a single NUL. objcopy keeps the original section size and zero-pads the freed bytes,
-		// leaving trailing NULs after the last argument.
+		// IC writes a clean command line (no NULs). Drop the throwaway nulPaddingFillerArg to make the content shorter
+		// than the section, then re-terminate with a single NUL. objcopy keeps the original section size and zero-pads
+		// the freed bytes, leaving trailing NULs after the last argument.
 		cmdline := string(content)
-		shortened := strings.Replace(cmdline, " rd.info", "", 1)
+		shortened := strings.Replace(cmdline, " "+nulPaddingFillerArg, "", 1)
 		if shortened == cmdline {
-			// Not the addon carrying the verity / rd.info command line; leave it untouched.
+			// Not the addon carrying the padded command line; leave it untouched.
 			continue
 		}
 
@@ -818,7 +821,7 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 		patched = true
 	}
 
-	return assert.True(t, patched, "no addon carrying the ' rd.info' command line was found to patch")
+	return assert.True(t, patched, "no addon carrying the throwaway "+nulPaddingFillerArg+" argument was found to patch")
 }
 
 // verifyUsrInlineVerityUki validates that an inline-usr-verity UKI image is well-formed. It reads the usr-verity
