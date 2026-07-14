@@ -63,6 +63,7 @@ os:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
+    - rd.debug
 
   uki:
     mode: create
