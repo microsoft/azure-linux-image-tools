@@ -549,3 +549,11 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	}
 	return dataSizeBytes, nil
 }
+
+// CalculateInlineVerityDataSize returns the largest data-section size (in bytes) that fits within
+// a partition of the given size while leaving room for the inline dm-verity hash tree. This is the
+// size the data filesystem (e.g. ACL's btrfs /usr) should be grown to, and the byte offset at which
+// the verity hash tree is written (hash-offset).
+func CalculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
+	return calculateInlineVerityDataSize(partitionSize)
+}

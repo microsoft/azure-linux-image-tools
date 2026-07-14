@@ -1,0 +1,14 @@
+# ACL-only, preview-gated config: grow /usr (and re-seal verity) so packages that would overflow
+# the stock 1 GiB /usr fit. Requires the 'acl-grow-partitions' and 'reinitialize-verity' preview
+# features and an ACL target image.
+storage:
+  reinitializeVerity: all
+
+acl:
+  usr:
+    size: 2G
+
+os:
+  packages:
+    install:
+    - vim

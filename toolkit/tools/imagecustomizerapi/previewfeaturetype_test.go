@@ -20,3 +20,8 @@ func TestPreviewFeatureIsValid_InvalidFeature_Fail(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid preview feature: invalid-feature")
 }
+
+func TestPreviewFeatureIsValid_AclGrowPartitions_Pass(t *testing.T) {
+	err := PreviewFeatureAclGrowPartitions.IsValid()
+	assert.NoError(t, err)
+}

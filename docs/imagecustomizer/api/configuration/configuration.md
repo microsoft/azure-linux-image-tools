@@ -21,6 +21,9 @@ The top level type for the YAML file is the [config](./config.md) type.
    Otherwise, if the [resetPartitionsUuidsType](./storage.md#resetpartitionsuuidstype-string)
    value is specified, then the partitions' UUIDs are changed.
 
+   Otherwise, if the ACL-only [acl](./acl.md) config is specified, the requested ACL standard
+   partitions are grown.
+
 2. Override the `/etc/resolv.conf` file with the version from the host OS.
 
 3. Update packages:

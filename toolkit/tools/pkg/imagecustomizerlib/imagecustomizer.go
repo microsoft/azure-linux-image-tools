@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -483,6 +484,24 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 		rc.RawImageFile = newRawImageFile
 	}
 
+	// Grow ACL standard partitions (preview, ACL-only). This clones the image into a new,
+	// enlarged layout at the block level, preserving all partition identity and GPT attributes.
+	if rc.Acl != nil {
+		grownImageFile := filepath.Join(rc.BuildDirAbs, "acl-grown.raw")
+		err = growAclStandardPartitions(ctx, rc.Acl, rc.RawImageFile, grownImageFile)
+		switch {
+		case err == errAclGrowNoOp:
+			// Requested sizes already match: keep the original image.
+			os.Remove(grownImageFile)
+		case err != nil:
+			os.Remove(grownImageFile)
+			return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
+		default:
+			os.Remove(rc.RawImageFile)
+			rc.RawImageFile = grownImageFile
+		}
+	}
+
 	// Customize the raw image file.
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
 		partitionsCustomized, im.distroHandler, toolsChroot)
@@ -507,6 +526,16 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	}
 
 	verityMetadata := slices.Concat(baseImageVerityMetadata, configVerityMetadata)
+
+	// When ACL's /usr was grown, re-seal verity at the new inline data size / hash offset so the
+	// hash tree is regenerated to match the enlarged btrfs and the rebuilt UKI cmdline carries the
+	// new hash-offset.
+	if rc.Acl != nil && rc.Acl.Usr != nil {
+		err = overrideAclUsrVerityMetadata(rc.RawImageFile, verityMetadata)
+		if err != nil {
+			return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
+		}
+	}
 
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
@@ -727,6 +756,16 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
+	// Grow ACL's /usr btrfs filesystem into its enlarged partition before any package installs.
+	// This runs after connect (so the base verity superblock stayed intact for verity discovery)
+	// and before customizations (so packages have the extra space).
+	if rc.Acl != nil && rc.Acl.Usr != nil {
+		err = growAclUsrFilesystem(imageConnection)
+		if err != nil {
+			return nil, nil, nil, "", err
+		}
+	}
+
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -925,6 +964,12 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 	err = distroHandler.ValidateConfig(rc)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config for image distro:\n%w", err)
+	}
+
+	// The narrow, ACL-only 'acl' partition-grow API is only valid for ACL target images.
+	if rc.Acl != nil && distroHandler.GetTargetOs().Distro != targetos.AzureContainerLinux {
+		return nil, fmt.Errorf("the 'acl' configuration is only supported for Azure Container Linux images "+
+			"(target distro='%s')", distroHandler.GetTargetOs().Distro)
 	}
 
 	return distroHandler, nil

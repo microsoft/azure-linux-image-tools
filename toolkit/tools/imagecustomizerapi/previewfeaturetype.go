@@ -50,6 +50,10 @@ const (
 
 	// PreviewFeatureToolsDir enables support for specifying a tools directory.
 	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
+
+	// PreviewFeatureAclGrowPartitions enables the narrow, ACL-only API for growing ACL's standard
+	// partitions (e.g. /usr, esp) to explicit target sizes.
+	PreviewFeatureAclGrowPartitions PreviewFeature = "acl-grow-partitions"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -57,7 +61,8 @@ func (pf PreviewFeature) IsValid() error {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
-		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir:
+		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
+		PreviewFeatureAclGrowPartitions:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

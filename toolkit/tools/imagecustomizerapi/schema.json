@@ -3,6 +3,27 @@
   "$id": "https://github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi/config",
   "$ref": "#/$defs/Config",
   "$defs": {
+    "Acl": {
+      "properties": {
+        "usr": {
+          "$ref": "#/$defs/AclPartitionGrow"
+        },
+        "esp": {
+          "$ref": "#/$defs/AclPartitionGrow"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "AclPartitionGrow": {
+      "properties": {
+        "size": {
+          "$ref": "#/$defs/DiskSize"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AdditionalFile": {
       "properties": {
         "destination": {
@@ -148,6 +169,9 @@
             "$ref": "#/$defs/BaseConfig"
           },
           "type": "array"
+        },
+        "acl": {
+          "$ref": "#/$defs/Acl"
         }
       },
       "additionalProperties": false,

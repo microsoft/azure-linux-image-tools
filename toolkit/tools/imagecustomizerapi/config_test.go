@@ -882,3 +882,39 @@ func TestConfigIsValidWithBtrfsFilesystemNoPreviewFeature(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'btrfs' preview feature must be enabled to use btrfs filesystems")
 }
+
+func TestConfigIsValidAclMissingPreviewFeature(t *testing.T) {
+	config := &Config{
+		Acl: &Acl{
+			Usr: &AclPartitionGrow{Size: 2 * diskGiB},
+		},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'acl-grow-partitions' preview feature must be enabled to use 'acl'")
+}
+
+func TestConfigIsValidAclWithPreviewFeature(t *testing.T) {
+	config := &Config{
+		Acl: &Acl{
+			Usr: &AclPartitionGrow{Size: 2 * diskGiB},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureAclGrowPartitions},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidAclInvalidWithPreviewFeature(t *testing.T) {
+	config := &Config{
+		Acl:             &Acl{},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureAclGrowPartitions},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'acl' field")
+}

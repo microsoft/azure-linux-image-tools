@@ -73,6 +73,16 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
 	}
 
+	// The narrow, ACL-only 'acl' partition-grow API is allowed. Growing /usr forces a verity
+	// re-seal + UKI rebuild, which only happens under 'storage.reinitializeVerity: all'. Require it
+	// explicitly so the output remains a valid, verity-sealed ACL image.
+	if rc.Acl != nil && rc.Acl.Usr != nil &&
+		rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll {
+		return fmt.Errorf("'acl.usr' requires 'storage.reinitializeVerity: all' so /usr verity can be "+
+			"re-sealed at the new size (and the '%s' preview feature)",
+			imagecustomizerapi.PreviewFeatureReinitializeVerity)
+	}
+
 	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
 		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
 	}

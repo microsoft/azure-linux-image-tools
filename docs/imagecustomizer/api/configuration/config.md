@@ -163,6 +163,16 @@ Supported options:
 
   Added in v1.5.
 
+- `acl-grow-partitions`: Enables the narrow, Azure Container Linux (ACL) only API for growing
+  ACL's standard partitions (e.g. `/usr`, ESP) to explicit target sizes.
+
+  When this option is specified, the `acl` configuration becomes available. It is only valid for
+  ACL target images.
+
+  See [acl](./acl.md) for more details.
+
+  Added in v1.6.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
@@ -175,3 +185,10 @@ Added in v0.13.
 Specifies a list of configuration files to inherit from.
 
 Added in v1.1.
+
+## acl [[acl](./acl.md)]
+
+Narrow, Azure Container Linux (ACL) only configuration for growing ACL's standard partitions to
+explicit target sizes. Gated behind the `acl-grow-partitions` preview feature.
+
+Added in v1.6.

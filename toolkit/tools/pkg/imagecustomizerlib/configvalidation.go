@@ -227,6 +227,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
+	rc.Acl = resolveAcl(rc.ConfigChain)
 	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
 	err = validateScriptsConfigChain(rc.ConfigChain, validateFiles)
@@ -891,6 +892,15 @@ func resolveUki(configChain []*ConfigWithBasePath) *imagecustomizerapi.Uki {
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Uki != nil {
 			return configWithBase.Config.OS.Uki
+		}
+	}
+	return nil
+}
+
+func resolveAcl(configChain []*ConfigWithBasePath) *imagecustomizerapi.Acl {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Acl != nil {
+			return configWithBase.Config.Acl
 		}
 	}
 	return nil
