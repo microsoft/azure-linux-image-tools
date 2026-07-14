@@ -256,7 +256,23 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
-	err := shell.NewExecBuilder("dracut", "--force", "--regenerate-all").
+	// dracut's default staging directory (/var/tmp) in the customize chroot can live on a mount
+	// (overlay/tmpfs) that rejects security.* xattrs (ENOTSUP), which breaks dracut-install's
+	// `cp --preserve=xattr` and fails the whole regeneration. Point dracut at a dedicated staging
+	// directory on the image's root filesystem (ext4, which supports xattrs) via a root-level path
+	// that is not shadowed by any mount.
+	dracutTmpDirHost := filepath.Join(imageChroot.RootDir(), aclDracutTmpDirName)
+	err := os.RemoveAll(dracutTmpDirHost)
+	if err != nil {
+		return fmt.Errorf("failed to clean dracut tmpdir (%s):\n%w", dracutTmpDirHost, err)
+	}
+	err = os.MkdirAll(dracutTmpDirHost, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create dracut tmpdir (%s):\n%w", dracutTmpDirHost, err)
+	}
+	defer os.RemoveAll(dracutTmpDirHost)
+
+	err = shell.NewExecBuilder("dracut", aclDracutRegenerateArgs()...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		Chroot(imageChroot.ChrootDir()).
@@ -266,6 +282,17 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 	}
 
 	return nil
+}
+
+// aclDracutTmpDirName is a chroot-root-level directory used as dracut's staging tmpdir, chosen so
+// it lands on the image's root ext4 (which supports xattrs) rather than the default /var/tmp,
+// which may be shadowed by a mount that rejects security.* xattrs.
+const aclDracutTmpDirName = "ic-dracut-tmp"
+
+// aclDracutRegenerateArgs returns the dracut arguments for regenerating all initramfs images with
+// an explicit, xattr-capable staging directory.
+func aclDracutRegenerateArgs() []string {
+	return []string{"--force", "--regenerate-all", "--tmpdir", "/" + aclDracutTmpDirName}
 }
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
