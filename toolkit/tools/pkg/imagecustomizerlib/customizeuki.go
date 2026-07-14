@@ -366,8 +366,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// For images that boot via UKI with no grub config (e.g. ACL / systemd-boot), there is no grub
 	// file for BootCustomizer.AddKernelCommandLine to write kernel cmdline args into. Instead, the
 	// requested extraCommandLine is appended here to every kernel's cmdline as the UKIs are
-	// regenerated. This is robust to kernel swaps (e.g. removing 'kernel' and installing
-	// 'kernel-hwe'), since the args are applied to all kernels rather than matched by name.
+	// regenerated (applied to all kernels rather than matched by name, so it survives kernel swaps).
 	extraArgs := ""
 	if len(extraCommandLine) > 0 {
 		isUkiOnly, err := isUkiOnlyBootConfig(imageChroot, distroHandler)
@@ -381,16 +380,19 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	kernelInfo := make(map[string]UkiKernelInfo)
 
+	// For a kernel swap (e.g. remove 'kernel', install 'kernel-hwe'), the newly installed kernel has
+	// no per-kernel cmdline of its own: it is absent from both the existing uki-kernel-info.json and
+	// the args extracted from the base image's UKI(s) (which are keyed by the removed kernel). Fall
+	// back to inheriting the base image's UKI cmdline so the new kernel's UKI carries the essential
+	// boot args (root=, /usr dm-verity args, console, ...). The stale verity args are refreshed by
+	// the verity re-seal, and extraCommandLine is appended below.
+	fallbackCmdline, hasFallback := inheritedBaseCmdline(kernelToArgs)
+
 	for kernel, initramfs := range kernelToInitramfs {
-		var cmdline string
-		if existingInfo, ok := existingKernelInfo[kernel]; ok {
-			cmdline = existingInfo.Cmdline
-		} else {
-			var exists bool
-			cmdline, exists = kernelToArgs[kernel]
-			if !exists {
-				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
-			}
+		cmdline, err := selectKernelBaseCmdline(kernel, existingKernelInfo, kernelToArgs, fallbackCmdline,
+			hasFallback)
+		if err != nil {
+			return err
 		}
 
 		if extraArgs != "" {
@@ -411,6 +413,53 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	logger.Log.Debugf("Saved UKI kernel info to: %s", cmdlineFilePath)
 	return nil
+}
+
+// selectKernelBaseCmdline chooses the base kernel command line for a kernel when regenerating UKIs.
+// It prefers an existing per-kernel cmdline (from uki-kernel-info.json), then the args extracted
+// from the base image's boot config / UKI keyed by that kernel, and finally — for a kernel that has
+// neither (e.g. one newly installed by a kernel swap) — inherits the base image's UKI cmdline.
+func selectKernelBaseCmdline(kernel string, existingKernelInfo map[string]UkiKernelInfo,
+	kernelToArgs map[string]string, fallbackCmdline string, hasFallback bool,
+) (string, error) {
+	if existingInfo, ok := existingKernelInfo[kernel]; ok {
+		return existingInfo.Cmdline, nil
+	}
+
+	if args, ok := kernelToArgs[kernel]; ok {
+		return args, nil
+	}
+
+	if hasFallback {
+		logger.Log.Infof("Kernel (%s) has no existing cmdline (e.g. installed via a kernel swap); "+
+			"inheriting the base image UKI cmdline", kernel)
+		return fallbackCmdline, nil
+	}
+
+	return "", fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+}
+
+// inheritedBaseCmdline returns the single, unambiguous base cmdline to inherit for kernels that have
+// no per-kernel cmdline of their own, sourced from the args extracted from the base image's UKI(s).
+// ACL ships a single UKI, so there is exactly one candidate. Returns ok=false when there is no
+// candidate or when multiple distinct cmdlines exist (ambiguous — do not guess).
+func inheritedBaseCmdline(kernelToArgs map[string]string) (string, bool) {
+	candidate := ""
+	found := false
+	for _, cmdline := range kernelToArgs {
+		trimmed := strings.TrimSpace(cmdline)
+		if trimmed == "" {
+			continue
+		}
+		if !found {
+			candidate = trimmed
+			found = true
+		} else if candidate != trimmed {
+			// Ambiguous: multiple distinct base cmdlines.
+			return "", false
+		}
+	}
+	return candidate, found
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
