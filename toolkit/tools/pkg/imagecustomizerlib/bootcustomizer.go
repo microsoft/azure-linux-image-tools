@@ -77,7 +77,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	ukiKernelInfoPath := ""
 	if uki != nil {
 		ukiMode = uki.Mode
-		if ukiMode == imagecustomizerapi.UkiModeModify {
+		if ukiMode == imagecustomizerapi.UkiModeModify || ukiMode == imagecustomizerapi.UkiModeCreate {
 			ukiKernelInfoPath = filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 		}
 	}
@@ -99,8 +99,11 @@ func determineBootConfigType(grubCfgContent string, imageChroot safechroot.Chroo
 		espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 		ukiFiles, err := getUkiFiles(espDir)
 		if err == nil && len(ukiFiles) > 0 {
-			// UKI images without grub.cfg are in passthrough mode (grub.cfg not regenerated)
-			// For UKI create mode, grub.cfg is regenerated during kernel extraction, so it would exist
+			// The image boots via UKIs and has no grub.cfg. Passthrough mode preserves the
+			// existing UKIs as-is.
+			//
+			// UKI modes create and modify carry any kernel command-line changes through uki-kernel-info.json rather
+			// than a grub.cfg, which is never regenerated for a UKI base image.
 			return bootConfigTypeUki, nil
 		}
 		return "", ErrBootNoConfigFound
@@ -141,12 +144,12 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		b.grubCfgContent = grubCfgContent
 
 	case bootConfigTypeUki:
-		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args cannot be modified in passthrough mode.
-		if b.ukiMode != imagecustomizerapi.UkiModeModify {
+		// The image boots via UKIs. Passthrough mode preserves the existing UKIs, so the
+		// kernel command-line cannot be changed. Create and modify mode both regenerate the
+		// UKI boot data from uki-kernel-info.json, so the args are applied there.
+		if b.ukiMode != imagecustomizerapi.UkiModeModify && b.ukiMode != imagecustomizerapi.UkiModeCreate {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
-		// For modify mode, append args to the UKI cmdline file.
 		err := b.appendToUkiCmdlineFile(combinedArgs)
 		if err != nil {
 			return err
