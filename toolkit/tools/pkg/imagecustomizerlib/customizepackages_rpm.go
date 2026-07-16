@@ -419,7 +419,7 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
 	}
