@@ -46,9 +46,6 @@ func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechro
 		pmChroot = toolsChroot
 	}
 
-	fullArgs := []string{}
-	fullArgs = append(fullArgs, args...)
-
 	seenTransactionErrorMessage := false
 	stderrCallback := func(line string) {
 		switch {
@@ -68,7 +65,7 @@ func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechro
 		}
 	}
 
-	return shell.NewExecBuilder(packageManagerDNF, fullArgs...).
+	return shell.NewExecBuilder(packageManagerDNF, args...).
 		LogLevel(logrus.DebugLevel, shell.LogDisabledLevel).
 		StderrCallback(stderrCallback).
 		Chroot(pmChroot.ChrootDir()).
