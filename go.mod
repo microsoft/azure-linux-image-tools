@@ -3,7 +3,7 @@ module github.com/microsoft/azure-linux-image-tools
 go 1.25.0
 
 require (
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/cavaliergopher/cpio v1.0.1
 	github.com/google/uuid v1.6.0
