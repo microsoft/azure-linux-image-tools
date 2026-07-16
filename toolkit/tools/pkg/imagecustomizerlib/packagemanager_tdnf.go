@@ -146,7 +146,7 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 	chroot := imageChroot
 	if toolsChroot != nil {
 		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL). Matches the executeRpmPackageManagerCommand pattern.
+		// imageChroot has no in-image tdnf (e.g. ACL).
 		args = append([]string{
 			"--releasever=" + pm.getReleaseVersion(),
 			"--installroot=/" + toolsRootImageDir,
@@ -179,7 +179,7 @@ func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chro
 	chroot := imageChroot
 	if toolsChroot != nil {
 		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL). Matches the executeRpmPackageManagerCommand pattern.
+		// imageChroot has no in-image tdnf (e.g. ACL).
 		args = append([]string{
 			"--releasever=" + pm.getReleaseVersion(),
 			"--installroot=/" + toolsRootImageDir,
