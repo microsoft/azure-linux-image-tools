@@ -180,3 +180,46 @@ os:
 ```
 
 Added in v0.15.
+
+## removePackageManager [bool]
+
+Optional.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `remove-package-manager` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+When set to true, the package manager tooling (e.g. tdnf, dnf, apt, etc.) and all the
+package management files (e.g. databases, package cache) will be removed from the image.
+
+This operation includes removing any packages that are considered "unused dependencies"
+by the package manager. If this removes a package required in your image, then mark the
+required package in a [postCustomization](./scripts.md#postcustomization-script) script
+to prevent this:
+
+- Azure Linux 3: `tdnf mark install <package>`
+- Azure Linux 4 / Fedora: `dnf mark install <package>`
+- Ubuntu: `apt-mark install <package>`
+
+This operation occurs after the `postCustomization` scripts and before the
+`finalizeCustomization` scripts. See,
+[Operation Ordering](./configuration.md#operation-ordering) for details.
+
+Note: If this API is used when the
+[output format](../cli/customize.md#--output-image-formatformat)
+is either `iso`, `pxe-dir`, `pxe-tar`, `cosi`, or `baremetal-image`, then the build will
+fail. This is planned to be fixed in a future release.
+
+Example:
+
+```yaml
+previewFeatures:
+- remove-package-manager
+
+os:
+  packages:
+    removePackageManager: true
+```
+
+Added in v1.6.

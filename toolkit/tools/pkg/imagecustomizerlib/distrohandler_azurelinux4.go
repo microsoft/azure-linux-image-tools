@@ -132,6 +132,17 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 		snapshotTime, d.packageManager)
 }
 
+func (d *azureLinux4DistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
+}
+
+func (d *azureLinux4DistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsFedora)
+}
+
 func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {

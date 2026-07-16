@@ -377,3 +377,52 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsCh
 
 	return packages, nil
 }
+
+func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
+	toolsChroot *safechroot.Chroot, packageManagementPackages []string,
+) error {
+	err := rpmEnsurePackagesRemoved(imageChroot, pmHandler, toolsChroot, packageManagementPackages,
+		true /*removeProtectedPackages*/)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
+	toolsChroot *safechroot.Chroot, packages []string, removeProtectedPackages bool,
+) error {
+	packagesToRemove := []string(nil)
+	for _, packageName := range packages {
+		installed, err := pmHandler.isPackageInstalled(imageChroot, toolsChroot, packageName)
+		if err != nil {
+			return err
+		}
+
+		if installed {
+			packagesToRemove = append(packagesToRemove, packageName)
+		}
+	}
+
+	args := []string{"--assumeyes", "--disablerepo", "*"}
+	if removeProtectedPackages {
+		args = append(args, "--setopt=protected_packages=")
+	}
+	args = append(args, "remove")
+	args = append(args, packagesToRemove...)
+
+	if toolsChroot != nil {
+		args = append([]string{
+			"--releasever=" + pmHandler.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
+	}
+
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	if err != nil {
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
+	}
+
+	return nil
+}

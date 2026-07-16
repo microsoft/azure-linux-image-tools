@@ -73,24 +73,27 @@ The top level type for the YAML file is the [config](./config.md) type.
 
 17. Run ([postCustomization](./scripts.md#postcustomization-script)) scripts.
 
-18. Restore the `/etc/resolv.conf` file.
+18. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
+    specified, then remove the package manager tools.
 
-19. If SELinux is enabled, call `setfiles`.
+19. Restore the `/etc/resolv.conf` file.
 
-20. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
+20. If SELinux is enabled, call `setfiles`.
 
-21. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
+21. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
 
-22. If a ([verity](./storage.md#verity-verity)) device is specified, then
+22. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
+
+23. If a ([verity](./storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-23. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
+24. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
     specified, then copy the artifacts to the specified output directory.
 
-24. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
+25. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
     specified, then extract the SELinux policy files from the customized image.
 
-25. If the output format is set to `iso` or `pxe`, copy additional iso media files.
+26. If the output format is set to `iso` or `pxe`, copy additional iso media files.
     ([iso](./iso.md) or [pxe](./pxe.md))
 
 ## /etc/resolv.conf

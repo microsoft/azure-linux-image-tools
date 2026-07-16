@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -1164,4 +1165,54 @@ func TestResolvePxeBootstrapFileUrl_UnspecifiedInCurrentUsesBase(t *testing.T) {
 
 	result := resolvePxeConfig(configChain)
 	assert.Equal(t, "http://base.example.com/pxe/base.iso", result.BootstrapFileUrl)
+}
+
+func TestResolveRemovePackageManagerInBase(t *testing.T) {
+	configChain := []*ConfigWithBasePath{
+		{
+			Config: &imagecustomizerapi.Config{
+				OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						RemovePackageManager: ptrutils.PtrTo(true),
+					},
+				},
+			},
+			BaseConfigPath: "/base",
+		},
+		{
+			Config:         &imagecustomizerapi.Config{},
+			BaseConfigPath: "/current",
+		},
+	}
+
+	result := resolveRemovePackageManager(configChain)
+	assert.Equal(t, true, result)
+}
+
+func TestResolveRemovePackageManagerOverride(t *testing.T) {
+	configChain := []*ConfigWithBasePath{
+		{
+			Config: &imagecustomizerapi.Config{
+				OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						RemovePackageManager: ptrutils.PtrTo(true),
+					},
+				},
+			},
+			BaseConfigPath: "/base",
+		},
+		{
+			Config: &imagecustomizerapi.Config{
+				OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						RemovePackageManager: ptrutils.PtrTo(false),
+					},
+				},
+			},
+			BaseConfigPath: "/current",
+		},
+	}
+
+	result := resolveRemovePackageManager(configChain)
+	assert.Equal(t, false, result)
 }

@@ -84,6 +84,9 @@ type ResolvedConfig struct {
 
 	// Image History mode
 	ImageHistory imagecustomizerapi.ImageHistory
+
+	// Remove package manager tools and directories
+	RemovePackageManager bool
 }
 
 func (c *ResolvedConfig) InputFileExt() string {

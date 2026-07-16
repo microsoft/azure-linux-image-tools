@@ -259,6 +259,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.ImageHistory = resolveImageHistory(rc.ConfigChain)
 
+	rc.RemovePackageManager = resolveRemovePackageManager(rc.ConfigChain)
+
 	return rc, nil
 }
 
@@ -1108,4 +1110,14 @@ func resolveImageHistory(configChain []*ConfigWithBasePath) imagecustomizerapi.I
 	}
 
 	return imagecustomizerapi.ImageHistoryDefault
+}
+
+func resolveRemovePackageManager(configChain []*ConfigWithBasePath) bool {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Packages.RemovePackageManager != nil {
+			return *configWithBase.Config.OS.Packages.RemovePackageManager
+		}
+	}
+
+	return false
 }

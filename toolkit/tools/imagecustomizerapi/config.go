@@ -89,6 +89,11 @@ func (c *Config) IsValid() (err error) {
 		if c.OS.Packages.SnapshotTime != "" && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {
 			return fmt.Errorf("the 'package-snapshot-time' preview feature must be enabled to use 'os.packages.snapshotTime'")
 		}
+
+		if c.OS.Packages.RemovePackageManager != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureRemovePackageManager) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.removePackageManager'",
+				PreviewFeatureRemovePackageManager)
+		}
 	}
 
 	err = c.Scripts.IsValid()

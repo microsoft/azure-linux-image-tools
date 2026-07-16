@@ -50,6 +50,9 @@ const (
 
 	// PreviewFeatureToolsDir enables support for specifying a tools directory.
 	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
+
+	// PreviewFeatureRemovePackageManager enables support for the '.os.package.removePackageManager' API.
+	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -57,7 +60,8 @@ func (pf PreviewFeature) IsValid() error {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
-		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir:
+		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
+		PreviewFeatureRemovePackageManager:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
