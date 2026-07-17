@@ -3,24 +3,24 @@
 
 package imagecustomizerlib
 
-import "github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+import (
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+)
 
 // rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
 type rpmPackageManagerHandler interface {
 	// Package manager configuration
-	getPackageManagerBinary() string
 	getReleaseVersion() string
-	getConfigFile() string
-	getVerbosityOption() string
 
-	// Package manager specific output handling
-	createOutputCallback() func(string)
+	executeCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
 
 	// Package manager specific cache options for install/update operations
 	getCacheOnlyOptions() []string
 
-	// Package manager specific snapshot time support
-	supportsSnapshotTime() bool
+	configureSnapshotTime(packageManagerChroot *safechroot.Chroot,
+		snapshotTime imagecustomizerapi.PackageSnapshotTime,
+	) (func() error, error)
 
 	// isPackageInstalled reports whether packageName is installed. When toolsChroot is non-nil, the query is issued
 	// from inside toolsChroot against installroot=/_imageroot (the bind-mounted image root), so it works on images
