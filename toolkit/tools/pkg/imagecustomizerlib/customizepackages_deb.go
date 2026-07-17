@@ -410,6 +410,11 @@ func debEnsurePackagesRemoved(imageChroot *safechroot.Chroot, packages []string,
 		}
 	}
 
+	if len(packagesToRemove) <= 0 {
+		// Nothing to do.
+		return nil
+	}
+
 	args := []string{"remove", "--auto-remove"}
 	if removeEssentialPackages {
 		args = append(args, "--allow-remove-essential")

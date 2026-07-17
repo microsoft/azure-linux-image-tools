@@ -4,6 +4,8 @@
 package imagecustomizerlib
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -1215,4 +1217,20 @@ func TestResolveRemovePackageManagerOverride(t *testing.T) {
 
 	result := resolveRemovePackageManager(configChain)
 	assert.Equal(t, false, result)
+}
+
+func TestCustomizeImageRemovePackageManagerBadOutputFormat(t *testing.T) {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageRemovePackageManagerBadOutputFormat")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
+	configFile := filepath.Join(testDir, "remove-package-manager.yaml")
+
+	// Customize image.
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "cosi",
+		baseImageInfo.PreviewFeatures)
+	assert.ErrorIs(t, err, ErrRemovePackageManagerBadOutputFormat)
 }

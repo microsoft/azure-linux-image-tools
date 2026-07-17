@@ -56,6 +56,7 @@ var (
 	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
 	ErrStorageMoreThanOne                   = NewImageCustomizerError("Validation:StorageMoreThanOne", "storage may only be specified in one config file:\nstorage merging logic not yet implemented")
+	ErrRemovePackageManagerBadOutputFormat  = NewImageCustomizerError("Validation:RemovePackageManagerBadOutputFormat", "removePackageManager API does not work yet with output format")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -260,6 +261,16 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.ImageHistory = resolveImageHistory(rc.ConfigChain)
 
 	rc.RemovePackageManager = resolveRemovePackageManager(rc.ConfigChain)
+
+	if rc.RemovePackageManager {
+		switch rc.OutputImageFormat {
+		case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir,
+			imagecustomizerapi.ImageFormatTypePxeTar, imagecustomizerapi.ImageFormatTypeCosi,
+			imagecustomizerapi.ImageFormatTypeBareMetalImage:
+
+			return nil, fmt.Errorf("%w (format='%s')", ErrRemovePackageManagerBadOutputFormat, rc.OutputImageFormat)
+		}
+	}
 
 	return rc, nil
 }

@@ -405,6 +405,11 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 		}
 	}
 
+	if len(packagesToRemove) <= 0 {
+		// Nothing to do.
+		return nil
+	}
+
 	args := []string{"--assumeyes", "--disablerepo", "*"}
 	if removeProtectedPackages {
 		args = append(args, "--setopt=protected_packages=")
