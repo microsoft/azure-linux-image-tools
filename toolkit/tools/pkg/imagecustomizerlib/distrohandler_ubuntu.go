@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"github.com/sirupsen/logrus"
 )
 
@@ -125,7 +126,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 
 func (d *ubuntuDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]packagemanifestapi.Package, error) {
 	return debRemovePackageManagerTools(imageChroot, packageManagementPackagesDeb)
 }
 
@@ -148,10 +149,16 @@ func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 	return nil, fmt.Errorf("getting package information is not supported yet for Ubuntu images")
 }
 
-func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+func (d *ubuntuDistroHandler) GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootDeb(imageChroot)
+	return debGetAllPackagesForCosi(imageChroot)
+}
+
+func (d *ubuntuDistroHandler) GetAllPackagesForManifest(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]packagemanifestapi.Package, error) {
+	return debGetAllPackagesForManifest(imageChroot)
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

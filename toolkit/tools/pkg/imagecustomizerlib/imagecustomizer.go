@@ -804,7 +804,7 @@ func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *
 ) ([]cosiapi.OsPackage, *cosiapi.Bootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
-	osPackages, err := distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot(), toolsChroot)
+	osPackages, err := getAllPackagesForCosi(imageConnection.Chroot(), toolsChroot, distroHandler)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractPackages, err)
 	}

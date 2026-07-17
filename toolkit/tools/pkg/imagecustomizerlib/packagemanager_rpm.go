@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 )
 
 // rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
@@ -13,7 +14,8 @@ type rpmPackageManagerHandler interface {
 	// Package manager configuration
 	getReleaseVersion() string
 
-	executeCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
+	executeCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	) ([]packagemanifestapi.Package, []packagemanifestapi.Package, error)
 
 	// Package manager specific cache options for install/update operations
 	getCacheOnlyOptions() []string

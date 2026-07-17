@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -21,6 +22,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -996,6 +998,53 @@ func testCustomizeImageRemovePackageManager(t *testing.T, baseImageInfo testBase
 	for _, removedFile := range removedFiles {
 		_, err := os.Stat(filepath.Join(imageConnection.Chroot().RootDir(), removedFile))
 		assert.ErrorIsf(t, err, os.ErrNotExist, "file/dir (%s) should be removed", removedFile)
+	}
+
+	// Ensure package manifest file was written.
+	manifestJson, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), packagemanifestapi.PackageManifestPath))
+	assert.NoError(t, err)
+
+	var manifest packagemanifestapi.PackageManifest
+	jsonDecoder := json.NewDecoder(strings.NewReader(string(manifestJson)))
+	jsonDecoder.DisallowUnknownFields()
+	err = jsonDecoder.Decode(&manifest)
+	assert.NoError(t, err)
+
+	assert.Equal(t, packagemanifestapi.ManifestVersion1, manifest.ManifestVersion)
+
+	// Do some basic sanity checks on the manifest entries.
+	expectedPackageType := ""
+	switch baseImageInfo.Distro {
+	case baseImageDistroAzureLinux:
+		expectedPackageType = "rpm"
+
+	case baseImageDistroUbuntu:
+		expectedPackageType = "deb"
+
+	default:
+		t.Fatalf("Unsupported distro")
+	}
+
+	for _, packageInfo := range manifest.Packages {
+		assert.Equal(t, expectedPackageType, packageInfo.Type)
+		assert.NotEqual(t, "", packageInfo.Name)
+		assert.NotEqual(t, "", packageInfo.Version)
+		assert.NotEqual(t, "", packageInfo.Arch)
+	}
+
+	// Verify the package list has at least some contents.
+	assert.Truef(t, slices.ContainsFunc(manifest.Packages, func(packageInfo packagemanifestapi.Package) bool {
+		return packageInfo.Name == "util-linux"
+	}), "package (%s) should be in manifest", "util-linux")
+
+	// Ensure package manager packages are not in the manifest file.
+	removedPackages := slices.Concat(packageManagementPackagesDeb, packageManagementPackagesFedora,
+		packageManagementPackagesAzl3)
+
+	for _, removedPackage := range removedPackages {
+		assert.Falsef(t, slices.ContainsFunc(manifest.Packages, func(packageInfo packagemanifestapi.Package) bool {
+			return packageInfo.Name == removedPackage
+		}), "package (%s) should not be in manifest", removedPackage)
 	}
 }
 

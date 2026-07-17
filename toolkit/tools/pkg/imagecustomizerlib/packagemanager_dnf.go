@@ -7,13 +7,39 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	// Example:
+	//
+	// Package                     Arch   Version         Repository    Size
+	// Upgrading:
+	//  NetworkManager             x86_64 1:1.52.2-1.fc42 updates    5.8 MiB
+	//    replacing NetworkManager x86_64 1:1.52.0-1.fc42 updates    5.8 MiB
+	dnfTableEntryRow      = regexp.MustCompile(`^\s+(replacing\s+)?(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+\s+\S+)$`)
+	dnfTableHeaderInstall = []string{
+		"Installing weak dependencies:",
+		"Installing group/module packages:",
+		"Installing:",
+		"Upgrading:",
+		"Downgrading:",
+		"Reinstalling:",
+	}
+	dnfTableHeaderRemove = []string{
+		"Removing dependent packages:",
+		"Removing unused dependencies:",
+		"Removing:",
+	}
 )
 
 // DNF Package Manager Implementation
@@ -40,13 +66,69 @@ func (pm *dnfPackageManager) configureSnapshotTime(packageManagerChroot *safechr
 
 func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]packagemanifestapi.Package, []packagemanifestapi.Package, error) {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
 	}
 
+	fullArgs := []string{}
+	fullArgs = append(fullArgs, args...)
+
+	installedPackages := []packagemanifestapi.Package(nil)
+	removedPackages := []packagemanifestapi.Package(nil)
 	seenTransactionErrorMessage := false
+
+	type stdoutState int
+	const (
+		stdoutStateStart stdoutState = iota
+		stdoutStateInstall
+		stdoutStateRemove
+		stdoutStateEnd
+	)
+
+	currStdoutState := stdoutStateStart
+	stdoutCallback := func(line string) {
+		if currStdoutState == stdoutStateEnd {
+			return
+		}
+
+		switch {
+		case line == "":
+			currStdoutState = stdoutStateEnd
+
+		case slices.Contains(dnfTableHeaderInstall, line):
+			currStdoutState = stdoutStateInstall
+
+		case slices.Contains(dnfTableHeaderRemove, line):
+			currStdoutState = stdoutStateRemove
+
+		default:
+			match := dnfTableEntryRow.FindStringSubmatch(line)
+			if match == nil {
+				return
+			}
+
+			replacing := match[1]
+			name := match[2]
+			arch := match[3]
+			version := match[4]
+
+			packageInfo := packagemanifestapi.Package{
+				Type:    packagemanifestapi.PackageTypeRpm,
+				Name:    name,
+				Version: version,
+				Arch:    arch,
+			}
+
+			if replacing != "" || currStdoutState == stdoutStateInstall {
+				installedPackages = append(installedPackages, packageInfo)
+			} else {
+				removedPackages = append(removedPackages, packageInfo)
+			}
+		}
+	}
+
 	stderrCallback := func(line string) {
 		switch {
 		case line == "Failed to resolve the transaction:" || strings.HasPrefix(line, "Transaction failed:"):
@@ -65,11 +147,17 @@ func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechro
 		}
 	}
 
-	return shell.NewExecBuilder(packageManagerDNF, args...).
+	err := shell.NewExecBuilder(packageManagerDNF, fullArgs...).
 		LogLevel(logrus.DebugLevel, shell.LogDisabledLevel).
+		StdoutCallback(stdoutCallback).
 		StderrCallback(stderrCallback).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return installedPackages, removedPackages, nil
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,

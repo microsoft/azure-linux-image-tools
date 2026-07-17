@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,10 +44,8 @@ const (
 )
 
 var (
-	tdnfOpLines = []string{
-		"Installing/Updating: ",
-		"Removing: ",
-	}
+	tdnfOpInstallUpdate = "Installing/Updating: "
+	tdnfOpRemove        = "Removing: "
 
 	tdnfSummaryLines = []string{
 		"Installing:",
@@ -76,7 +75,7 @@ func (pm *tdnfPackageManager) configureSnapshotTime(packageManagerChroot *safech
 
 func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]packagemanifestapi.Package, []packagemanifestapi.Package, error) {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
@@ -93,6 +92,8 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 	lastDownloadPackageSeen := ""
 	inSummary := false
 	seenTransactionErrorMessage := false
+	installedPackages := []packagemanifestapi.Package(nil)
+	removedPackages := []packagemanifestapi.Package(nil)
 
 	stdoutCallback := func(line string) {
 		if !seenTransactionErrorMessage {
@@ -114,8 +115,21 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 			inSummary = true
 			logger.Log.Debug(line)
 
-		case slices.ContainsFunc(tdnfOpLines, func(opPrefix string) bool { return strings.HasPrefix(line, opPrefix) }):
+		case strings.HasPrefix(line, tdnfOpInstallUpdate):
 			logger.Log.Debug(line)
+			packageNevra := strings.TrimSpace(strings.TrimPrefix(line, tdnfOpInstallUpdate))
+			packageInfo, err := rpmNevraToInfo(packageNevra)
+			if err == nil {
+				installedPackages = append(installedPackages, packageInfo)
+			}
+
+		case strings.HasPrefix(line, tdnfOpRemove):
+			logger.Log.Debug(line)
+			packageNevra := strings.TrimSpace(strings.TrimPrefix(line, tdnfOpRemove))
+			packageInfo, err := rpmNevraToInfo(packageNevra)
+			if err == nil {
+				removedPackages = append(removedPackages, packageInfo)
+			}
 
 		default:
 			match := tdnfDownloadRegex.FindStringSubmatch(line)
@@ -131,12 +145,17 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 		}
 	}
 
-	return shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
+	err := shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
 		StdoutCallback(stdoutCallback).
 		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return installedPackages, removedPackages, nil
 }
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
