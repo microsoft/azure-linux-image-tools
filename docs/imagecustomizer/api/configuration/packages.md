@@ -193,6 +193,9 @@ You must enable this feature by specifying `remove-package-manager` in the
 When set to true, the package manager tooling (e.g. tdnf, dnf, apt, etc.) and all the
 package management files (e.g. databases, package cache) will be removed from the image.
 
+Note: For Ubuntu, the dpkg package and its related files are not removed since it is a
+dependency of some fundamental system packages (e.g. `grub-efi-amd64-signed`).
+
 This operation includes removing any packages that are considered "unused dependencies"
 by the package manager. If this removes a package required in your image, then mark the
 required package in a [postCustomization](./scripts.md#postcustomization-script) script

@@ -216,16 +216,16 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler)
+	if err != nil {
+		return err
+	}
+
 	if rc.RemovePackageManager {
 		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
 		}
-	}
-
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler)
-	if err != nil {
-		return err
 	}
 
 	err = restoreResolvConf(ctx, resolvConf, imageChroot)

@@ -51,7 +51,7 @@ const (
 	// PreviewFeatureToolsDir enables support for specifying a tools directory.
 	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
 
-	// PreviewFeatureRemovePackageManager enables support for the '.os.package.removePackageManager' API.
+	// PreviewFeatureRemovePackageManager enables support for the '.os.packages.removePackageManager' API.
 	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
 )
 
