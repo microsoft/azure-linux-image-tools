@@ -16,9 +16,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -34,10 +32,8 @@ const (
 )
 
 type IsoInfoStore struct {
-	seLinuxMode              imagecustomizerapi.SELinuxMode
-	kdumpBootFiles           *imagecustomizerapi.KdumpBootFilesType
-	dracutPackageInfo        *PackageVersionInformation
-	selinuxPolicyPackageInfo *PackageVersionInformation
+	seLinuxMode    imagecustomizerapi.SELinuxMode
+	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType
 }
 
 type KernelBootFiles struct {
@@ -409,23 +405,11 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 }
 
 func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, distroHandler DistroHandler,
-	toolsChroot *safechroot.Chroot,
 ) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
-	var bindMount *safemount.Mount
 	chrootDir := imageRootDir
-	if toolsChroot != nil {
-		chrootDir = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
-
-		bindMount, err = safemount.NewMount(imageRootDir, chrootDir, "", unix.MS_BIND, "", true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create image bind mount in tools dir:\n%w", err)
-		}
-		defer bindMount.Close()
-	}
-
-	chroot := safechroot.NewChroot(chrootDir, true /*isExistingDir*/)
+	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
 	if chroot == nil {
 		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
 	}
@@ -442,35 +426,9 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	}
 	infoStore.seLinuxMode = imageSELinuxMode
 
-	infoStore.dracutPackageInfo, err = distroHandler.GetPackageInformation(chroot, toolsChroot, "dracut")
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine package information for dracut under (%s):\n%w", chrootDir, err)
-	}
-
-	// Note the MIC allows the user to install other selinux policy packages.
-	// So, the absence of selinux-policy does not mean that there are no selinux
-	// policy packages.
-	selinuxPolicyInstalled, err := distroHandler.IsPackageInstalled(chroot, toolsChroot, "selinux-policy")
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if selinux-policy is installed under (%s):\n%w", chrootDir, err)
-	}
-	if selinuxPolicyInstalled {
-		infoStore.selinuxPolicyPackageInfo, err = distroHandler.GetPackageInformation(chroot, toolsChroot, "selinux-policy")
-		if err != nil {
-			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", chrootDir, err)
-		}
-	}
-
 	err = chroot.Close()
 	if err != nil {
 		return nil, err
-	}
-
-	if bindMount != nil {
-		err := bindMount.CleanClose()
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return infoStore, nil
@@ -610,16 +568,14 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
-		kdumpBootFiles:           savedConfigs.LiveOS.KdumpBootFiles,
-		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
-		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
+		kdumpBootFiles: savedConfigs.LiveOS.KdumpBootFiles,
 	}
 
 	return infoStore, nil
 }
 
 func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string,
-	storeDir string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+	storeDir string, distroHandler DistroHandler,
 ) (artifactStore *IsoArtifactsStore, err error) {
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
@@ -634,7 +590,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler, toolsChroot)
+	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -746,16 +702,6 @@ func dumpInfoStore(infoStore *IsoInfoStore) {
 		logger.Log.Debugf("-- kdumpBootFiles       = not defined")
 	}
 	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
-	if infoStore.dracutPackageInfo != nil {
-		logger.Log.Debugf("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
-	} else {
-		logger.Log.Debugf("-- dracut package info  = unavailable")
-	}
-	if infoStore.selinuxPolicyPackageInfo != nil {
-		logger.Log.Debugf("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
-	} else {
-		logger.Log.Debugf("-- selinux package info = unavailable")
-	}
 }
 
 func dumpArtifactsStore(artifactStore *IsoArtifactsStore, title string) {

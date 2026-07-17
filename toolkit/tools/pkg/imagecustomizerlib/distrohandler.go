@@ -60,9 +60,6 @@ type DistroHandler interface {
 	// toolsChroot) must return an error rather than a misleading false.
 	IsPackageInstalled(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot, packageName string) (bool, error)
 
-	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
-	GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
-
 	// Get all installed packages from the chroot.
 	// toolsChroot has the same semantics as in IsPackageInstalled.
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
@@ -142,7 +139,7 @@ type DistroHandler interface {
 	// UpdateLiveOSGrubCfgForLiveOS applies the common LiveOS-compatibility edits to the grub.cfg generation. It is the
 	// base that the iso and pxe steps build on.
 	UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-		initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+		initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 		kernelVersions []string) (string, error)
 
 	// UpdateLiveOSGrubCfgForIso applies the iso-specific edits on top of the LiveOS edits.
