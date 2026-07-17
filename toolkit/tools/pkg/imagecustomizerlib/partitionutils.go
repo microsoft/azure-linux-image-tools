@@ -163,6 +163,22 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
+	// ACL images provide an fstab at /usr/share/ic/etc/fstab (seen as
+	// "share/ic/etc/fstab" from the USR partition's filesystem root) so that
+	// Image Customizer can discover the partition layout. When this marker is
+	// present, use that partition as the rootfs directly and skip BTRFS
+	// subvolume enumeration. Enumeration relies on the BTRFS_IOC_TREE_SEARCH
+	// ioctl, which qemu-user does not translate, so `btrfs subvolume list`
+	// fails with ENOTTY when converting an ARM64 ACL image on an AMD64 host.
+	// The marker fully identifies the rootfs, so enumeration is unnecessary.
+	icPartition, err := findIcFstabPartition(diskPartitions, tmpDir)
+	if err != nil {
+		return nil, "", err
+	}
+	if icPartition != nil {
+		return icPartition, "share/ic", nil
+	}
+
 	var rootfsPartitions []*diskutils.PartitionInfo
 	var rootfsPaths []string
 	for i := range diskPartitions {
@@ -203,6 +219,67 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	rootfsPartition := rootfsPartitions[0]
 	rootfsPath := rootfsPaths[0]
 	return rootfsPartition, rootfsPath, nil
+}
+
+// findIcFstabPartition looks for the ACL-provided IC fstab marker
+// (share/ic/etc/fstab) on any candidate partition without enumerating BTRFS
+// subvolumes. It returns the first partition that contains the marker, or nil
+// if none do.
+func findIcFstabPartition(diskPartitions []diskutils.PartitionInfo, tmpDir string) (*diskutils.PartitionInfo, error) {
+	for i := range diskPartitions {
+		diskPartition := diskPartitions[i]
+
+		if diskPartition.Type != "part" {
+			continue
+		}
+
+		switch diskPartition.FileSystemType {
+		case "ext2", "ext3", "ext4", "xfs", "btrfs":
+
+		default:
+			continue
+		}
+
+		found, err := partitionContainsIcFstab(diskPartition, tmpDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search for IC fstab in partition (%s):\n%w",
+				diskPartition.Path, err)
+		}
+		if found {
+			return &diskPartition, nil
+		}
+	}
+	return nil, nil
+}
+
+// partitionContainsIcFstab mounts the partition read-only and checks for the
+// ACL IC fstab marker (share/ic/etc/fstab) at the filesystem root. It does not
+// enumerate BTRFS subvolumes.
+func partitionContainsIcFstab(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, error) {
+	mountOptions := ""
+	if diskPartition.FileSystemType == "btrfs" {
+		mountOptions = fmt.Sprintf("subvolid=%d", BtrfsTopLevelSubvolumeId)
+	}
+
+	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+		unix.MS_RDONLY, mountOptions, true)
+	if err != nil {
+		return false, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+	}
+	defer partitionMount.Close()
+
+	fstabIcPath := filepath.Join(tmpDir, "share/ic/etc/fstab")
+	exists, err := file.PathExists(fstabIcPath)
+	if err != nil {
+		return false, err
+	}
+
+	err = partitionMount.CleanClose()
+	if err != nil {
+		return false, fmt.Errorf("failed to close partition mount (%s):\n%w", diskPartition.Path, err)
+	}
+
+	return exists, nil
 }
 
 // findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes.
