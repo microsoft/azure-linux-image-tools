@@ -340,9 +340,16 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Extract kernel command line arguments from either boot config or UKI.
-	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
-	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir, distroHandler)
+	// Read the kernel command-line arguments from the grub boot config only. We do not fall back to reading them from
+	// the UKIs here: for a UKI base image (which has no grub.cfg) the existing UKI command-lines should already be
+	// captured in uki-kernel-info.json, which is read below and takes precedence over these grub-derived args. So when
+	// there is no grub.cfg, extractKernelToArgs returns an empty map and that saved info supplies the command-line
+	// instead.
+	//
+	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but fall back to
+	// the `set kernelopts="..."` default in grub.cfg when no BLS entries are found. grub2-mkconfig writes the kernel
+	// command line into that kernelopts default.
+	kernelToArgs, err := extractKernelToArgs(bootDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
@@ -750,36 +757,16 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	return nil
 }
 
-func extractKernelToArgs(espPath string, bootDir string, buildDir string, distroHandler DistroHandler,
-) (map[string]string, error) {
-	// Try extracting from boot config (grub.cfg or BLS entries) first.
-	var kernelToArgs map[string]string
+func extractKernelToArgs(bootDir string, distroHandler DistroHandler) (map[string]string, error) {
 	parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to extract kernel args from boot config:\n%w", err)
 		}
-	} else {
-		kernelToArgs = grubKernelArgsToStringMap(parsedKernelToArgs)
-		if len(kernelToArgs) > 0 {
-			// Successfully extracted kernel cmdline from boot config.
-			return kernelToArgs, nil
-		}
+		return map[string]string{}, nil
 	}
 
-	// Fallback to extracting from UKI.
-	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
-	} else if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no kernel arguments found from either boot config or UKI")
-	}
-
-	if len(kernelToArgs) == 0 {
-		return nil, fmt.Errorf("no kernel command-line arguments extracted from UKI files in (%s)", espPath)
-	}
-
-	return kernelToArgs, nil
+	return grubKernelArgsToStringMap(parsedKernelToArgs), nil
 }
 
 // readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from the grub.cfg,

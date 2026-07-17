@@ -5,7 +5,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -29,6 +32,9 @@ var (
 
 	// Captures the variable a grub 'search' command assigns via '--set=<var>' or '--set <var>' (e.g. root or boot).
 	grubSearchSetTargetRegex = regexp.MustCompile(`\s+--set(?:=|\s+)(\w+)`)
+
+	// Captures the value of the `set kernelopts="..."` default that grub2-mkconfig writes into grub.cfg.
+	grubKerneloptsRegex = regexp.MustCompile(`(?m)^[ \t]*set kernelopts="([^"]*)"`)
 )
 
 const (
@@ -625,6 +631,52 @@ func GrubArgsToString(args []string) string {
 
 	combinedString := builder.String()
 	return combinedString
+}
+
+// readBLSOrGrubCfgKernelopts reads the per-kernel command line for a BLS-based distro. It prefers the
+// loader/entries/*.conf BLS files, and falls back to the `set kernelopts="..."` default.
+func readBLSOrGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	kernelToArgs, err := readKernelCmdlinesFromBLSEntries(bootDir)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+	} else if len(kernelToArgs) > 0 {
+		return kernelToArgs, nil
+	}
+
+	return readKernelCmdlinesFromGrubCfgKernelopts(bootDir)
+}
+
+// readKernelCmdlinesFromGrubCfgKernelopts reads the `set kernelopts="..."` default from grub.cfg and maps it to every
+// kernel found in bootDir. Returns an empty map if grub.cfg has no kernelopts default.
+func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
+	content, err := os.ReadFile(grubCfgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	match := grubKerneloptsRegex.FindStringSubmatch(string(content))
+	if match == nil {
+		return nil, nil
+	}
+
+	args := parseBLSOptionsValue(match[1])
+	if len(args) == 0 {
+		return nil, nil
+	}
+
+	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	kernelToArgs := make(map[string][]grubConfigLinuxArg, len(kernelToInitramfs))
+	for kernel := range kernelToInitramfs {
+		kernelToArgs[kernel] = args
+	}
+	return kernelToArgs, nil
 }
 
 // Helper function to get common SELinux args based on mode
