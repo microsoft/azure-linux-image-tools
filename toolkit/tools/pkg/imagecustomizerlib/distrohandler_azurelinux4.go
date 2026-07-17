@@ -306,10 +306,10 @@ func (d *azureLinux4DistroHandler) UpdateBootConfigForVerity(verityMetadata []ve
 }
 
 func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, savedConfigs)
 }
 
 func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,

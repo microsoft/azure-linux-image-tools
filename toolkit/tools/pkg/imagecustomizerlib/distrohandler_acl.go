@@ -298,10 +298,10 @@ func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDevi
 }
 
 func (d *aclDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, savedConfigs, kernelVersions)
 }
 
 func (d *aclDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,

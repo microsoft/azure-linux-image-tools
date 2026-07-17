@@ -530,7 +530,7 @@ func setBLSEntryField(content string, key string, newValue string) (string, erro
 // updateLiveOSBLSEntries applies the LiveOS-compatibility kernel-entry edits to the BLS entries under bootDir. It is
 // the BLS counterpart of the per-entry portion of updateGrubCfgForLiveOS.
 func updateLiveOSBLSEntries(bootDir string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs,
+	savedConfigs *SavedConfigs,
 ) error {
 	var argsToRemove []string
 	var argsToAppend []string
@@ -544,15 +544,6 @@ func updateLiveOSBLSEntries(bootDir string, initramfsImageType imagecustomizerap
 		argsToAppend = append(argsToAppend, strings.Fields(liveosKernelArgs)...)
 	default:
 		return fmt.Errorf("unsupported initramfs image type (%s)", initramfsImageType)
-	}
-
-	if disableSELinux {
-		argsToRemove = append(argsToRemove, selinuxArgNames...)
-		selinuxArgs, err := selinuxModeToArgs(imagecustomizerapi.SELinuxModeDisabled)
-		if err != nil {
-			return err
-		}
-		argsToAppend = append(argsToAppend, selinuxArgs...)
 	}
 
 	argsToAppend = append(argsToAppend, savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine...)

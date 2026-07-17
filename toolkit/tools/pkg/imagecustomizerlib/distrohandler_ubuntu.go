@@ -265,10 +265,10 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, savedConfigs, kernelVersions)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,

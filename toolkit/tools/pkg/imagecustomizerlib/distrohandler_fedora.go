@@ -313,10 +313,10 @@ func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 }
 
 func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, savedConfigs)
 }
 
 func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,

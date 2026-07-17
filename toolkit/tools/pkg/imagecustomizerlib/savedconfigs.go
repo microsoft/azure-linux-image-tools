@@ -84,9 +84,7 @@ func (p *PxeSavedConfigs) IsValid() error {
 }
 
 type OSSavedConfigs struct {
-	DracutPackageInfo        *PackageVersionInformation     `yaml:"dracutPackage"`
-	RequestedSELinuxMode     imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
-	SELinuxPolicyPackageInfo *PackageVersionInformation     `yaml:"selinuxPolicyPackage"`
+	RequestedSELinuxMode imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
 }
 
 func (i *OSSavedConfigs) IsValid() error {
@@ -153,8 +151,8 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 
 func updateSavedConfigs(savedConfigsFilePath string,
 	newKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
-	newBootstrapBaseUrl string, newBootstrapFileUrl string, newDracutPackageInfo *PackageVersionInformation,
-	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
+	newBootstrapBaseUrl string, newBootstrapFileUrl string,
+	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode,
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
@@ -162,9 +160,7 @@ func updateSavedConfigs(savedConfigsFilePath string,
 	outputConfigs.LiveOS.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.bootstrapBaseUrl = newBootstrapBaseUrl
 	outputConfigs.Pxe.bootstrapFileUrl = newBootstrapFileUrl
-	outputConfigs.OS.DracutPackageInfo = newDracutPackageInfo
 	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
-	outputConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
 
 	inputConfigs, err := loadSavedConfigs(savedConfigsFilePath)
 	if err != nil {
@@ -210,17 +206,10 @@ func updateSavedConfigs(savedConfigsFilePath string,
 		// newOSDracutVersion can be nil if the input is an ISO and the
 		// configuration does not specify OS changes.
 		// In such cases, the rootfs is intentionally not expanded (to save
-		// time), and Dracut package information will not be retrieved from
-		// there. Instead, we use the saved configuration which already has the
-		// the dracut version.
-		if newDracutPackageInfo == nil {
-			outputConfigs.OS.DracutPackageInfo = inputConfigs.OS.DracutPackageInfo
-		}
+		// time), and the information will not be retrieved from
+		// there. Instead, we use the saved configuration.
 		if newRequestedSelinuxMode != imagecustomizerapi.SELinuxModeDefault {
 			outputConfigs.OS.RequestedSELinuxMode = inputConfigs.OS.RequestedSELinuxMode
-		}
-		if newSELinuxPackageInfo == nil {
-			outputConfigs.OS.SELinuxPolicyPackageInfo = inputConfigs.OS.SELinuxPolicyPackageInfo
 		}
 	}
 
