@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"github.com/sirupsen/logrus"
 )
 
@@ -107,7 +108,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 
 func (d *aclDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]packagemanifestapi.Package, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -131,7 +132,7 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
-func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+func (d *aclDistroHandler) GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	// This function is only used for metadata within a COSI file.
@@ -168,6 +169,12 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	}
 
 	return packages, nil
+}
+
+func (d *aclDistroHandler) GetAllPackagesForManifest(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]packagemanifestapi.Package, error) {
+	return rpmGetAllPackagesForManifest(imageChroot, toolsChroot)
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

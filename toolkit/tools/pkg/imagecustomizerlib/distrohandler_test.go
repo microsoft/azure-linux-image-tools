@@ -25,7 +25,7 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpm(t *testing.T) {
 	chrootDir := t.TempDir()
 	chroot := safechroot.NewChroot(chrootDir, true)
 
-	packages, err := handler.GetAllPackagesFromChroot(chroot, nil)
+	packages, err := handler.GetAllPackagesForCosi(chroot, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, packages)
 	assert.Empty(t, packages)
@@ -48,7 +48,7 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
 
 	chroot := safechroot.NewChroot(chrootDir, true)
 
-	packages, err := handler.GetAllPackagesFromChroot(chroot, nil)
+	packages, err := handler.GetAllPackagesForCosi(chroot, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, packages)
 	assert.Empty(t, packages)

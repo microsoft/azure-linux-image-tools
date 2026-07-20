@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 )
 
 const (
@@ -48,7 +49,8 @@ type DistroHandler interface {
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
 	// Removes the package management tools (e.g. rpm, dnf, apt).
-	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
+	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	) ([]packagemanifestapi.Package, error)
 
 	// Removes the package management directories (e.g. rpm db).
 	RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot) error
@@ -63,9 +65,12 @@ type DistroHandler interface {
 	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
 	GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 
-	// Get all installed packages from the chroot.
+	// Get all installed packages for a COSI file.
 	// toolsChroot has the same semantics as in IsPackageInstalled.
-	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
+	GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
+
+	// Get all installed packages for a OS manifest file.
+	GetAllPackagesForManifest(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]packagemanifestapi.Package, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

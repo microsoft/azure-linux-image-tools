@@ -286,7 +286,7 @@ func verifyCreateMinimalOs(t *testing.T, buildDir string, outputImageFilePath st
 	}
 	defer imageConnection.Close()
 
-	packageList, err := distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot(), nil)
+	packageList, err := distroHandler.GetAllPackagesForCosi(imageConnection.Chroot(), nil)
 	if !assert.NoError(t, err, "failed to get package list") {
 		return
 	}

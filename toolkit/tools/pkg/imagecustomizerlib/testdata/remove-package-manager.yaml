@@ -24,3 +24,9 @@ scripts:
         /var/cache/libdnf5 \
         /var/cache/tdnf \
         || true
+
+  finalizeCustomization:
+  - content: |
+      set -eux
+
+      du -sh /usr/lib/package-manifest

@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/packagemanifestapi"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -33,6 +34,10 @@ var (
 	ErrRemovePackageManager             = NewImageCustomizerError("Packages:RemovePackageManager", "failed to remove package manager")
 	ErrRemovePackageManagerPackages     = NewImageCustomizerError("Packages:RemovePackageManagerPackages", "failed to remove package manager packages")
 	ErrRemovePackageManagerFilesAndDirs = NewImageCustomizerError("Packages:RemovePackageManagerFilesAndDirs", "failed to remove package manager files and directories")
+	ErrCollectManifestPackages          = NewImageCustomizerError("Packages:CollectManifestPackages", "failed to collect packages for manifest")
+	ErrWritePackageManifest             = NewImageCustomizerError("Packages:WriteManifest", "failed to write package manifest")
+	ErrCheckForPackageManifest          = NewImageCustomizerError("Packages:CheckForPackageManifest", "failed to check if package manifest exists")
+	ErrReadPackageManifest              = NewImageCustomizerError("Packages:ReadPackageManifest", "failed to read package manifest")
 )
 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
@@ -139,9 +144,57 @@ func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, im
 
 	logger.Log.Infof("Removing package manager")
 
-	err = distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
+	installedPackages := []packagemanifestapi.Package(nil)
+	if toolsChroot == nil {
+		// Once the package manager tools have been removed, it will no longer be possible to collect the package list.
+		// So, collect it now.
+		installedPackages, err = distroHandler.GetAllPackagesForManifest(imageChroot, toolsChroot)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrCollectManifestPackages, err)
+		}
+	}
+
+	removedPackages, err := distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+	}
+
+	if toolsChroot == nil {
+		// Remove the packages that were just removed from the list of installed packages.
+		type nameAndVersion struct {
+			name    string
+			version string
+		}
+
+		removedPackagesSet := make(map[nameAndVersion]any)
+		for _, removedPackage := range removedPackages {
+			removedPackagesSet[nameAndVersion{removedPackage.Name, removedPackage.Version}] = nil
+		}
+
+		filteredPackages := []packagemanifestapi.Package(nil)
+		for _, packageInfo := range installedPackages {
+			_, packageRemoved := removedPackagesSet[nameAndVersion{packageInfo.Name, packageInfo.Version}]
+			if !packageRemoved {
+				filteredPackages = append(filteredPackages, packageInfo)
+			} else {
+				logger.Log.Debugf("Removing package manager package from manifest (%s)", packageInfo.Name)
+			}
+		}
+
+		installedPackages = filteredPackages
+	} else {
+		// Collect the list of installed packages.
+		// Note: Log parsing is a little brittle. So, when the tools directory is available, it is more robust to query
+		// the list of packages after the tools have been removed.
+		installedPackages, err = distroHandler.GetAllPackagesForManifest(imageChroot, toolsChroot)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrCollectManifestPackages, err)
+		}
+	}
+
+	err = writePackageManifest(installedPackages, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrWritePackageManifest, err)
 	}
 
 	err = distroHandler.RemovePackageManagerFiles(ctx, imageChroot)
