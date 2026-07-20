@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -345,16 +346,30 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 	return b
 }
 
-func TestBootCustomizerAddKernelCommandLineUkiCreateNoOp(t *testing.T) {
-	// On UKI-only images (e.g. ACL / systemd-boot, no grub.cfg) in create mode, the extra kernel
-	// cmdline args are applied later during UKI regeneration, so AddKernelCommandLine must not error.
+func TestBootCustomizerAddKernelCommandLineUkiCreateAppends(t *testing.T) {
+	// On UKI images (e.g. ACL / systemd-boot, no grub.cfg) in create mode, the extra kernel cmdline
+	// args are appended to the UKI kernel info file (which is later baked into the regenerated UKIs).
+	ukiKernelInfoPath := filepath.Join(t.TempDir(), UkiKernelInfoJson)
+	err := writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "root=PARTUUID=abc console=tty0", Initramfs: "initramfs-1.img"},
+	})
+	require.NoError(t, err)
+
 	b := &BootCustomizer{
-		bootConfigType: bootConfigTypeUki,
-		ukiMode:        imagecustomizerapi.UkiModeCreate,
+		bootConfigType:    bootConfigTypeUki,
+		ukiMode:           imagecustomizerapi.UkiModeCreate,
+		ukiKernelInfoPath: ukiKernelInfoPath,
 	}
 
-	err := b.AddKernelCommandLine([]string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
-	assert.NoError(t, err)
+	err = b.AddKernelCommandLine([]string{"flatcar.autologin", "console=ttyAMA0,115200n8"})
+	require.NoError(t, err)
+
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	require.NoError(t, err)
+	assert.Contains(t, kernelInfo["vmlinuz-1"].Cmdline, "flatcar.autologin")
+	assert.Contains(t, kernelInfo["vmlinuz-1"].Cmdline, "console=ttyAMA0,115200n8")
+	// The initramfs association is preserved.
+	assert.Equal(t, "initramfs-1.img", kernelInfo["vmlinuz-1"].Initramfs)
 }
 
 func TestBootCustomizerAddKernelCommandLineUkiPassthroughError(t *testing.T) {

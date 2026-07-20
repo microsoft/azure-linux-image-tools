@@ -119,6 +119,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		return
 	}
 
+	// Re-customize the UKI image with 'os.uki.mode: create', os.kernelCommandLine.extraCommandLine, and
+	// 'os.bootloader.resetType: hard-reset'.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
 
@@ -133,66 +135,9 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	// With UKI addon architecture:
-	// - Main UKI (kernel + os-release + initramfs) should NOT change when only verity is re-initialized
-	// - Addon (cmdline with verity hashes) SHOULD change when verity is re-initialized
-	for ukiFile := range ukiFilesChecksums {
-		oldChecksum := ukiFilesChecksums[ukiFile]
-		newChecksum, exists := newUkiFilesChecksums[ukiFile]
-		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
-		// Main UKI should stay the same since initramfs doesn't change
-		assert.Equal(t, oldChecksum, newChecksum, "Main UKI checksum should NOT change (only cmdline in addon changes): %s", ukiFile)
-	}
-
-	// Addon checksums should change because verity hashes in cmdline change
-	for addonFile, oldAddonChecksum := range addonFilesChecksums {
-		newAddonChecksum, exists := newAddonFilesChecksums[addonFile]
-		assert.True(t, exists, "Addon file should exist after re-customization: %s", addonFile)
-		assert.NotEqual(t, oldAddonChecksum, newAddonChecksum, "Addon checksum should change after verity re-initialization: %s", addonFile)
-	}
-
-	mountPoints := []testutils.MountPoint{
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-		{
-			PartitionNum:   2,
-			Path:           "/boot",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   5,
-			Path:           "/",
-			FileSystemType: "ext4",
-		},
-	}
-
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath2, false /*includeDefaultMounts*/, mountPoints)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer imageConnection.Close()
-
-	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
-	bootEntries, err := os.ReadDir(bootPath)
-	assert.NoError(t, err)
-
-	// /boot should only contain "efi" and optionally "lost+found" directories.
-	assert.LessOrEqual(t, len(bootEntries), 2, "/boot should contain at most 2 entries: 'efi' and 'lost+found'")
-
-	// Verify all entries are either "efi" or "lost+found"
-	hasEfi := false
-	for _, entry := range bootEntries {
-		assert.True(t, entry.Name() == "efi" || entry.Name() == "lost+found",
-			"unexpected entry in /boot: %s (expected only 'efi' and 'lost+found')", entry.Name())
-		assert.True(t, entry.IsDir(), "%s should be a directory", entry.Name())
-		if entry.Name() == "efi" {
-			hasEfi = true
-		}
-	}
-	assert.True(t, hasEfi, "/boot must contain the 'efi' directory")
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2,
+		ukiFilesChecksums, newUkiFilesChecksums, addonFilesChecksums, newAddonFilesChecksums,
+		"rd.info")
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
@@ -301,6 +246,135 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 	}
 
 	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
+}
+
+func TestCustomizeImageVerityUsrUkiRecustomizeCmdline(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageVerityUsrUkiRecustomizeCmdline_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+
+	// Pass 1: turn the grub-based base image into a UKI image. IC removes grub.cfg and writes
+	// UKIs to the ESP, matching the ACL template image layout (UKIs present, no grub.cfg).
+	outImageFilePath1 := filepath.Join(testTempDir, "uki-base.raw")
+	configFile1 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, baseImage, outImageFilePath1, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, nil, nil)
+	if !ok {
+		return
+	}
+
+	// Pass 2: re-customize that UKI image with 'os.uki.mode: create' and os.kernelCommandLine.extraCommandLine but no
+	// 'os.bootloader.resetType: hard-reset'.
+	outImageFilePath2 := filepath.Join(testTempDir, "image.raw")
+	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki-cmdline.yaml")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil, nil)
+	if !ok {
+		return
+	}
+
+	// Create mode must preserve each main UKI while regenerating the addon, and the gb200
+	// extraCommandLine must have reached the regenerated UKIs — the specific behaviour this test
+	// exercises via the default (non hard-reset) AddKernelCommandLine path.
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2,
+		ukiFilesChecksums1, ukiFilesChecksums2, addonFilesChecksums1, addonFilesChecksums2,
+		"console=ttyAMA0,115200n8")
+}
+
+// verifyUsrVerityUkiRecustomized checks that re-customizing a usr-verity UKI image in create mode
+// preserved each main UKI (kernel/initramfs/os-release unchanged) while regenerating its addon
+// (cmdline changed), and that /boot contains only the ESP. When expectedCmdlineArgs are given, it
+// also asserts every regenerated UKI's kernel command-line contains each of them.
+func verifyUsrVerityUkiRecustomized(t *testing.T, buildDir string, imagePath string,
+	oldUkiChecksums, newUkiChecksums, oldAddonChecksums, newAddonChecksums map[string]string,
+	expectedCmdlineArgs ...string,
+) {
+	// The main UKI (kernel + os-release + initramfs) must not change; only the addon (cmdline) does.
+	for ukiFile, oldChecksum := range oldUkiChecksums {
+		newChecksum, exists := newUkiChecksums[ukiFile]
+		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
+		assert.Equal(t, oldChecksum, newChecksum,
+			"Main UKI checksum should NOT change (only cmdline in addon changes): %s", ukiFile)
+	}
+
+	// The addon (cmdline) must change.
+	for addonFile, oldChecksum := range oldAddonChecksums {
+		newChecksum, exists := newAddonChecksums[addonFile]
+		assert.True(t, exists, "Addon file should exist after re-customization: %s", addonFile)
+		assert.NotEqual(t, oldChecksum, newChecksum,
+			"Addon checksum should change after re-customization: %s", addonFile)
+	}
+
+	// Mount parent-first (/, then /boot, then the ESP) so the ESP is actually exposed for reads.
+	mountPoints := []testutils.MountPoint{
+		{PartitionNum: 5, Path: "/", FileSystemType: "ext4"},
+		{PartitionNum: 2, Path: "/boot", FileSystemType: "ext4"},
+		{PartitionNum: 1, Path: "/boot/efi", FileSystemType: "vfat"},
+	}
+	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// /boot should only contain "efi" and optionally "lost+found".
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	bootEntries, err := os.ReadDir(bootPath)
+	assert.NoError(t, err)
+	assert.LessOrEqual(t, len(bootEntries), 2, "/boot should contain at most 2 entries: 'efi' and 'lost+found'")
+	hasEfi := false
+	for _, entry := range bootEntries {
+		assert.True(t, entry.Name() == "efi" || entry.Name() == "lost+found",
+			"unexpected entry in /boot: %s (expected only 'efi' and 'lost+found')", entry.Name())
+		assert.True(t, entry.IsDir(), "%s should be a directory", entry.Name())
+		if entry.Name() == "efi" {
+			hasEfi = true
+		}
+	}
+	assert.True(t, hasEfi, "/boot must contain the 'efi' directory")
+
+	// Optionally verify specific kernel command-line args reached the regenerated UKIs.
+	if len(expectedCmdlineArgs) > 0 {
+		espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+		kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.GreaterOrEqual(t, len(kernelToArgs), 1, "expected at least one UKI in the ESP")
+		for kernel, args := range kernelToArgs {
+			for _, expected := range expectedCmdlineArgs {
+				assert.Contains(t, args, expected,
+					"regenerated UKI for kernel (%s) should contain cmdline arg (%s)", kernel, expected)
+			}
+		}
+	}
 }
 
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,

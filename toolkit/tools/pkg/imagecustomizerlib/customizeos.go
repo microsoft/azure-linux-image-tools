@@ -43,9 +43,10 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	// If UKI mode is 'create' and base image has UKIs, extract kernel and
-	// initramfs from existing UKIs for re-customization. For 'passthrough'
-	// mode, we skip extraction to preserve existing UKIs.
+	// If UKI mode is 'create' and the base image has UKIs, prepare for re-customization:
+	// extract the kernel and initramfs from the existing UKIs, and save their base kernel
+	// command-line so that os.kernelCommandLine changes can be applied to the regenerated
+	// UKIs. 'passthrough' mode skips this to preserve the existing UKIs.
 	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeCreate {
 		// Check if base image has UKIs to determine if extraction is needed
 		hasUkis, err := baseImageHasUkis(imageChroot, distroHandler)
@@ -56,6 +57,18 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		if hasUkis {
 			// Base image has UKIs and mode is create - extract for re-customization
 			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs, distroHandler)
+			if err != nil {
+				return err
+			}
+
+			// Save the base kernel command-line now so that we can apply those changes later via uki-kernel-info.json
+			ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
+			err = os.MkdirAll(ukiBuildDir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create UKI build directory:\n%w", err)
+			}
+
+			err = saveUkiBaseCmdlineForCreate(rc.BuildDirAbs, imageChroot, distroHandler)
 			if err != nil {
 				return err
 			}
