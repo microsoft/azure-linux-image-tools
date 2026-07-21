@@ -142,12 +142,6 @@ func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
-func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	return nil, fmt.Errorf("getting package information is not supported yet for Ubuntu images")
-}
-
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
