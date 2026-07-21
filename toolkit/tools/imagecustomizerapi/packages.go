@@ -12,4 +12,5 @@ type Packages struct {
 	UpdateLists            []string            `yaml:"updateLists" json:"-"`
 	Update                 []string            `yaml:"update" json:"update,omitempty"`
 	SnapshotTime           PackageSnapshotTime `yaml:"snapshotTime" json:"snapshotTime,omitempty"`
+	RemovePackageManager   *bool               `yaml:"removePackageManager" json:"removePackageManager,omitempty"`
 }

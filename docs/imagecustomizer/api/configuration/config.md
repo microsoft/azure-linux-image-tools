@@ -163,6 +163,11 @@ Supported options:
 
   Added in v1.5.
 
+- `remove-package-manager`: Enables support for the
+  ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) API.
+
+  Added in v1.6.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

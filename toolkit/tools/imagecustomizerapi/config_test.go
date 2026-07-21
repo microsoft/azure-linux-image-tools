@@ -882,3 +882,17 @@ func TestConfigIsValidWithBtrfsFilesystemNoPreviewFeature(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'btrfs' preview feature must be enabled to use btrfs filesystems")
 }
+
+func TestConfigIsValidMissingRemovePackageManagerPreviewFeature(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{},
+		OS: &OS{
+			Packages: Packages{
+				RemovePackageManager: ptrutils.PtrTo(true),
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "the 'remove-package-manager' preview feature must be enabled to use 'os.packages.removePackageManager'")
+}

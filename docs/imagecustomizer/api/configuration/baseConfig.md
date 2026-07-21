@@ -31,6 +31,7 @@ Customizer multiple times instead of using the `baseConfigs` API.
 - `.output.artifacts.path`
 - `.os.hostname`
 - `.os.imageHistory`
+- `.os.packages.removePackageManager`
 - `.os.selinux`
 - `.os.uki`
 - `.iso.initramfsType`

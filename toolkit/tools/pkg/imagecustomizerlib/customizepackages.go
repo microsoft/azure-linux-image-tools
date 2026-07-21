@@ -6,9 +6,12 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,16 +20,19 @@ import (
 
 var (
 	// Package-related errors
-	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh repo metadata")
-	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
-	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
-	ErrPackageAutoRemove          = NewImageCustomizerError("Packages:AutoRemove", "failed to autoremove orphaned packages")
-	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
-	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
-	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
-	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean cache")
-	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
-	ErrSnapshotTimeNotSupported   = NewImageCustomizerError("Packages:SnapshotTimeNotSupported", "snapshot time is not supported")
+	ErrPackageRepoMetadataRefresh       = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh repo metadata")
+	ErrInvalidPackageListFile           = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
+	ErrPackageRemove                    = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
+	ErrPackageAutoRemove                = NewImageCustomizerError("Packages:AutoRemove", "failed to autoremove orphaned packages")
+	ErrPackageUpdate                    = NewImageCustomizerError("Packages:Update", "failed to update packages")
+	ErrPackagesUpdateInstalled          = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
+	ErrPackageInstall                   = NewImageCustomizerError("Packages:Install", "failed to install packages")
+	ErrPackageCacheClean                = NewImageCustomizerError("Packages:CacheClean", "failed to clean cache")
+	ErrMountRpmSources                  = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
+	ErrSnapshotTimeNotSupported         = NewImageCustomizerError("Packages:SnapshotTimeNotSupported", "snapshot time is not supported")
+	ErrRemovePackageManager             = NewImageCustomizerError("Packages:RemovePackageManager", "failed to remove package manager")
+	ErrRemovePackageManagerPackages     = NewImageCustomizerError("Packages:RemovePackageManagerPackages", "failed to remove package manager packages")
+	ErrRemovePackageManagerFilesAndDirs = NewImageCustomizerError("Packages:RemovePackageManagerFilesAndDirs", "failed to remove package manager files and directories")
 )
 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
@@ -121,4 +127,40 @@ func needPackageSources(config *imagecustomizerapi.OS) bool {
 
 func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 	return needPackageSources(config) || len(config.Packages.Remove) > 0
+}
+
+func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	var err error
+
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_package_manager")
+	defer span.End()
+
+	logger.Log.Infof("Removing package manager")
+
+	err = distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+	}
+
+	err = distroHandler.RemovePackageManagerFiles(ctx, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerFilesAndDirs, err)
+	}
+
+	return nil
+}
+
+func removePackageManagementFiles(imageChroot *safechroot.Chroot, filesAndDirsToRemove []string) error {
+	for _, fileToRemove := range filesAndDirsToRemove {
+		logger.Log.Debugf("Removing package management file/dir (%s)", fileToRemove)
+
+		err := os.RemoveAll(filepath.Join(imageChroot.RootDir(), fileToRemove))
+		if err != nil {
+			return fmt.Errorf("failed to remove package management file/dir (%s):\n%w", fileToRemove, err)
+		}
+	}
+
+	return nil
 }

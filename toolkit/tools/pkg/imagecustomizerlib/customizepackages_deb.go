@@ -161,14 +161,16 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 }
 
 func executeAptCommand(args []string, imageChroot *safechroot.Chroot) error {
-	args = append(args,
+	fullArgs := []string{
 		"--yes",
 		"--option", "Dpkg::Options::=--force-confdef",
-		"--option", "Dpkg::Options::=--force-confold")
+		"--option", "Dpkg::Options::=--force-confold",
+	}
+	fullArgs = append(fullArgs, args...)
 
 	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
 
-	return shell.NewExecBuilder(packageManagerAPT, args...).
+	return shell.NewExecBuilder(packageManagerAPT, fullArgs...).
 		EnvironmentVariables(env).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
@@ -382,4 +384,48 @@ func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]cosi
 	}
 
 	return packages, nil
+}
+
+func debRemovePackageManagerTools(imageChroot *safechroot.Chroot, packageManagementPackages []string,
+) error {
+	err := debEnsurePackagesRemoved(imageChroot, packageManagementPackages, true /*removeEssentialPackages*/)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func debEnsurePackagesRemoved(imageChroot *safechroot.Chroot, packages []string, removeEssentialPackages bool,
+) error {
+	packagesToRemove := []string(nil)
+	for _, packageName := range packages {
+		installed, err := isPackageInstalledDeb(imageChroot, packageName)
+		if err != nil {
+			return err
+		}
+
+		if installed {
+			packagesToRemove = append(packagesToRemove, packageName)
+		}
+	}
+
+	if len(packagesToRemove) <= 0 {
+		// Nothing to do.
+		return nil
+	}
+
+	args := []string{"remove", "--auto-remove"}
+	if removeEssentialPackages {
+		args = append(args, "--allow-remove-essential")
+	}
+	args = append(args, "--")
+	args = append(args, packagesToRemove...)
+
+	err := executeAptCommand(args, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
+	}
+
+	return nil
 }

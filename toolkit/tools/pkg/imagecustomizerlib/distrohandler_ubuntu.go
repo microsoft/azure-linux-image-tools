@@ -37,6 +37,20 @@ var (
 	ErrUbuntuUnsupportedDisableBaseImageRepos = NewImageCustomizerError("Validation:UbuntuUnsupportedDisableBaseImageRepos", "disabling base image package repositories is not supported yet for Ubuntu images")
 
 	liveOSRequiredPackagesUbuntu = []string{"squashfs-tools", "tar", "dmsetup", "curl"}
+
+	packageManagementPackagesDeb = []string{
+		"apt",
+		"apt-utils",
+		// Ideally 'dpkg' would be included here. But there seems to be some silliness with package dependencies in
+		// Ubuntu. Though, it looks like this might be fixed in Ubuntu 26.04.
+	}
+
+	packageManagementDirsDeb = []string{
+		"/var/lib/apt",
+		"/var/cache/apt",
+		// Excluding dpkg directory removal since the package can't be removed.
+		// "/var/lib/dpkg",
+	}
 )
 
 func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
@@ -107,6 +121,17 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
 	return managePackagesDeb(ctx, config, imageChroot)
+}
+
+func (d *ubuntuDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return debRemovePackageManagerTools(imageChroot, packageManagementPackagesDeb)
+}
+
+func (d *ubuntuDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsDeb)
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg-query.
