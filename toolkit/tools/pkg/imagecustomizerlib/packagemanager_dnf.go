@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -25,162 +25,51 @@ func newDnfPackageManager(version string) *dnfPackageManager {
 	return &dnfPackageManager{version: version}
 }
 
-func (pm *dnfPackageManager) getPackageManagerBinary() string { return packageManagerDNF }
-func (pm *dnfPackageManager) getReleaseVersion() string       { return pm.version }
-func (pm *dnfPackageManager) getConfigFile() string           { return "etc/dnf/dnf.conf" }
-
-// getVerbosityOption returns the package manager-specific verbosity flag
-func (pm *dnfPackageManager) getVerbosityOption() string { return "--setopt=debuglevel=10" }
+func (pm *dnfPackageManager) getReleaseVersion() string { return pm.version }
 
 // getCacheOnlyOptions returns DNF-specific cache options for install/update operations
 func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
 	return []string{"--setopt=cacheonly=metadata"}
 }
 
-// supportsSnapshotTime returns whether DNF supports snapshot time functionality
-func (pm *dnfPackageManager) supportsSnapshotTime() bool {
-	return false // DNF does not support snapshot time for Fedora
+func (pm *dnfPackageManager) configureSnapshotTime(packageManagerChroot *safechroot.Chroot,
+	snapshotTime imagecustomizerapi.PackageSnapshotTime,
+) (func() error, error) {
+	return nil, fmt.Errorf("%w:\npackage manager dnf does not support snapshot time", ErrSnapshotTimeNotSupported)
 }
 
-// DNF-specific constants and output handling
-const (
-	dnfDownloadPattern = `^\s*([a-zA-Z0-9\-._+]+(?:\.[a-zA-Z0-9_]+)*\.rpm)\s+.*\d+.*[kMG]B/s.*\|\s*\d+`
-)
+func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	pmChroot := imageChroot
+	if toolsChroot != nil {
+		pmChroot = toolsChroot
+	}
 
-func (pm *dnfPackageManager) createOutputCallback() func(string) {
-	dnfDownloadRegex := regexp.MustCompile(dnfDownloadPattern)
-
-	lastDownloadPackageSeen := ""
-	inTransactionSummary := false
-	inInstallSection := false
-	inUpgradeSection := false
-	inRemoveSection := false
 	seenTransactionErrorMessage := false
-	transactionStarted := false
-
-	return func(line string) {
-		trimmedLine := strings.TrimSpace(line)
-
-		// Check for transaction errors first
-		if !seenTransactionErrorMessage {
-			if strings.HasPrefix(trimmedLine, "Error:") || strings.HasPrefix(trimmedLine, "Problem:") {
-				seenTransactionErrorMessage = true
-				logger.Log.Warn(line)
-				return
-			}
-		}
-
-		// If we've seen an error, log everything as warning
-		if seenTransactionErrorMessage {
-			logger.Log.Warn(line)
-			return
-		}
-
+	stderrCallback := func(line string) {
 		switch {
-		// DNF Transaction Summary section
-		case strings.Contains(trimmedLine, "Transaction Summary"):
-			inTransactionSummary = true
-			logger.Log.Debug(line)
+		case line == "Failed to resolve the transaction:" || strings.HasPrefix(line, "Transaction failed:"):
+			seenTransactionErrorMessage = true
+			fallthrough
 
-		case inTransactionSummary && trimmedLine == "":
-			inTransactionSummary = false
-			logger.Log.Trace(line)
-
-		case inTransactionSummary:
-			logger.Log.Debug(line)
-
-		// DNF package operations during transaction
-		case strings.HasPrefix(trimmedLine, "Installing :"):
-			transactionStarted = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Upgrading  :"):
-			transactionStarted = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Removing   :"):
-			transactionStarted = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Running scriptlet:"):
-			if transactionStarted {
+		case seenTransactionErrorMessage:
+			if line == "" {
 				logger.Log.Debug(line)
 			} else {
-				logger.Log.Trace(line)
+				logger.Log.Warn(line)
 			}
 
-		case strings.HasPrefix(trimmedLine, "Verifying  :"):
-			logger.Log.Debug(line)
-
-		// DNF download progress
-		case strings.Contains(trimmedLine, "MB/s") &&
-			(strings.Contains(trimmedLine, ".rpm") || strings.Contains(trimmedLine, "kB")):
-			match := dnfDownloadRegex.FindStringSubmatch(line)
-			if match != nil && len(match) > 1 {
-				packageName := match[1]
-				if packageName != lastDownloadPackageSeen {
-					lastDownloadPackageSeen = packageName
-					logger.Log.Debug(line)
-				}
-			} else {
-				logger.Log.Debug(line)
-			}
-
-		// DNF dependency resolution
-		case strings.HasPrefix(trimmedLine, "Dependencies resolved."):
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Installing dependencies:"):
-			inInstallSection = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Installing weak dependencies:"):
-			inInstallSection = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Upgrading:"):
-			inUpgradeSection = true
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Removing:"):
-			inRemoveSection = true
-			logger.Log.Debug(line)
-
-		// Package lists in dependency sections
-		case (inInstallSection || inUpgradeSection || inRemoveSection) && trimmedLine == "":
-			inInstallSection = false
-			inUpgradeSection = false
-			inRemoveSection = false
-			logger.Log.Trace(line)
-
-		case (inInstallSection || inUpgradeSection || inRemoveSection):
-			logger.Log.Debug(line)
-
-		// DNF metadata operations
-		case strings.Contains(trimmedLine, "metadata") &&
-			(strings.Contains(trimmedLine, "downloading") || strings.Contains(trimmedLine, "using")):
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Last metadata expiration check:"):
-			logger.Log.Debug(line)
-
-		// DNF progress indicators
-		case strings.Contains(trimmedLine, "[") &&
-			strings.Contains(trimmedLine, "]") && strings.Contains(trimmedLine, "%"):
-			logger.Log.Debug(line)
-
-		// DNF completion messages
-		case strings.HasPrefix(trimmedLine, "Complete!"):
-			logger.Log.Debug(line)
-
-		case strings.HasPrefix(trimmedLine, "Nothing to do."):
-			logger.Log.Debug(line)
-
-		// Default: trace level for other output
 		default:
-			logger.Log.Trace(line)
+			logger.Log.Debug(line)
 		}
 	}
+
+	return shell.NewExecBuilder(packageManagerDNF, args...).
+		LogLevel(logrus.DebugLevel, shell.LogDisabledLevel).
+		StderrCallback(stderrCallback).
+		Chroot(pmChroot.ChrootDir()).
+		Execute()
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
