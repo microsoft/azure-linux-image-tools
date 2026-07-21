@@ -149,12 +149,6 @@ func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.Chr
 	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
-func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
-}
-
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {

@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"errors"
-	"fmt"
 	"os/exec"
 	"strings"
 
@@ -104,38 +103,6 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 	}
 
 	return true, nil
-}
-
-func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	// Use `rpm -q --queryformat` rather than `dnf info --installed` here for the same reason as in isPackageInstalled.
-	//
-	// Use `--queryformat` to get a single-line, parser-friendly output that matches what parsePackageInfoOutput
-	// already expects from `tdnf info` (Name/Version/Release labels), so we share the parser.
-	args := []string{"-q", "--queryformat",
-		"Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n", "--", packageName}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image rpm.
-		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
-		chroot = toolsChroot
-	}
-
-	packageInfo, _, err := shell.NewExecBuilder("rpm", args...).
-		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
-		ExecuteCaptureOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to query (%s) package information via rpm:\n%w", packageName, err)
-	}
-
-	info, err := parsePackageInfoOutput(packageName, packageInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse (%s) package information from rpm:\n%w", packageName, err)
-	}
-	return info, nil
 }
 
 func (pm *dnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
