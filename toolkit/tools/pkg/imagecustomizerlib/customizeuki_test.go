@@ -84,6 +84,101 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums, nil)
 }
 
+func TestCustomizeImageUkiCreateNoBootloaderReset(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUkiCreateNoBootloaderResetHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageUkiCreateNoBootloaderResetHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	testTempDir := filepath.Join(tmpDir,
+		fmt.Sprintf("TestCustomizeImageUkiCreateNoBootloaderReset_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+
+	// Pass 1: Enlarge the ESP (the stock ESP may be too small to hold a UKI) and add systemd.log_level=debug.
+	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
+	config1 := imagecustomizerapi.Config{
+		Storage: imagecustomizerapi.Storage{
+			BootType: imagecustomizerapi.BootTypeEfi,
+			Disks: []imagecustomizerapi.Disk{
+				{
+					PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+					Partitions: []imagecustomizerapi.Partition{
+						{
+							Id:   "esp",
+							Type: imagecustomizerapi.PartitionTypeESP,
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeExplicit,
+								Size: 250 * diskutils.MiB,
+							},
+						},
+						{
+							Id: "root",
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeExplicit,
+								Size: 6 * diskutils.GiB,
+							},
+						},
+					},
+				},
+			},
+			FileSystems: []imagecustomizerapi.FileSystem{
+				{
+					DeviceId: "esp",
+					Type:     imagecustomizerapi.FileSystemTypeFat32,
+					MountPoint: &imagecustomizerapi.MountPoint{
+						Path:    "/boot/efi",
+						Options: "umask=0077",
+					},
+				},
+				{
+					DeviceId: "root",
+					Type:     imagecustomizerapi.FileSystemTypeExt4,
+					MountPoint: &imagecustomizerapi.MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &imagecustomizerapi.OS{
+			BootLoader: imagecustomizerapi.BootLoader{
+				ResetType: imagecustomizerapi.ResetBootLoaderTypeHard,
+			},
+			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
+				ExtraCommandLine: []string{"systemd.log_level=debug"},
+			},
+		},
+	}
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config1, baseImage, outImageFilePath1, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Pass 2: Convert grub -> UKI add rd.info but do not reset bootloader, keeping systemd.log_level=debug.
+	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
+	configFile2 := filepath.Join(testDir, ukiNoResetConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUkiCmdline(t, buildDir, outImageFilePath2, []string{"systemd.log_level=debug", "rd.info"}, nil)
+}
+
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -399,6 +494,28 @@ func verifyUkiCmdlineArgs(t *testing.T, espPath string, buildDir string, extraCo
 	assertKernelCmdlineArgs(t, kernelToArgs, extraCommandLine, absentCommandLine)
 }
 
+// verifyUkiCmdline connects to a (non-verity) UKI image and asserts that every UKI on the ESP has each of
+// extraCommandLine present in its kernel command line and none of absentCommandLine present.
+func verifyUkiCmdline(t *testing.T, buildDir string, imageFilePath string, extraCommandLine []string,
+	absentCommandLine []string,
+) {
+	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
+		[]testutils.MountPoint{
+			{
+				PartitionNum:   1,
+				Path:           "/boot/efi",
+				FileSystemType: "vfat",
+			},
+		})
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
+}
+
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraCommandLine []string, absentCommandLine []string,
 	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
 ) (map[string]string, map[string]string, bool) {
@@ -673,6 +790,20 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 		return fmt.Sprintf("verity-usr-uki-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for verity-usr-uki test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// ukiNoResetConfigFile returns the pass-2 grub->UKI-without-reset test config file appropriate for the given base
+// image version (azl3 vs azl4) and host architecture.
+func ukiNoResetConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "uki-noreset-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("uki-noreset-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for uki-noreset test: %s", baseImageInfo.Version)
 		return ""
 	}
 }
