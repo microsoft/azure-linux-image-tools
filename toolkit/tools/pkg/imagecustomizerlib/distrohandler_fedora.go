@@ -173,7 +173,7 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 
 func (d *fedoraDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) (osManifestPackages, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -194,10 +194,16 @@ func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+func (d *fedoraDistroHandler) GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *fedoraDistroHandler) GetOsManifestPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (osManifestPackages, error) {
+	return rpmGetOsManifestPackages(imageChroot, toolsChroot)
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

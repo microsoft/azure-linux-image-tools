@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
@@ -18,7 +19,18 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/sirupsen/logrus"
+	"github.com/spdx/tools-golang/spdx"
+	"github.com/spdx/tools-golang/spdx/v2/common"
+)
+
+var (
+	// Example: Setting up udev (255.4-1ubuntu8.16) ...
+	aptLogInstall = regexp.MustCompile(`^Setting up (\S+) \((\S+)\) ...$`)
+
+	// Example: Removing apt-utils (2.8.3) ...
+	aptLogRemove = regexp.MustCompile(`^Removing (\S+) \((\S+)\) ...$`)
 )
 
 // managePackagesDeb orchestrates the complete DEB package management flow.
@@ -152,7 +164,7 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	args := []string{"update"}
 
-	err := executeAptCommand(args, imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
@@ -160,22 +172,54 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
-func executeAptCommand(args []string, imageChroot *safechroot.Chroot) error {
-	fullArgs := []string{
-		"--yes",
+func executeAptCommand(args []string, imageChroot *safechroot.Chroot,
+) ([]pkgNameAndVersion, []pkgNameAndVersion, error) {
+	fullArgs := []string{"--yes",
 		"--option", "Dpkg::Options::=--force-confdef",
-		"--option", "Dpkg::Options::=--force-confold",
-	}
+		"--option", "Dpkg::Options::=--force-confold"}
 	fullArgs = append(fullArgs, args...)
 
 	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
 
-	return shell.NewExecBuilder(packageManagerAPT, fullArgs...).
+	installedPackages := []pkgNameAndVersion(nil)
+	removedPackages := []pkgNameAndVersion(nil)
+
+	stdout := func(line string) {
+		match := aptLogInstall.FindStringSubmatch(line)
+		if match != nil {
+			name := match[1]
+			version := match[2]
+
+			installedPackages = append(installedPackages, pkgNameAndVersion{
+				Name:    name,
+				Version: version,
+			})
+		}
+
+		match = aptLogRemove.FindStringSubmatch(line)
+		if match != nil {
+			name := match[1]
+			version := match[2]
+
+			removedPackages = append(removedPackages, pkgNameAndVersion{
+				Name:    name,
+				Version: version,
+			})
+		}
+	}
+
+	err := shell.NewExecBuilder(packageManagerAPT, fullArgs...).
 		EnvironmentVariables(env).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		StdoutCallback(stdout).
 		ErrorStderrLines(1).
 		Chroot(imageChroot.ChrootDir()).
 		Execute()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return installedPackages, removedPackages, nil
 }
 
 // getAptEnvironmentVariables returns the environment variables required for non-interactive operations.
@@ -202,7 +246,7 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 	args := []string{"install", "--no-install-recommends", "--no-install-suggests"}
 	args = append(args, packages...)
 
-	err := executeAptCommand(args, imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, packages, err)
 	}
@@ -223,15 +267,16 @@ func removeDebPackages(ctx context.Context, packages []string, imageChroot *safe
 	defer span.End()
 
 	args := []string{"remove"}
+	args = append(args, packages...)
 
-	err := executeAptCommand(append(args, packages...), imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packages, err)
 	}
 
 	args = []string{"autoremove"}
 
-	err = executeAptCommand(args, imageChroot)
+	_, _, err = executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageAutoRemove, packages, err)
 	}
@@ -252,7 +297,7 @@ func updateDebPackages(ctx context.Context, packages []string, imageChroot *safe
 	args := []string{"install", "--only-upgrade"}
 	args = append(args, packages...)
 
-	err := executeAptCommand(args, imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, packages, err)
 	}
@@ -269,7 +314,7 @@ func updateExistingDebPackages(ctx context.Context, imageChroot *safechroot.Chro
 
 	args := []string{"upgrade"}
 
-	err := executeAptCommand(args, imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
@@ -286,7 +331,7 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
 
 	args := []string{"clean"}
 
-	err := executeAptCommand(args, imageChroot)
+	_, _, err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to clean APT cache:\n%w", err)
 	}
@@ -351,8 +396,8 @@ func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName s
 	return true, nil
 }
 
-// getAllPackagesFromChrootDeb retrieves all installed packages from a DEB-based system.
-func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
+// debGetAllPackagesForCosi retrieves all installed packages from a DEB-based system for a COSI file.
+func debGetAllPackagesForCosi(imageChroot safechroot.ChrootInterface) ([]cosiapi.OsPackage, error) {
 	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
@@ -386,23 +431,84 @@ func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]cosi
 	return packages, nil
 }
 
-func debRemovePackageManagerTools(imageChroot *safechroot.Chroot, packageManagementPackages []string,
-) error {
-	err := debEnsurePackagesRemoved(imageChroot, packageManagementPackages, true /*removeEssentialPackages*/)
+// debGetOsManifestPackages
+func debGetOsManifestPackages(imageChroot safechroot.ChrootInterface) (osManifestPackages, error) {
+	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\n").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
-		return err
+		return osManifestPackages{}, fmt.Errorf("failed to get dpkg output from chroot:\n%w", err)
 	}
 
-	return nil
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []*spdx.Package
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 2 {
+			return osManifestPackages{}, fmt.Errorf("malformed dpkg line encountered while parsing installed packages: %q", line)
+		}
+
+		name := parts[0]
+		version := parts[1]
+
+		packages = append(packages, &spdx.Package{
+			PackageName:             name,
+			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s-%s", name, "TODO")),
+			PackageVersion:          version,
+			PackageDownloadLocation: "NOASSERTION",
+			FilesAnalyzed:           false,
+			PackageLicenseConcluded: "NOASSERTION",
+			PackageLicenseDeclared:  "NOASSERTION",
+			PackageCopyrightText:    "NOASSERTION",
+			PackageSupplier: &common.Supplier{
+				Supplier: "NOASSERTION",
+			},
+		})
+	}
+
+	manifest := osManifestPackages{
+		Packages:      packages,
+		Relationships: nil,
+	}
+
+	return manifest, nil
+}
+
+func debRemovePackageManagerTools(imageChroot *safechroot.Chroot, packageManagementPackages []string,
+) (osManifestPackages, error) {
+	// Once the package manager tools have been removed, it will no longer be possible to collect the package list.
+	// So, collect it now.
+	manifest, err := debGetOsManifestPackages(imageChroot)
+	if err != nil {
+		return osManifestPackages{}, fmt.Errorf("%w:\n%w", ErrCollectManifestPackages, err)
+	}
+
+	removedPackages, err := debEnsurePackagesRemoved(imageChroot, packageManagementPackages, true /*removeEssentialPackages*/)
+	if err != nil {
+		return osManifestPackages{}, err
+	}
+
+	removedPackagesSet := sliceutils.SliceToSet(removedPackages)
+
+	manifest.Filter(func(packageInfo *spdx.Package) bool {
+		_, packageRemoved := removedPackagesSet[pkgNameAndVersion{packageInfo.PackageName, packageInfo.PackageVersion}]
+		return !packageRemoved
+	})
+
+	return manifest, nil
 }
 
 func debEnsurePackagesRemoved(imageChroot *safechroot.Chroot, packages []string, removeEssentialPackages bool,
-) error {
+) ([]pkgNameAndVersion, error) {
 	packagesToRemove := []string(nil)
 	for _, packageName := range packages {
 		installed, err := isPackageInstalledDeb(imageChroot, packageName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if installed {
@@ -412,7 +518,7 @@ func debEnsurePackagesRemoved(imageChroot *safechroot.Chroot, packages []string,
 
 	if len(packagesToRemove) <= 0 {
 		// Nothing to do.
-		return nil
+		return nil, nil
 	}
 
 	args := []string{"remove", "--auto-remove"}
@@ -422,10 +528,10 @@ func debEnsurePackagesRemoved(imageChroot *safechroot.Chroot, packages []string,
 	args = append(args, "--")
 	args = append(args, packagesToRemove...)
 
-	err := executeAptCommand(args, imageChroot)
+	_, removedPackages, err := executeAptCommand(args, imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
+		return nil, fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
 	}
 
-	return nil
+	return removedPackages, nil
 }

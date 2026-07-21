@@ -222,7 +222,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if rc.RemovePackageManager {
-		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
+		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, rc.ImageUuidStr)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
 		}

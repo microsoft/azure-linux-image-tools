@@ -91,7 +91,7 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 
 func (d *azureLinuxDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) (osManifestPackages, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -113,10 +113,16 @@ func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
-func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+func (d *azureLinuxDistroHandler) GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *azureLinuxDistroHandler) GetOsManifestPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (osManifestPackages, error) {
+	return rpmGetOsManifestPackages(imageChroot, toolsChroot)
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

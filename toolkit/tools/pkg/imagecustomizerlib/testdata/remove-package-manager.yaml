@@ -24,3 +24,10 @@ scripts:
         /var/cache/libdnf5 \
         /var/cache/tdnf \
         || true
+
+  finalizeCustomization:
+  - content: |
+      set -eux
+
+      du -sh /usr/lib/os-manifest.spdx.json
+      cat /usr/lib/os-manifest.spdx.json

@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/spdx/tools-golang/spdx"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -33,6 +34,10 @@ var (
 	ErrRemovePackageManager             = NewImageCustomizerError("Packages:RemovePackageManager", "failed to remove package manager")
 	ErrRemovePackageManagerPackages     = NewImageCustomizerError("Packages:RemovePackageManagerPackages", "failed to remove package manager packages")
 	ErrRemovePackageManagerFilesAndDirs = NewImageCustomizerError("Packages:RemovePackageManagerFilesAndDirs", "failed to remove package manager files and directories")
+	ErrCollectManifestPackages          = NewImageCustomizerError("Packages:CollectManifestPackages", "failed to collect packages for manifest")
+	ErrWritePackageManifest             = NewImageCustomizerError("Packages:WriteManifest", "failed to write package manifest")
+	ErrCheckForPackageManifest          = NewImageCustomizerError("Packages:CheckForPackageManifest", "failed to check if package manifest exists")
+	ErrReadPackageManifest              = NewImageCustomizerError("Packages:ReadPackageManifest", "failed to read package manifest")
 )
 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
@@ -130,18 +135,23 @@ func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 }
 
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot, imageUuidStr string,
 ) error {
-	var err error
-
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_package_manager")
 	defer span.End()
 
 	logger.Log.Infof("Removing package manager")
 
-	err = distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
+	osManifestPackages, err := distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+	}
+
+	doc := createOsManifest(distroHandler, imageUuidStr, osManifestPackages)
+
+	err = writePackageManifest(doc, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrWritePackageManifest, err)
 	}
 
 	err = distroHandler.RemovePackageManagerFiles(ctx, imageChroot)
@@ -163,4 +173,55 @@ func removePackageManagementFiles(imageChroot *safechroot.Chroot, filesAndDirsTo
 	}
 
 	return nil
+}
+
+func createOsManifest(distroHandler DistroHandler, imageUuidStr string, osManifestPackages osManifestPackages,
+) spdx.Document {
+	docId := spdx.ElementID("DOCUMENT")
+
+	targetOs := distroHandler.GetTargetOs()
+	imageId := spdx.ElementID(fmt.Sprintf("Package-%s-%s", targetOs.Distro, imageUuidStr))
+	imageName := fmt.Sprintf("%s-%s", targetOs.Distro, imageUuidStr)
+
+	doc := spdx.Document{
+		SPDXVersion:       spdx.Version,
+		DataLicense:       spdx.DataLicense,
+		SPDXIdentifier:    docId,
+		DocumentName:      imageName,
+		DocumentNamespace: fmt.Sprintf("https://spdx.microsoft.com/imagecustomizer/%s", imageUuidStr),
+		Packages:          osManifestPackages.Packages,
+		Relationships:     osManifestPackages.Relationships,
+	}
+
+	// Add relationships from the image "package" to all the system packages.
+	for _, packageInfo := range doc.Packages {
+		doc.Relationships = append(doc.Relationships, &spdx.Relationship{
+			RefA:         spdx.DocElementID{ElementRefID: imageId},
+			RefB:         spdx.DocElementID{ElementRefID: packageInfo.PackageSPDXIdentifier},
+			Relationship: "CONTAINS",
+		})
+	}
+
+	// Add relationship from document to the image "package".
+	doc.Relationships = append(doc.Relationships, &spdx.Relationship{
+		RefA:         spdx.DocElementID{ElementRefID: docId},
+		RefB:         spdx.DocElementID{ElementRefID: imageId},
+		Relationship: "DESCRIBES",
+	})
+
+	// Add the image "package".
+	doc.Packages = append(doc.Packages, &spdx.Package{
+		PackageName:             imageName,
+		PackageSPDXIdentifier:   imageId,
+		PackageDownloadLocation: "NOASSERTION",
+		FilesAnalyzed:           false,
+		PackageLicenseConcluded: "NOASSERTION",
+		PackageLicenseDeclared:  "NOASSERTION",
+		PackageCopyrightText:    "NOASSERTION",
+		PackageSupplier: &spdx.Supplier{
+			Supplier: "NOASSERTION",
+		},
+	})
+
+	return doc
 }

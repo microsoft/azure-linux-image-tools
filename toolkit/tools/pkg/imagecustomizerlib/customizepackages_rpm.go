@@ -12,7 +12,9 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/sirupsen/logrus"
+	"github.com/spdx/tools-golang/spdx"
 )
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
@@ -127,7 +129,7 @@ func installRpmPackages(ctx context.Context, allPackages []string,
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackages, err)
 	}
@@ -164,7 +166,7 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, allPackages, err)
 	}
@@ -196,7 +198,7 @@ func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chro
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
@@ -226,7 +228,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 			args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
@@ -266,7 +268,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 		}, args...)
 	}
 
-	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		// For DNF/TDNF check-update, exit code 100 means updates are available
 		var exitErr *exec.ExitError
@@ -297,7 +299,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, _, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 	}
@@ -343,26 +345,111 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsCh
 	return packages, nil
 }
 
-func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
-	toolsChroot *safechroot.Chroot, packageManagementPackages []string,
-) error {
-	err := rpmEnsurePackagesRemoved(imageChroot, pmHandler, toolsChroot, packageManagementPackages,
-		true /*removeProtectedPackages*/)
-	if err != nil {
-		return err
+func rpmGetOsManifestPackages(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
+) (osManifestPackages, error) {
+	args := []string{"-qa", "--queryformat", "%{NAME} %{EVR} %{SHA256HEADER}\n"}
+
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+		// imageChroot has no in-image rpm.
+		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
+		chroot = toolsChroot
 	}
 
-	return nil
+	out, _, err := shell.NewExecBuilder("rpm", args...).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(chroot.ChrootDir()).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return osManifestPackages{}, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []*spdx.Package
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) != 3 {
+			return osManifestPackages{}, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs: %q", line)
+		}
+
+		name := parts[0]
+		version := parts[1]
+		signature := parts[2]
+
+		packages = append(packages, &spdx.Package{
+			PackageName:             name,
+			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s-%s", name, signature)),
+			PackageVersion:          version,
+			PackageDownloadLocation: "NOASSERTION",
+			FilesAnalyzed:           false,
+			PackageLicenseConcluded: "NOASSERTION",
+			PackageLicenseDeclared:  "NOASSERTION",
+			PackageCopyrightText:    "NOASSERTION",
+			PackageSupplier: &spdx.Supplier{
+				Supplier: "NOASSERTION",
+			},
+		})
+	}
+
+	manifest := osManifestPackages{
+		Packages:      packages,
+		Relationships: nil,
+	}
+
+	return manifest, nil
+}
+
+func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
+	toolsChroot *safechroot.Chroot, packageManagementPackages []string,
+) (osManifestPackages, error) {
+	var err error
+
+	manifest := osManifestPackages{}
+	if toolsChroot == nil {
+		// Once the package manager tools have been removed, it will no longer be possible to collect the package list.
+		// So, collect it now.
+		manifest, err = rpmGetOsManifestPackages(imageChroot, toolsChroot)
+		if err != nil {
+			return osManifestPackages{}, fmt.Errorf("%w:\n%w", ErrCollectManifestPackages, err)
+		}
+	}
+
+	removedPackages, err := rpmEnsurePackagesRemoved(imageChroot, pmHandler, toolsChroot, packageManagementPackages,
+		true /*removeProtectedPackages*/)
+	if err != nil {
+		return osManifestPackages{}, err
+	}
+
+	if toolsChroot == nil {
+		// Remove the packages that were just removed from the list of installed packages.
+		removedPackagesSet := sliceutils.SliceToSet(removedPackages)
+
+		manifest.Filter(func(packageInfo *spdx.Package) bool {
+			_, packageRemoved := removedPackagesSet[pkgNameAndVersion{packageInfo.PackageName, packageInfo.PackageVersion}]
+			return !packageRemoved
+		})
+	} else {
+		// Collect the list of installed packages.
+		// Note: Log parsing is a little brittle. So, when the tools directory is available, it is more robust to query
+		// the list of packages after the tools have been removed.
+		manifest, err = rpmGetOsManifestPackages(imageChroot, toolsChroot)
+		if err != nil {
+			return osManifestPackages{}, fmt.Errorf("%w:\n%w", ErrCollectManifestPackages, err)
+		}
+	}
+
+	return manifest, nil
 }
 
 func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 	toolsChroot *safechroot.Chroot, packages []string, removeProtectedPackages bool,
-) error {
+) ([]pkgNameAndVersion, error) {
 	packagesToRemove := []string(nil)
 	for _, packageName := range packages {
 		installed, err := pmHandler.isPackageInstalled(imageChroot, toolsChroot, packageName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if installed {
@@ -372,7 +459,7 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 
 	if len(packagesToRemove) <= 0 {
 		// Nothing to do.
-		return nil
+		return nil, nil
 	}
 
 	args := []string{"--assumeyes", "--disablerepo", "*"}
@@ -389,10 +476,10 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 		}, args...)
 	}
 
-	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	_, removedPackages, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
+		return nil, fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
 	}
 
-	return nil
+	return removedPackages, nil
 }

@@ -13,7 +13,8 @@ type rpmPackageManagerHandler interface {
 	// Package manager configuration
 	getReleaseVersion() string
 
-	executeCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
+	executeCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	) ([]pkgNameAndVersion, []pkgNameAndVersion, error)
 
 	// Package manager specific cache options for install/update operations
 	getCacheOnlyOptions() []string

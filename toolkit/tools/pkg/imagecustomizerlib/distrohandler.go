@@ -34,6 +34,13 @@ var (
 	ErrUnsupportedRpmSources          = NewImageCustomizerError("Validation:UnsupportedRpmSources", "RPM sources API is not supported")
 )
 
+// The name and version of the package.
+// The version should omit the architecture value.
+type pkgNameAndVersion struct {
+	Name    string
+	Version string
+}
+
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
@@ -48,7 +55,8 @@ type DistroHandler interface {
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
 	// Removes the package management tools (e.g. rpm, dnf, apt).
-	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
+	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	) (osManifestPackages, error)
 
 	// Removes the package management directories (e.g. rpm db).
 	RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot) error
@@ -63,9 +71,12 @@ type DistroHandler interface {
 	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
 	GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 
-	// Get all installed packages from the chroot.
+	// Get all installed packages for a COSI file.
 	// toolsChroot has the same semantics as in IsPackageInstalled.
-	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
+	GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
+
+	// Get all installed packages for a OS manifest file.
+	GetOsManifestPackages(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (osManifestPackages, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

@@ -134,7 +134,7 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 
 func (d *azureLinux4DistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) (osManifestPackages, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -155,10 +155,16 @@ func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
-func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
+func (d *azureLinux4DistroHandler) GetAllPackagesForCosi(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *azureLinux4DistroHandler) GetOsManifestPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) (osManifestPackages, error) {
+	return rpmGetOsManifestPackages(imageChroot, toolsChroot)
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
