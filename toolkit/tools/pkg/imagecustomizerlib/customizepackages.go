@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -135,7 +136,7 @@ func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 }
 
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, imageUuidStr string,
+	toolsChroot *safechroot.Chroot, imageUuidStr string, buildTime time.Time,
 ) error {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_package_manager")
 	defer span.End()
@@ -147,7 +148,7 @@ func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, im
 		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
 	}
 
-	doc := createOsManifest(distroHandler, imageUuidStr, osManifestPackages)
+	doc := createOsManifest(distroHandler, imageUuidStr, osManifestPackages, buildTime)
 
 	err = writePackageManifest(doc, imageChroot)
 	if err != nil {
@@ -176,6 +177,7 @@ func removePackageManagementFiles(imageChroot *safechroot.Chroot, filesAndDirsTo
 }
 
 func createOsManifest(distroHandler DistroHandler, imageUuidStr string, osManifestPackages osManifestPackages,
+	buildTime time.Time,
 ) spdx.Document {
 	docId := spdx.ElementID("DOCUMENT")
 
@@ -191,6 +193,13 @@ func createOsManifest(distroHandler DistroHandler, imageUuidStr string, osManife
 		DocumentNamespace: fmt.Sprintf("https://spdx.microsoft.com/imagecustomizer/%s", imageUuidStr),
 		Packages:          osManifestPackages.Packages,
 		Relationships:     osManifestPackages.Relationships,
+		CreationInfo: &spdx.CreationInfo{
+			Creators: []spdx.Creator{{
+				CreatorType: "Tool",
+				Creator:     "imagecustomizer-" + ToolVersion,
+			}},
+			Created: buildTime.Format(buildTimeFormat),
+		},
 	}
 
 	// Add relationships from the image "package" to all the system packages.

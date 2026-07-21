@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -73,7 +72,6 @@ func doOsCustomizationsCreate(
 	distroHandler DistroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
-	buildTime := time.Now().Format(buildTimeFormat)
 
 	// Override resolv.conf inside the image chroot so user scripts and RPM
 	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own
@@ -101,7 +99,7 @@ func doOsCustomizationsCreate(
 		return err
 	}
 
-	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, rc.BuildTime, rc.ImageUuidStr); err != nil {
 		return err
 	}
 

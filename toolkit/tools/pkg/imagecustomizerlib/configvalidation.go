@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -123,7 +124,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	defer span.End()
 
 	rc := &ResolvedConfig{
-		Options: options,
+		BuildTime: time.Now().UTC(),
+		Options:   options,
 	}
 
 	err := options.IsValid()

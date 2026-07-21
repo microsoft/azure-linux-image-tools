@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
@@ -14,6 +15,8 @@ import (
 
 // ResolvedConfig contains the final image configuration, including the merged CLI and config values.
 type ResolvedConfig struct {
+	BuildTime time.Time
+
 	// Configurations
 	Options ImageCustomizerOptions
 

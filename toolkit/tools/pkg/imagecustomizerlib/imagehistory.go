@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -45,7 +46,7 @@ const (
 )
 
 func addImageHistory(ctx context.Context, imageChroot *safechroot.Chroot, imageUuid string,
-	toolVersion string, buildTime string, rc *ResolvedConfig,
+	toolVersion string, buildTime time.Time, rc *ResolvedConfig,
 ) error {
 	cannotWriteHistoryFile := isPathOnReadOnlyMount(customizerLoggingDir, imageChroot)
 	if cannotWriteHistoryFile {
@@ -64,7 +65,7 @@ func addImageHistory(ctx context.Context, imageChroot *safechroot.Chroot, imageU
 }
 
 func addImageHistoryHelper(ctx context.Context, rootDir string, imageUuid string, baseConfigPath string,
-	toolVersion string, buildTime string, config *imagecustomizerapi.Config,
+	toolVersion string, buildTime time.Time, config *imagecustomizerapi.Config,
 ) error {
 	var err error
 	logger.Log.Infof("Creating image customizer history file")
@@ -124,9 +125,11 @@ func readImageHistory(imageHistoryFilePath string, allImageHistory *[]ImageHisto
 	return nil
 }
 
-func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHistory, imageUuid string, buildTime string, toolVersion string, configCopy *imagecustomizerapi.Config) error {
+func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHistory, imageUuid string,
+	buildTime time.Time, toolVersion string, configCopy *imagecustomizerapi.Config,
+) error {
 	currentImageHistory := ImageHistory{
-		BuildTime:   buildTime,
+		BuildTime:   buildTime.Format(buildTimeFormat),
 		ToolVersion: toolVersion,
 		ImageUuid:   imageUuid,
 		Config:      *configCopy,

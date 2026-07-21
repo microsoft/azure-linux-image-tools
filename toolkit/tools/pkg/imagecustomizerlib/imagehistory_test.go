@@ -44,7 +44,8 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 	assert.NoError(t, err, "failed to serialize original config")
 
 	expectedVersion := "0.1.0"
-	expectedDate := time.Now().Format(buildTimeFormat)
+	expectedDate := time.Now()
+	expectedDateStr := expectedDate.Format(buildTimeFormat)
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
@@ -52,7 +53,7 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
-	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
+	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDateStr, config, historyFilePath)
 
 	// Verify the config is unchanged
 	currentConfigBytes, err := yaml.Marshal(config)
@@ -65,7 +66,7 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
-	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
+	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDateStr, config, historyFilePath)
 
 	// Verify the imageUuid is unique for each entry
 	assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")

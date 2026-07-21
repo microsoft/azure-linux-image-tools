@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -32,8 +31,6 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	var err error
 
 	imageChroot := imageConnection.Chroot()
-
-	buildTime := time.Now().Format(buildTimeFormat)
 
 	// The toolsChroot (when present) has its own resolv.conf overridden at chroot
 	// initialization time; here we override the imageChroot's so that user scripts
@@ -163,13 +160,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr)
+	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, rc.BuildTime, rc.ImageUuidStr)
 	if err != nil {
 		return err
 	}
 
 	if rc.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, ToolVersion, buildTime, rc)
+		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, ToolVersion, rc.BuildTime, rc)
 		if err != nil {
 			return err
 		}
@@ -222,7 +219,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if rc.RemovePackageManager {
-		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, rc.ImageUuidStr)
+		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, rc.ImageUuidStr, rc.BuildTime)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
 		}

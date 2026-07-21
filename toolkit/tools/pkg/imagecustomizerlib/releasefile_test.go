@@ -29,7 +29,8 @@ func TestAddCustomizerRelease(t *testing.T) {
 	assert.NoError(t, err)
 
 	expectedVersion := "0.1.0"
-	expectedDate := time.Now().Format(buildTimeFormat)
+	expectedDate := time.Now()
+	expectedDateStr := expectedDate.Format(buildTimeFormat)
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
@@ -58,6 +59,6 @@ func TestAddCustomizerRelease(t *testing.T) {
 	}
 
 	assert.Equal(t, expectedVersion, config["TOOL_VERSION"])
-	assert.Equal(t, expectedDate, config["BUILD_DATE"])
+	assert.Equal(t, expectedDateStr, config["BUILD_DATE"])
 	assert.Equal(t, expectedUuid, config["IMAGE_UUID"])
 }

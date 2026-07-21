@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -22,7 +23,7 @@ const (
 	ImageCustomizerReleasePath = "etc/image-customizer-release"
 )
 
-func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion string, buildTime string, imageUuid string) error {
+func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion string, buildTime time.Time, imageUuid string) error {
 	var err error
 
 	logger.Log.Infof("Creating image customizer release file")
@@ -33,7 +34,7 @@ func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion strin
 	customizerReleaseFilePath := filepath.Join(rootDir, ImageCustomizerReleasePath)
 	lines := []string{
 		fmt.Sprintf("%s=\"%s\"", "TOOL_VERSION", toolVersion),
-		fmt.Sprintf("%s=\"%s\"", "BUILD_DATE", buildTime),
+		fmt.Sprintf("%s=\"%s\"", "BUILD_DATE", buildTime.Format(buildTimeFormat)),
 		fmt.Sprintf("%s=\"%s\"", "IMAGE_UUID", imageUuid),
 		"",
 	}
