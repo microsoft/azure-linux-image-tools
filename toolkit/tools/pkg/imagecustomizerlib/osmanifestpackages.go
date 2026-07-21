@@ -15,7 +15,6 @@ type osManifestPackages struct {
 func (m *osManifestPackages) Filter(filterFunc func(packageInfo *spdx.Package) bool) {
 	removedSpdxIds := make(map[spdx.ElementID]any)
 	newPackages := []*spdx.Package(nil)
-
 	for _, packageInfo := range m.Packages {
 		keep := filterFunc(packageInfo)
 		if keep {
@@ -27,5 +26,16 @@ func (m *osManifestPackages) Filter(filterFunc func(packageInfo *spdx.Package) b
 
 	m.Packages = newPackages
 
-	// TODO: Filter m.Relationships
+	newRelationships := []*spdx.Relationship(nil)
+	for _, relationship := range m.Relationships {
+		_, aRemoved := removedSpdxIds[relationship.RefA.ElementRefID]
+		_, bRemoved := removedSpdxIds[relationship.RefB.ElementRefID]
+
+		keep := !aRemoved && !bRemoved
+		if keep {
+			newRelationships = append(newRelationships, relationship)
+		}
+	}
+
+	m.Relationships = newRelationships
 }

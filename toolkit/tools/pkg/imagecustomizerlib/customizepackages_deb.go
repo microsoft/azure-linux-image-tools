@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -433,7 +435,7 @@ func debGetAllPackagesForCosi(imageChroot safechroot.ChrootInterface) ([]cosiapi
 
 // debGetOsManifestPackages
 func debGetOsManifestPackages(imageChroot safechroot.ChrootInterface) (osManifestPackages, error) {
-	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\n").
+	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
 		ExecuteCaptureOutput()
@@ -448,16 +450,20 @@ func debGetOsManifestPackages(imageChroot safechroot.ChrootInterface) (osManifes
 			continue
 		}
 		parts := strings.Split(line, "\t")
-		if len(parts) != 2 {
+		if len(parts) != 3 {
 			return osManifestPackages{}, fmt.Errorf("malformed dpkg line encountered while parsing installed packages: %q", line)
 		}
 
 		name := parts[0]
 		version := parts[1]
+		arch := parts[2]
+
+		packageIdBytes := sha256.Sum256(fmt.Appendf(nil, "%s-%s.%s", name, version, arch))
+		packageId := hex.EncodeToString(packageIdBytes[:])
 
 		packages = append(packages, &spdx.Package{
 			PackageName:             name,
-			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s-%s", name, "TODO")),
+			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s", packageId)),
 			PackageVersion:          version,
 			PackageDownloadLocation: "NOASSERTION",
 			FilesAnalyzed:           false,

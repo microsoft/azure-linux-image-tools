@@ -379,7 +379,7 @@ func rpmGetOsManifestPackages(imageChroot safechroot.ChrootInterface, toolsChroo
 
 		packages = append(packages, &spdx.Package{
 			PackageName:             name,
-			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s-%s", name, signature)),
+			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s", signature)),
 			PackageVersion:          version,
 			PackageDownloadLocation: "NOASSERTION",
 			FilesAnalyzed:           false,
