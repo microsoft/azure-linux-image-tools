@@ -62,7 +62,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			}
 
 			// Save the base kernel command-line now so that we can apply those changes later via uki-kernel-info.json.
-			// Skip this when the bootloader is being hard-reset, pre-seeding here would carry the old UKI cmdline
+			// Skip this when the bootloader is being hard-reset. Pre-seeding here would carry the old UKI cmdline
 			// to the new UKI, defeating the reset.
 			if rc.BootLoader.ResetType != imagecustomizerapi.ResetBootLoaderTypeHard {
 				ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
