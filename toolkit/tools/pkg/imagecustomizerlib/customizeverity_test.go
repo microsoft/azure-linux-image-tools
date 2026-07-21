@@ -399,7 +399,7 @@ func assertKernelCmdlineArgs(t *testing.T, kernelToArgs map[string]string, extra
 
 	// Verify each extra command line arg is present in every kernel's command line.
 	for _, extraArg := range extraCommandLine {
-		cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(extraArg)))
+		cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(`(^| )%s( |$)`, regexp.QuoteMeta(extraArg)))
 
 		for kernel, args := range kernelToArgs {
 			assert.Regexp(t, cmdlineRegexp, args,
@@ -409,7 +409,7 @@ func assertKernelCmdlineArgs(t *testing.T, kernelToArgs map[string]string, extra
 
 	// Verify each absent command line arg is present in no kernel's command line.
 	for _, absentArg := range absentCommandLine {
-		cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(absentArg)))
+		cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(`(^| )%s( |$)`, regexp.QuoteMeta(absentArg)))
 
 		for kernel, args := range kernelToArgs {
 			assert.NotRegexp(t, cmdlineRegexp, args,
