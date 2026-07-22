@@ -32,9 +32,6 @@ var (
 
 	// Captures the variable a grub 'search' command assigns via '--set=<var>' or '--set <var>' (e.g. root or boot).
 	grubSearchSetTargetRegex = regexp.MustCompile(`\s+--set(?:=|\s+)(\w+)`)
-
-	// Captures the value of the `set kernelopts="..."` default that grub2-mkconfig writes into grub.cfg.
-	grubKerneloptsRegex = regexp.MustCompile(`(?m)^[ \t]*set kernelopts="([^"]*)"`)
 )
 
 const (
@@ -657,12 +654,15 @@ func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubC
 		return nil, err
 	}
 
-	match := grubKerneloptsRegex.FindStringSubmatch(string(content))
-	if match == nil {
-		return nil, nil
+	kernelopts, found, err := findGrubCfgKernelopts(string(content))
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("failed to find 'set kernelopts' default in grub config (%s)", grubCfgPath)
 	}
 
-	args := parseBLSOptionsValue(match[1])
+	args := parseBLSOptionsValue(kernelopts)
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -677,6 +677,40 @@ func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubC
 		kernelToArgs[kernel] = args
 	}
 	return kernelToArgs, nil
+}
+
+// findGrubCfgKernelopts returns the value assigned by the `set kernelopts="..."` default that grub2-mkconfig writes
+// into grub.cfg.
+func findGrubCfgKernelopts(grubCfgContent string) (string, bool, error) {
+	tokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return "", false, err
+	}
+
+	lines := grub.SplitTokensIntoLines(tokens)
+	for _, line := range grub.FindCommandAll(lines, "set") {
+		// A `set` command assigns a single `name=value` argument, e.g. `set kernelopts="root=... ro ..."`.
+		args, err := ParseCommandLineArgs(line.Tokens[1:])
+		if err != nil {
+			return "", false, err
+		}
+
+		for _, arg := range args {
+			if arg.Name == grubKernelOpts {
+				if arg.ValueHasVarExpansion {
+					// ParseCommandLineArgs clears values it cannot resolve statically, so a kernelopts default
+					// that references a variable comes back empty. Warn loudly rather than silently returning an
+					// empty kernel command line.
+					logger.Log.Warnf(
+						"Cannot resolve value of kernelopts in grub.cfg because it contains a variable expansion: %s",
+						arg.Token.RawContent)
+				}
+				return arg.Value, true, nil
+			}
+		}
+	}
+
+	return "", false, nil
 }
 
 // Helper function to get common SELinux args based on mode

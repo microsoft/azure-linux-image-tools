@@ -115,3 +115,119 @@ func buildSELinuxArgs(security, selinux, enforcing selinuxArgState) []grubConfig
 	}
 	return args
 }
+
+func TestFindGrubCfgKernelopts(t *testing.T) {
+	testCases := []struct {
+		name          string
+		grubCfg       string
+		expectedValue string
+		expectedFound bool
+	}{
+		// --- Basic extraction ---
+		{
+			name:          "simple quoted kernelopts",
+			grubCfg:       "set kernelopts=\"root=/dev/sda2 ro rd.info\"\n",
+			expectedValue: "root=/dev/sda2 ro rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "no kernelopts",
+			grubCfg:       "set default=0\nset timeout=5\n",
+			expectedValue: "",
+			expectedFound: false,
+		},
+		{
+			name:          "kernelopts among other set commands",
+			grubCfg:       "set default=0\nset kernelopts=\"root=/dev/sda2 ro rd.info\"\nset timeout=5\n",
+			expectedValue: "root=/dev/sda2 ro rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "kernelopts on the first line",
+			grubCfg:       "set kernelopts=\"root=/dev/sda2 ro rd.info\"\nset timeout=5\n",
+			expectedValue: "root=/dev/sda2 ro rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "indented set command",
+			grubCfg:       "\tset kernelopts=\"root=/dev/sda2 ro rd.info\"\n",
+			expectedValue: "root=/dev/sda2 ro rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "realistic verity command line",
+			grubCfg:       "set kernelopts=\"root=UUID=307dacd1 ro selinux=0 rd.systemd.verity=1 usrhash=abc123 systemd.verity_usr_options=panic-on-corruption\"\n",
+			expectedValue: "root=UUID=307dacd1 ro selinux=0 rd.systemd.verity=1 usrhash=abc123 systemd.verity_usr_options=panic-on-corruption",
+			expectedFound: true,
+		},
+
+		// --- Quoting and escaping ---
+		{
+			name:          "escaped double quotes",
+			grubCfg:       "set kernelopts=\"root=/dev/sda2 ro extra=\\\"a b\\\" rd.info\"\n",
+			expectedValue: "root=/dev/sda2 ro extra=\"a b\" rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "escaped backslash",
+			grubCfg:       "set kernelopts=\"a\\\\b c\"\n",
+			expectedValue: "a\\b c",
+			expectedFound: true,
+		},
+		{
+			name:          "escaped dollar sign",
+			grubCfg:       "set kernelopts=\"p=\\$v x\"\n",
+			expectedValue: "p=$v x",
+			expectedFound: true,
+		},
+		{
+			name:          "single-quoted value",
+			grubCfg:       "set kernelopts='root=/dev/sda2 ro rd.info'\n",
+			expectedValue: "root=/dev/sda2 ro rd.info",
+			expectedFound: true,
+		},
+		{
+			name:          "unquoted single-token value",
+			grubCfg:       "set kernelopts=ro\n",
+			expectedValue: "ro",
+			expectedFound: true,
+		},
+		{
+			name:          "empty quoted value",
+			grubCfg:       "set kernelopts=\"\"\n",
+			expectedValue: "",
+			expectedFound: true,
+		},
+		{
+			// A value containing an unresolved variable cannot be reproduced statically, so it comes back empty
+			// (and findGrubCfgKernelopts logs a warning).
+			name:          "value with a variable expansion",
+			grubCfg:       "set kernelopts=\"root=$root ro\"\n",
+			expectedValue: "",
+			expectedFound: true,
+		},
+
+		// --- Matching by argument name, not substring ---
+		{
+			name:          "decoy set whose value contains kernelopts=, plus the real one",
+			grubCfg:       "set extra=\"kernelopts=bogus\"\nset kernelopts=\"root=real ro\"\n",
+			expectedValue: "root=real ro",
+			expectedFound: true,
+		},
+		{
+			name:          "only a decoy whose value contains kernelopts=",
+			grubCfg:       "set extra=\"kernelopts=bogus\"\n",
+			expectedValue: "",
+			expectedFound: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			value, found, err := findGrubCfgKernelopts(tc.grubCfg)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedFound, found)
+			assert.Equal(t, tc.expectedValue, value)
+		})
+	}
+}
