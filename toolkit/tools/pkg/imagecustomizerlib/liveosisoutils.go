@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -214,7 +215,12 @@ func extractIsoImageContents(buildDir string, isoImageFile string, isoExpansionF
 	}
 	defer os.RemoveAll(mountDir)
 
-	isoImageLoopDevice, err := safeloopback.NewLoopback(isoImageFile)
+	isoImageFileAbs, err := filepath.Abs(isoImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for iso (%s):\n%w", isoImageFile, err)
+	}
+
+	isoImageLoopDevice, err := safeloopback.NewLoopback(isoImageFileAbs)
 	if err != nil {
 		return fmt.Errorf("failed to create loop device for (%s):\n%w", isoImageFile, err)
 	}
