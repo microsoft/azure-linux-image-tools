@@ -10,7 +10,7 @@ os:
 
   kernelCommandLine:
     extraCommandLine:
-    - "rd.info"
+    - "rd.debug"
 
   additionalFiles:
   - content: |

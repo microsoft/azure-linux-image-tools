@@ -1,0 +1,10 @@
+previewFeatures:
+- uki
+
+os:
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    mode: create

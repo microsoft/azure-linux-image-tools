@@ -8,7 +8,7 @@ storage:
 os:
   kernelCommandLine:
     extraCommandLine:
-    - rd.info
+    - rd.debug
 
   bootloader:
     resetType: hard-reset

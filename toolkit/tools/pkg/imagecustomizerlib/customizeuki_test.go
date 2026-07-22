@@ -20,7 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const nulPaddingFillerArg = "rd.debug"
+const nulPaddingFillerArg = "console=ttyAMA0,115200n8"
 
 func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
@@ -51,7 +51,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	previewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureToolsDir}
 	previewFeatures = append(previewFeatures, baseImageInfo.PreviewFeatures...)
 
-	// --tools-dir exercises the toolsChroot path in isPackageInstalled used by UKI 'create' validation.
+	// --tools-dir exercises the toolsChroot path in isPackageInstalled used by UKI 'create' validation. Adds rd.info.
 	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
@@ -66,12 +66,12 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
 	if !ok {
 		return
 	}
 
-	// Customize again without changing /usr verity or the UKI.
+	// Customize again without changing /usr verity or the UKI, or resetting the bootloader.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-nop.yaml")
 
@@ -81,7 +81,102 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums, nil)
+}
+
+func TestCustomizeImageUkiCreateNoBootloaderReset(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUkiCreateNoBootloaderResetHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageUkiCreateNoBootloaderResetHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	testTempDir := filepath.Join(tmpDir,
+		fmt.Sprintf("TestCustomizeImageUkiCreateNoBootloaderReset_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+
+	// Pass 1: Enlarge the ESP (the stock ESP may be too small to hold a UKI) and add systemd.log_level=debug.
+	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
+	config1 := imagecustomizerapi.Config{
+		Storage: imagecustomizerapi.Storage{
+			BootType: imagecustomizerapi.BootTypeEfi,
+			Disks: []imagecustomizerapi.Disk{
+				{
+					PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+					Partitions: []imagecustomizerapi.Partition{
+						{
+							Id:   "esp",
+							Type: imagecustomizerapi.PartitionTypeESP,
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeExplicit,
+								Size: 250 * diskutils.MiB,
+							},
+						},
+						{
+							Id: "root",
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeExplicit,
+								Size: 6 * diskutils.GiB,
+							},
+						},
+					},
+				},
+			},
+			FileSystems: []imagecustomizerapi.FileSystem{
+				{
+					DeviceId: "esp",
+					Type:     imagecustomizerapi.FileSystemTypeFat32,
+					MountPoint: &imagecustomizerapi.MountPoint{
+						Path:    "/boot/efi",
+						Options: "umask=0077",
+					},
+				},
+				{
+					DeviceId: "root",
+					Type:     imagecustomizerapi.FileSystemTypeExt4,
+					MountPoint: &imagecustomizerapi.MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &imagecustomizerapi.OS{
+			BootLoader: imagecustomizerapi.BootLoader{
+				ResetType: imagecustomizerapi.ResetBootLoaderTypeHard,
+			},
+			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
+				ExtraCommandLine: []string{"systemd.log_level=debug"},
+			},
+		},
+	}
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config1, baseImage, outImageFilePath1, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Pass 2: Convert grub -> UKI add rd.info but do not reset bootloader, keeping systemd.log_level=debug.
+	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
+	configFile2 := filepath.Join(testDir, ukiNoResetConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUkiCmdline(t, buildDir, outImageFilePath2, []string{"systemd.log_level=debug", "rd.info"}, nil)
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
@@ -105,39 +200,58 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
-	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+	// Adds systemd.log_level=debug but doesn't convert to UKI.
+	outImageFilePath0 := filepath.Join(testTempDir, "image0.raw")
+	config0 := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
+				ExtraCommandLine: []string{"systemd.log_level=debug"},
+			},
+		},
+	}
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config0, baseImage, outImageFilePath0, "raw",
 		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
+	// Converts to UKI and enables verity, removing systemd.log_level=debug (the bootloader is also being hard-reset).
+	// Adds rd.info.
+	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
+	configFile1 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
+
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, outImageFilePath0, outImageFilePath1,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
+		[]string{"systemd.log_level=debug"}, nil, nil)
 	if !ok {
 		return
 	}
 
 	// Re-customize the UKI image with 'os.uki.mode: create', os.kernelCommandLine.extraCommandLine, and
-	// 'os.bootloader.resetType: hard-reset'.
+	// 'os.bootloader.resetType: hard-reset'. Removes rd.info, adds rd.debug.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
 
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
-		baseImageInfo.PreviewFeatures)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil, nil)
+	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
+		[]string{"rd.debug"}, []string{"rd.info"}, ukiFilesChecksums, nil)
 	if !ok {
 		return
 	}
 
-	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2,
-		ukiFilesChecksums, newUkiFilesChecksums, addonFilesChecksums, newAddonFilesChecksums,
-		"rd.info")
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2, ukiFilesChecksums, newUkiFilesChecksums,
+		addonFilesChecksums, newAddonFilesChecksums)
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
@@ -164,13 +278,14 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
+	// Adds rd.info.
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
 	if !ok {
 		return
 	}
@@ -178,13 +293,15 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	outImageFilePath2 := filepath.Join(testTempDir, "image-passthrough.raw")
 	configFile2 := filepath.Join(testDir, "verity-usr-uki-passthrough.yaml")
 
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
-		baseImageInfo.PreviewFeatures)
+	// Does not reset the bootloader, preserving rd.info.
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
+	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil,
+		ukiFilesChecksums, nil)
 	if !ok {
 		return
 	}
@@ -219,6 +336,7 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageRootVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
+	// Adds rd.info.
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityRootUkiConfigFile(t, baseImageInfo))
@@ -230,14 +348,15 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 		return
 	}
 
-	_, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, nil)
+	_, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
 
-	// Customize again without changing /root verity or the UKI.
+	// Customize again without changing /root verity or the UKI. Resets the kernel command-line back to the stock image,
+	// dropping rd.info and adding rd.debug.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
-	configFile2 := filepath.Join(testDir, "verity-reinit-root-nop.yaml")
+	configFile2 := filepath.Join(testDir, "verity-reinit-root-hard-reset.yaml")
 
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
 		baseImageInfo.PreviewFeatures)
@@ -245,7 +364,7 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 		return
 	}
 
-	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
+	verifyRootVerityUki(t, buildDir, outImageFilePath2, []string{"rd.debug"}, []string{"rd.info"}, nil)
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomizeCmdline(t *testing.T) {
@@ -271,7 +390,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 	buildDir := filepath.Join(testTempDir, "build")
 
 	// Pass 1: turn the grub-based base image into a UKI image. IC removes grub.cfg and writes
-	// UKIs to the ESP, matching the ACL template image layout (UKIs present, no grub.cfg).
+	// UKIs to the ESP, matching the ACL template image layout (UKIs present, no grub.cfg). Adds rd.info.
 	outImageFilePath1 := filepath.Join(testTempDir, "uki-base.raw")
 	configFile1 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, baseImage, outImageFilePath1, "raw",
@@ -280,13 +399,14 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 		return
 	}
 
-	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, nil, nil)
+	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
+		nil, nil, nil)
 	if !ok {
 		return
 	}
 
-	// Pass 2: re-customize that UKI image with 'os.uki.mode: create' and os.kernelCommandLine.extraCommandLine but no
-	// 'os.bootloader.resetType: hard-reset'.
+	// Pass 2: re-customize that UKI image with 'os.uki.mode: create' and os.kernelCommandLine.extraCommandLine but
+	// doesn't hard-reset the bootloader. Preserves rd.info and adds console=ttyAMA0,115200n8.
 	outImageFilePath2 := filepath.Join(testTempDir, "image.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki-cmdline.yaml")
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2, "raw",
@@ -295,26 +415,22 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 		return
 	}
 
-	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil, nil)
+	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
+		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil, nil)
 	if !ok {
 		return
 	}
 
-	// Create mode must preserve each main UKI while regenerating the addon, and the gb200
-	// extraCommandLine must have reached the regenerated UKIs — the specific behaviour this test
-	// exercises via the default (non hard-reset) AddKernelCommandLine path.
-	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2,
-		ukiFilesChecksums1, ukiFilesChecksums2, addonFilesChecksums1, addonFilesChecksums2,
-		"console=ttyAMA0,115200n8")
+	// Create mode must preserve each main UKI while regenerating the addon.
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2, ukiFilesChecksums1, ukiFilesChecksums2,
+		addonFilesChecksums1, addonFilesChecksums2)
 }
 
 // verifyUsrVerityUkiRecustomized checks that re-customizing a usr-verity UKI image in create mode
 // preserved each main UKI (kernel/initramfs/os-release unchanged) while regenerating its addon
-// (cmdline changed), and that /boot contains only the ESP. When expectedCmdlineArgs are given, it
-// also asserts every regenerated UKI's kernel command-line contains each of them.
+// (cmdline changed), and that /boot contains only the ESP.
 func verifyUsrVerityUkiRecustomized(t *testing.T, buildDir string, imagePath string,
 	oldUkiChecksums, newUkiChecksums, oldAddonChecksums, newAddonChecksums map[string]string,
-	expectedCmdlineArgs ...string,
 ) {
 	// The main UKI (kernel + os-release + initramfs) must not change; only the addon (cmdline) does.
 	for ukiFile, oldChecksum := range oldUkiChecksums {
@@ -359,25 +475,48 @@ func verifyUsrVerityUkiRecustomized(t *testing.T, buildDir string, imagePath str
 		}
 	}
 	assert.True(t, hasEfi, "/boot must contain the 'efi' directory")
-
-	// Optionally verify specific kernel command-line args reached the regenerated UKIs.
-	if len(expectedCmdlineArgs) > 0 {
-		espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
-		kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-		if !assert.NoError(t, err) {
-			return
-		}
-		assert.GreaterOrEqual(t, len(kernelToArgs), 1, "expected at least one UKI in the ESP")
-		for kernel, args := range kernelToArgs {
-			for _, expected := range expectedCmdlineArgs {
-				assert.Contains(t, args, expected,
-					"regenerated UKI for kernel (%s) should contain cmdline arg (%s)", kernel, expected)
-			}
-		}
-	}
 }
 
-func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
+// verifyUkiCmdlineArgs asserts that every UKI on the ESP has each of extraCommandLine present in its kernel
+// command-line and none of absentCommandLine present.
+func verifyUkiCmdlineArgs(t *testing.T, espPath string, buildDir string, extraCommandLine []string,
+	absentCommandLine []string,
+) {
+	if len(extraCommandLine) == 0 && len(absentCommandLine) == 0 {
+		return
+	}
+
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assertKernelCmdlineArgs(t, kernelToArgs, extraCommandLine, absentCommandLine)
+}
+
+// verifyUkiCmdline connects to a (non-verity) UKI image and asserts that every UKI on the ESP has each of
+// extraCommandLine present in its kernel command line and none of absentCommandLine present.
+func verifyUkiCmdline(t *testing.T, buildDir string, imageFilePath string, extraCommandLine []string,
+	absentCommandLine []string,
+) {
+	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
+		[]testutils.MountPoint{
+			{
+				PartitionNum:   1,
+				Path:           "/boot/efi",
+				FileSystemType: "vfat",
+			},
+		})
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
+}
+
+func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraCommandLine []string, absentCommandLine []string,
 	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
 ) (map[string]string, map[string]string, bool) {
 	// Connect to customized image.
@@ -424,7 +563,9 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
 	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
 	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption", false /*inlineVerity*/)
+		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "panic-on-corruption", false /*inlineVerity*/)
+
+	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
 
 	// Verify fstab entries
 	expectedFstabEntries := []diskutils.FstabEntry{
@@ -523,7 +664,8 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
 	return ukiFilesChecksums, addonFilesChecksums, true
 }
 
-func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
+func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, extraCommandLine []string, absentCommandLine []string,
+	expectedUkiFilesChecksums map[string]string,
 ) (map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
@@ -564,7 +706,9 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	rootHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, rootDevice, rootHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "", "panic-on-corruption", false /*inlineVerity*/)
+		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "panic-on-corruption", false /*inlineVerity*/)
+
+	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
 
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
@@ -646,6 +790,20 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 		return fmt.Sprintf("verity-usr-uki-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for verity-usr-uki test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// ukiNoResetConfigFile returns the pass-2 grub->UKI-without-reset test config file appropriate for the given base
+// image version (azl3 vs azl4) and host architecture.
+func ukiNoResetConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "uki-noreset-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("uki-noreset-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for uki-noreset test: %s", baseImageInfo.Version)
 		return ""
 	}
 }
@@ -796,7 +954,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 	buildDir := filepath.Join(testTempDir, "build")
 
 	// Build an inline-usr-verity UKI image whose addon command line ends with
-	// `systemd.verity_usr_options=...,hash-offset=<N>`.
+	// `systemd.verity_usr_options=...,hash-offset=<N>`. Adds rd.info and <nulPaddingFillerArg>.
 	ukiImageFilePath := filepath.Join(testTempDir, "uki-verity.raw")
 	configFile := filepath.Join(testDir, verityUsrInlineUkiConfigFile(t, baseImageInfo))
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, ukiImageFilePath, "raw",
@@ -806,12 +964,12 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 	}
 
 	// Rewrite the addon `.cmdline` with shorter, NUL-terminated content so the re-read command line carries trailing
-	// NUL padding after its last argument.
+	// NUL padding after its last argument. Removes <nulPaddingFillerArg>.
 	if !injectAddonCmdlineNulPadding(t, buildDir, ukiImageFilePath) {
 		return
 	}
 
-	// Re-customize.
+	// Re-customize. Resets the bootloader, so removes rd.info and adds rd.debug.
 	outImageFilePath := filepath.Join(testTempDir, "recustomized.raw")
 	reinitConfigFile := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, reinitConfigFile, ukiImageFilePath, outImageFilePath,
@@ -822,7 +980,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 
 	// Validate the re-customized image. Reading the UKI addon command line back is the code path the fix touches, so
 	// this also confirms the usr-verity configuration is well-formed, including a parseable inline hash-offset.
-	verifyUsrInlineVerityUki(t, buildDir, outImageFilePath)
+	verifyUsrInlineVerityUki(t, buildDir, outImageFilePath, []string{"rd.debug"}, []string{"rd.info", nulPaddingFillerArg})
 }
 
 // injectAddonCmdlineNulPadding rewrites every UKI addon `.cmdline` section on the image's ESP with shorter,
@@ -902,7 +1060,7 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 // kernel command line back from the UKI addons on the ESP (the code path the NUL-trim fix touches), checks the
 // systemd.verity_usr_* arguments including a parseable inline hash-offset, and runs `veritysetup verify` against the
 // usr partition.
-func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath string) {
+func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath string, extraCommandLine []string, absentCommandLine []string) {
 	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
 		[]testutils.MountPoint{
 			{
@@ -926,8 +1084,10 @@ func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath strin
 	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
 	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
 	usrPartUuid := "PARTUUID=" + partitions[3].PartUuid
-	verifyVerityUki(t, espPath, usrDevice, usrDevice, usrPartUuid, usrPartUuid, "usr", buildDir, "rd.info",
+	verifyVerityUki(t, espPath, usrDevice, usrDevice, usrPartUuid, usrPartUuid, "usr", buildDir,
 		"panic-on-corruption", true /*inlineVerity*/)
+
+	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
 
 	err = imageConnection.CleanClose()
 	assert.NoError(t, err)

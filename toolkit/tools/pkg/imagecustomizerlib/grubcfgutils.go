@@ -5,7 +5,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -625,6 +628,88 @@ func GrubArgsToString(args []string) string {
 
 	combinedString := builder.String()
 	return combinedString
+}
+
+// readBLSOrGrubCfgKernelopts reads the per-kernel command line for a BLS-based distro. It prefers the
+// loader/entries/*.conf BLS files, and falls back to the `set kernelopts="..."` default.
+func readBLSOrGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	kernelToArgs, err := readKernelCmdlinesFromBLSEntries(bootDir)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+	} else if len(kernelToArgs) > 0 {
+		return kernelToArgs, nil
+	}
+
+	return readKernelCmdlinesFromGrubCfgKernelopts(bootDir)
+}
+
+// readKernelCmdlinesFromGrubCfgKernelopts reads the `set kernelopts="..."` default from grub.cfg and maps it to every
+// kernel found in bootDir. Returns an error if kernelopts in grub.cfg could not be found.
+func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
+	content, err := os.ReadFile(grubCfgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	kernelopts, found, err := findGrubCfgKernelopts(string(content))
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("failed to find 'set kernelopts' default in grub config (%s)", grubCfgPath)
+	}
+
+	args := parseBLSOptionsValue(kernelopts)
+	if len(args) == 0 {
+		return nil, nil
+	}
+
+	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	kernelToArgs := make(map[string][]grubConfigLinuxArg, len(kernelToInitramfs))
+	for kernel := range kernelToInitramfs {
+		kernelToArgs[kernel] = args
+	}
+	return kernelToArgs, nil
+}
+
+// findGrubCfgKernelopts returns the value assigned by the `set kernelopts="..."` default that grub2-mkconfig writes
+// into grub.cfg. It returns an error if the value cannot be resolved statically.
+func findGrubCfgKernelopts(grubCfgContent string) (string, bool, error) {
+	tokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return "", false, err
+	}
+
+	lines := grub.SplitTokensIntoLines(tokens)
+	for _, line := range grub.FindCommandAll(lines, "set") {
+		// A `set` command assigns a single `name=value` argument, e.g. `set kernelopts="root=... ro ..."`.
+		args, err := ParseCommandLineArgs(line.Tokens[1:])
+		if err != nil {
+			return "", false, err
+		}
+
+		for _, arg := range args {
+			if arg.Name == grubKernelOpts {
+				if arg.ValueHasVarExpansion {
+					// ParseCommandLineArgs clears values it cannot resolve statically, so a kernelopts default that
+					// references a variable comes back empty. Error instead of returning an empty string.
+					return "", false, fmt.Errorf(
+						"cannot resolve value of 'set kernelopts' in grub.cfg because it contains a variable "+
+							"expansion: %s", arg.Token.RawContent)
+				}
+				return arg.Value, true, nil
+			}
+		}
+	}
+
+	return "", false, nil
 }
 
 // Helper function to get common SELinux args based on mode

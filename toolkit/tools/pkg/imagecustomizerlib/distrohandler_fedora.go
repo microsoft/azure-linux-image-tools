@@ -297,7 +297,7 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 }
 
 func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	return readKernelCmdlinesFromBLSEntries(bootDir)
+	return readBLSOrGrubCfgKernelopts(bootDir)
 }
 
 func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
