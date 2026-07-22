@@ -646,7 +646,7 @@ func readBLSOrGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg
 }
 
 // readKernelCmdlinesFromGrubCfgKernelopts reads the `set kernelopts="..."` default from grub.cfg and maps it to every
-// kernel found in bootDir. Returns an empty map if grub.cfg has no kernelopts default.
+// kernel found in bootDir. Returns an error if kernelopts in grub.cfg could not be found.
 func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	content, err := os.ReadFile(grubCfgPath)
