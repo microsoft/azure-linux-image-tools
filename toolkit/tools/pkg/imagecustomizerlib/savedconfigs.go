@@ -85,6 +85,10 @@ func (p *PxeSavedConfigs) IsValid() error {
 
 type OSSavedConfigs struct {
 	RequestedSELinuxMode imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
+
+	// Deprecated fields
+	DracutPackageInfo        any `yaml:"dracutPackage,omitempty"`
+	SELinuxPolicyPackageInfo any `yaml:"selinuxPolicyPackage,omitempty"`
 }
 
 func (i *OSSavedConfigs) IsValid() error {
@@ -203,11 +207,6 @@ func updateSavedConfigs(savedConfigsFilePath string,
 			outputConfigs.Pxe.bootstrapBaseUrl = ""
 		}
 
-		// newOSDracutVersion can be nil if the input is an ISO and the
-		// configuration does not specify OS changes.
-		// In such cases, the rootfs is intentionally not expanded (to save
-		// time), and the information will not be retrieved from
-		// there. Instead, we use the saved configuration.
 		if newRequestedSelinuxMode != imagecustomizerapi.SELinuxModeDefault {
 			outputConfigs.OS.RequestedSELinuxMode = inputConfigs.OS.RequestedSELinuxMode
 		}
