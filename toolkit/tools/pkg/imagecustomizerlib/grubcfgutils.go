@@ -680,7 +680,7 @@ func readKernelCmdlinesFromGrubCfgKernelopts(bootDir string) (map[string][]grubC
 }
 
 // findGrubCfgKernelopts returns the value assigned by the `set kernelopts="..."` default that grub2-mkconfig writes
-// into grub.cfg.
+// into grub.cfg. It returns an error if the value cannot be resolved statically.
 func findGrubCfgKernelopts(grubCfgContent string) (string, bool, error) {
 	tokens, err := grub.TokenizeConfig(grubCfgContent)
 	if err != nil {
@@ -698,12 +698,11 @@ func findGrubCfgKernelopts(grubCfgContent string) (string, bool, error) {
 		for _, arg := range args {
 			if arg.Name == grubKernelOpts {
 				if arg.ValueHasVarExpansion {
-					// ParseCommandLineArgs clears values it cannot resolve statically, so a kernelopts default
-					// that references a variable comes back empty. Warn loudly rather than silently returning an
-					// empty kernel command line.
-					logger.Log.Warnf(
-						"Cannot resolve value of kernelopts in grub.cfg because it contains a variable expansion: %s",
-						arg.Token.RawContent)
+					// ParseCommandLineArgs clears values it cannot resolve statically, so a kernelopts default that
+					// references a variable comes back empty. Error instead of returning an empty string.
+					return "", false, fmt.Errorf(
+						"cannot resolve value of 'set kernelopts' in grub.cfg because it contains a variable "+
+							"expansion: %s", arg.Token.RawContent)
 				}
 				return arg.Value, true, nil
 			}

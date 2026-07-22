@@ -122,6 +122,7 @@ func TestFindGrubCfgKernelopts(t *testing.T) {
 		grubCfg       string
 		expectedValue string
 		expectedFound bool
+		expectError   bool
 	}{
 		// --- Basic extraction ---
 		{
@@ -199,12 +200,11 @@ func TestFindGrubCfgKernelopts(t *testing.T) {
 			expectedFound: true,
 		},
 		{
-			// A value containing an unresolved variable cannot be reproduced statically, so it comes back empty
-			// (and findGrubCfgKernelopts logs a warning).
-			name:          "value with a variable expansion",
-			grubCfg:       "set kernelopts=\"root=$root ro\"\n",
-			expectedValue: "",
-			expectedFound: true,
+			// A value containing an unresolved variable cannot be reproduced statically, so it is an error rather
+			// than silently dropping the kernel command line.
+			name:        "value with a variable expansion",
+			grubCfg:     "set kernelopts=\"root=$root ro\"\n",
+			expectError: true,
 		},
 
 		// --- Matching by argument name, not substring ---
@@ -225,6 +225,10 @@ func TestFindGrubCfgKernelopts(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			value, found, err := findGrubCfgKernelopts(tc.grubCfg)
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedFound, found)
 			assert.Equal(t, tc.expectedValue, value)
