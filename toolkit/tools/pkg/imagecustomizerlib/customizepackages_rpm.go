@@ -347,7 +347,7 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsCh
 
 func rpmGetOsManifestPackages(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
 ) (osManifestPackages, error) {
-	args := []string{"-qa", "--queryformat", "%{NAME} %{EVR} %{SHA256HEADER}\n"}
+	args := []string{"-qa", "--queryformat", "%{NAME}\t%{EVR}\t%{SHA256HEADER}\t%{VENDOR}\n"}
 
 	chroot := imageChroot
 	if toolsChroot != nil {
@@ -368,33 +368,31 @@ func rpmGetOsManifestPackages(imageChroot safechroot.ChrootInterface, toolsChroo
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	var packages []*spdx.Package
 	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) != 3 {
+		parts := strings.Split(line, "\t")
+		if len(parts) != 4 {
 			return osManifestPackages{}, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs: %q", line)
 		}
 
 		name := parts[0]
 		version := parts[1]
 		signature := parts[2]
+		vendor := parts[3]
 
 		packages = append(packages, &spdx.Package{
-			PackageName:             name,
-			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s", signature)),
-			PackageVersion:          version,
+			PackageName:           name,
+			PackageSPDXIdentifier: spdx.ElementID(fmt.Sprintf("Package-%s", signature)),
+			PackageVersion:        version,
+			PackageSupplier: &spdx.Supplier{
+				Supplier:     vendor,
+				SupplierType: "Organization",
+			},
 			PackageDownloadLocation: "NOASSERTION",
 			FilesAnalyzed:           false,
-			PackageLicenseConcluded: "NOASSERTION",
-			PackageLicenseDeclared:  "NOASSERTION",
-			PackageCopyrightText:    "NOASSERTION",
-			PackageSupplier: &spdx.Supplier{
-				Supplier: "NOASSERTION",
-			},
 		})
 	}
 
 	manifest := osManifestPackages{
-		Packages:      packages,
-		Relationships: nil,
+		Packages: packages,
 	}
 
 	return manifest, nil

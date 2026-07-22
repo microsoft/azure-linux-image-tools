@@ -182,8 +182,14 @@ func createOsManifest(distroHandler DistroHandler, imageUuidStr string, osManife
 	docId := spdx.ElementID("DOCUMENT")
 
 	targetOs := distroHandler.GetTargetOs()
-	imageId := spdx.ElementID(fmt.Sprintf("Package-%s-%s", targetOs.Distro, imageUuidStr))
 	imageName := fmt.Sprintf("%s-%s", targetOs.Distro, imageUuidStr)
+
+	toolVersion := ToolVersion
+	if ToolVersion == "" {
+		toolVersion = "dev"
+	}
+
+	creator := "imagecustomizer-" + toolVersion
 
 	doc := spdx.Document{
 		SPDXVersion:       spdx.Version,
@@ -192,45 +198,14 @@ func createOsManifest(distroHandler DistroHandler, imageUuidStr string, osManife
 		DocumentName:      imageName,
 		DocumentNamespace: fmt.Sprintf("https://spdx.microsoft.com/imagecustomizer/%s", imageUuidStr),
 		Packages:          osManifestPackages.Packages,
-		Relationships:     osManifestPackages.Relationships,
 		CreationInfo: &spdx.CreationInfo{
 			Creators: []spdx.Creator{{
 				CreatorType: "Tool",
-				Creator:     "imagecustomizer-" + ToolVersion,
+				Creator:     creator,
 			}},
 			Created: buildTime.Format(buildTimeFormat),
 		},
 	}
-
-	// Add relationships from the image "package" to all the system packages.
-	for _, packageInfo := range doc.Packages {
-		doc.Relationships = append(doc.Relationships, &spdx.Relationship{
-			RefA:         spdx.DocElementID{ElementRefID: imageId},
-			RefB:         spdx.DocElementID{ElementRefID: packageInfo.PackageSPDXIdentifier},
-			Relationship: "CONTAINS",
-		})
-	}
-
-	// Add relationship from document to the image "package".
-	doc.Relationships = append(doc.Relationships, &spdx.Relationship{
-		RefA:         spdx.DocElementID{ElementRefID: docId},
-		RefB:         spdx.DocElementID{ElementRefID: imageId},
-		Relationship: "DESCRIBES",
-	})
-
-	// Add the image "package".
-	doc.Packages = append(doc.Packages, &spdx.Package{
-		PackageName:             imageName,
-		PackageSPDXIdentifier:   imageId,
-		PackageDownloadLocation: "NOASSERTION",
-		FilesAnalyzed:           false,
-		PackageLicenseConcluded: "NOASSERTION",
-		PackageLicenseDeclared:  "NOASSERTION",
-		PackageCopyrightText:    "NOASSERTION",
-		PackageSupplier: &spdx.Supplier{
-			Supplier: "NOASSERTION",
-		},
-	})
 
 	return doc
 }

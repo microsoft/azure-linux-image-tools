@@ -8,8 +8,7 @@ import (
 )
 
 type osManifestPackages struct {
-	Packages      []*spdx.Package
-	Relationships []*spdx.Relationship
+	Packages []*spdx.Package
 }
 
 func (m *osManifestPackages) Filter(filterFunc func(packageInfo *spdx.Package) bool) {
@@ -25,17 +24,4 @@ func (m *osManifestPackages) Filter(filterFunc func(packageInfo *spdx.Package) b
 	}
 
 	m.Packages = newPackages
-
-	newRelationships := []*spdx.Relationship(nil)
-	for _, relationship := range m.Relationships {
-		_, aRemoved := removedSpdxIds[relationship.RefA.ElementRefID]
-		_, bRemoved := removedSpdxIds[relationship.RefB.ElementRefID]
-
-		keep := !aRemoved && !bRemoved
-		if keep {
-			newRelationships = append(newRelationships, relationship)
-		}
-	}
-
-	m.Relationships = newRelationships
 }

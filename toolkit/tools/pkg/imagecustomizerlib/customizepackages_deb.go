@@ -24,7 +24,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/sirupsen/logrus"
 	"github.com/spdx/tools-golang/spdx"
-	"github.com/spdx/tools-golang/spdx/v2/common"
 )
 
 var (
@@ -435,7 +434,7 @@ func debGetAllPackagesForCosi(imageChroot safechroot.ChrootInterface) ([]cosiapi
 
 // debGetOsManifestPackages
 func debGetOsManifestPackages(imageChroot safechroot.ChrootInterface) (osManifestPackages, error) {
-	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n").
+	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\t${Maintainer}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
 		ExecuteCaptureOutput()
@@ -450,35 +449,33 @@ func debGetOsManifestPackages(imageChroot safechroot.ChrootInterface) (osManifes
 			continue
 		}
 		parts := strings.Split(line, "\t")
-		if len(parts) != 3 {
+		if len(parts) != 4 {
 			return osManifestPackages{}, fmt.Errorf("malformed dpkg line encountered while parsing installed packages: %q", line)
 		}
 
 		name := parts[0]
 		version := parts[1]
 		arch := parts[2]
+		maintainer := parts[3]
 
 		packageIdBytes := sha256.Sum256(fmt.Appendf(nil, "%s-%s.%s", name, version, arch))
 		packageId := hex.EncodeToString(packageIdBytes[:])
 
 		packages = append(packages, &spdx.Package{
-			PackageName:             name,
-			PackageSPDXIdentifier:   spdx.ElementID(fmt.Sprintf("Package-%s", packageId)),
-			PackageVersion:          version,
+			PackageName:           name,
+			PackageSPDXIdentifier: spdx.ElementID(fmt.Sprintf("Package-%s", packageId)),
+			PackageVersion:        version,
+			PackageSupplier: &spdx.Supplier{
+				Supplier:     maintainer,
+				SupplierType: "Organization",
+			},
 			PackageDownloadLocation: "NOASSERTION",
 			FilesAnalyzed:           false,
-			PackageLicenseConcluded: "NOASSERTION",
-			PackageLicenseDeclared:  "NOASSERTION",
-			PackageCopyrightText:    "NOASSERTION",
-			PackageSupplier: &common.Supplier{
-				Supplier: "NOASSERTION",
-			},
 		})
 	}
 
 	manifest := osManifestPackages{
-		Packages:      packages,
-		Relationships: nil,
+		Packages: packages,
 	}
 
 	return manifest, nil

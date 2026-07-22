@@ -193,7 +193,14 @@ You must enable this feature by specifying `remove-package-manager` in the
 When set to true, the package manager tooling (e.g. tdnf, dnf, apt, etc.) and all the
 package management files (e.g. databases, package cache) will be removed from the image.
 
-Note: For Ubuntu, the dpkg package and its related files are not removed since it is a
+A manifest file with the list of installed system packages is written to:
+`/usr/lib/os-manifest.spdx.json`. This format of this file is a subset of the SPDX v2.3
+JSON format. However, this file is not Software Bill of Materials (SBOM) and must not be
+treated as such. In particular, Image Customizer only includes the installed system
+packages in this manifest file and does not include information about other software
+added to the image (such as your product software).
+
+Note: For Ubuntu, the `dpkg` package and its related files are not removed since it is a
 dependency of some fundamental system packages (e.g. `grub-efi-amd64-signed`).
 
 This operation includes removing any packages that are considered "unused dependencies"
