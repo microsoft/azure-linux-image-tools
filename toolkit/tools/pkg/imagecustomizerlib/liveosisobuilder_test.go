@@ -16,7 +16,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/initrdutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/tarutils"
@@ -267,7 +266,7 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 
 	if outputFormat == "pxe" {
 		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(bootstrappedImage), artifactsPath, pxeUrlBase, baseImageInfo)
+			VerifyBootstrapPXEArtifacts(t, filepath.Base(bootstrappedImage), artifactsPath, pxeUrlBase, baseImageInfo)
 		}
 	}
 }
@@ -413,7 +412,7 @@ func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageForma
 	ValidateLiveOSContent(t, outputFormat, config, testTempDir, pxeArtifactsPath, bootstrappedImage, baseImageInfo)
 }
 
-func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string, baseImageInfo testBaseImageInfo) {
+func VerifyBootstrapPXEArtifacts(t *testing.T, outImageFileName, isoMountDir, pxeBaseUrl string, baseImageInfo testBaseImageInfo) {
 	var err error
 
 	pxeImageFileUrl := ""
@@ -422,14 +421,6 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 	} else {
 		pxeImageFileUrl, err = url.JoinPath(pxeBaseUrl, outImageFileName)
 		assert.NoError(t, err)
-	}
-
-	// Check if PXE support is present in the Dracut package version in use.
-	err = verifyDracutPXESupport(packageInfo)
-	if err != nil {
-		// If there is not PXE support, return
-		logger.Log.Infof("PXE is not supported for this Dracut version - skipping validation")
-		return
 	}
 
 	pxeKernelEntryContent, pxeKernelEntryKeyword := readLiveOSKernelEntryContent(t, isoMountDir, baseImageInfo)
