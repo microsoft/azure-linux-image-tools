@@ -349,7 +349,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but fall back to
 	// the `set kernelopts="..."` default in grub.cfg when no BLS entries are found. grub2-mkconfig writes the kernel
 	// command line into that kernelopts default.
-	kernelToArgs, err := extractKernelToArgs(bootDir, distroHandler)
+	grubKernelToArgs, err := extractKernelToArgs(bootDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
@@ -362,24 +362,45 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// Combine kernel-to-initramfs mapping and kernel command line arguments.
 	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	existingKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	existingUkiKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
+	}
+	existingUkiCmdlines := make(map[string]string, len(existingUkiKernelInfo))
+	for kernel, info := range existingUkiKernelInfo {
+		existingUkiCmdlines[kernel] = info.Cmdline
 	}
 
 	kernelInfo := make(map[string]UkiKernelInfo)
 
+	logger.Log.Debugf("UKI cmdline resolution: kernels found under /boot (need a cmdline) = %v", kernelToInitramfs)
+	logger.Log.Debugf("UKI cmdline resolution: kernels with an existing UKI cmdline = %v", existingUkiCmdlines)
+	logger.Log.Debugf("UKI cmdline resolution: kernels with a grub-derived cmdline = %v", grubKernelToArgs)
+
+	var fallbackArgs string
 	for kernel, initramfs := range kernelToInitramfs {
 		var cmdline string
-		if existingInfo, ok := existingKernelInfo[kernel]; ok {
-			cmdline = existingInfo.Cmdline
+		var cmdlineSource string
+		if existingCmdline, ok := existingUkiCmdlines[kernel]; ok {
+			cmdline = existingCmdline
+			cmdlineSource = "existing UKIs"
+		} else if args, ok := grubKernelToArgs[kernel]; ok {
+			cmdline = args
+			cmdlineSource = "grub boot config"
 		} else {
-			var exists bool
-			cmdline, exists = kernelToArgs[kernel]
-			if !exists {
-				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+			if fallbackArgs == "" {
+				fallbackArgs, err = getFallbackKernelArgs(existingUkiCmdlines, grubKernelToArgs)
+				if err != nil {
+					return fmt.Errorf("no command line arguments found for kernel (%s) and cannot determine fallback "+
+						"command line:\n%w", kernel, err)
+				}
 			}
+			cmdline = fallbackArgs
+			cmdlineSource = "fallback"
+			logger.Log.Infof("No command line arguments found for kernel (%s): using fallback command line", kernel)
 		}
+
+		logger.Log.Debugf("UKI cmdline resolution: kernel (%s) resolved via %s -> %q", kernel, cmdlineSource, cmdline)
 
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
@@ -395,6 +416,42 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	logger.Log.Debugf("Saved UKI kernel info to: %s", cmdlineFilePath)
 	return nil
+}
+
+// getFallbackKernelArgs returns the non-empty kernel command line arguments that can serve as a fallback for a kernel
+// that has no command line of its own.
+func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToArgs map[string]string) (string, error) {
+	seen := make(map[string]struct{})
+	for _, cmdline := range existingUkiCmdlines {
+		if cmdline != "" {
+			seen[cmdline] = struct{}{}
+		}
+	}
+	fallbackSource := "existing UKIs"
+	if len(seen) == 0 {
+		fallbackSource = "grub boot config"
+		for _, cmdline := range grubKernelToArgs {
+			if cmdline != "" {
+				seen[cmdline] = struct{}{}
+			}
+		}
+	}
+
+	args := make([]string, 0, len(seen))
+	for arg := range seen {
+		args = append(args, arg)
+	}
+
+	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s) from %s: %s", len(args),
+		fallbackSource, strings.Join(args, " | "))
+
+	if len(args) == 0 {
+		return "", fmt.Errorf("no command line arguments found and no fallback command line available")
+	}
+	if len(args) > 1 {
+		return "", fmt.Errorf("cannot pick a fallback command line: kernels have divergent command lines")
+	}
+	return args[0], nil
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,

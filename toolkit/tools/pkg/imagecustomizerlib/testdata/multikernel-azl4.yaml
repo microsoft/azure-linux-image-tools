@@ -7,8 +7,8 @@ baseConfigs:
 
 os:
   packages:
-    install:
-    - kernel-6.18.5-1.8.azl4
+    installLists:
+    - lists/multikernel-azl4.yaml
 
   kernelCommandLine:
     extraCommandLine:

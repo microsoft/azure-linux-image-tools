@@ -31,17 +31,7 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	configFile := ""
-	switch baseImageInfo.Version {
-	case baseImageVersionAzl2:
-		configFile = filepath.Join(testDir, "multikernel-azl2.yaml")
-
-	case baseImageVersionAzl3:
-		configFile = filepath.Join(testDir, "multikernel-azl3.yaml")
-
-	case baseImageVersionAzl4:
-		configFile = filepath.Join(testDir, "multikernel-azl4.yaml")
-	}
+	configFile := filepath.Join(testDir, multiKernelConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
@@ -190,4 +180,18 @@ func TestFindRootMountPoint_NoRoot_Fail(t *testing.T) {
 
 	result := findRootMountPoint(fileSystems)
 	assert.Nil(t, result)
+}
+
+func multiKernelConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2:
+		return "multikernel-azl2.yaml"
+	case baseImageVersionAzl3:
+		return "multikernel-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "multikernel-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version: %s", baseImageInfo.Version)
+		return ""
+	}
 }

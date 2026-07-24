@@ -1,0 +1,5 @@
+# These are old kernel versions that are still available but not installed on the latest AZL4 test image.
+# The latest AZL4 test image has kernel-6.18.31-1.5.azl4 installed at the time of this writing.
+packages:
+- kernel-6.18.5-1.8.azl4
+- kernel-6.18.29-1.1.azl4
