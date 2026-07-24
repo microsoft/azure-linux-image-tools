@@ -517,13 +517,9 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	// output.artifacts extraction with os.uki.mode: passthrough) run over a verity-sealed base without
 	// altering the dm-verity root hash. (config.go additionally enforces the feature whenever
 	// storage.reinitializeVerity is set; this is the runtime safety net for the re-seal path.)
-	if len(baseImageVerityMetadata) > 0 &&
-		rc.Storage.ReinitializeVerity == imagecustomizerapi.ReinitializeVerityTypeAll {
-		previewFeatureEnabled := slices.Contains(rc.PreviewFeatures,
-			imagecustomizerapi.PreviewFeatureReinitializeVerity)
-		if !previewFeatureEnabled {
-			return im, ErrVerityPreviewFeatureRequired
-		}
+	if verityReinitializePreviewFeatureRequired(rc, len(baseImageVerityMetadata) > 0) &&
+		!slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureReinitializeVerity) {
+		return im, ErrVerityPreviewFeatureRequired
 	}
 
 	im.partitionsLayout = partitionsLayout
