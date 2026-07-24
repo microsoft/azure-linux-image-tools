@@ -201,10 +201,12 @@ func (d *aclDistroHandler) GetEspDir() string {
 }
 
 func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
-	// ACL does not use GRUB and the EFI System Partition IS the boot partition.
-	// Return an empty UUID to signal that the ESP itself is the boot partition.
-	// See comment in ReadGrub2ConfigFile.
-	return "", fs.ErrNotExist
+	// ACL does not use GRUB and the EFI System Partition IS the boot partition (no separate /boot and
+	// no grub.cfg on the ESP). Return an empty UUID with NO error; findBootPartitionFromEsp (the only
+	// caller) interprets an empty UUID as "the ESP itself is the boot partition". Returning
+	// fs.ErrNotExist here was instead treated as a hard failure by that caller, which broke the
+	// output.artifacts extract path on ACL ("failed to read EFI system partition's grub.cfg file").
+	return "", nil
 }
 
 func (d *aclDistroHandler) GetSELinuxConfigFile() string {

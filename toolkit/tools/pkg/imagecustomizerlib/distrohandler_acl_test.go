@@ -43,3 +43,14 @@ func TestAclDracutRegenerateArgsUsesAclConfDir(t *testing.T) {
 
 	assert.Equal(t, "/usr/share/distro/etc/dracut.conf.d", args[confdirIdx+1])
 }
+
+func TestAclFindBootPartitionUuidFromEspReturnsEmptyWithoutError(t *testing.T) {
+	// ACL is systemd-boot with no grub.cfg on the ESP; the ESP itself is the boot partition.
+	// FindBootPartitionUuidFromEsp must return an empty UUID with NO error so findBootPartitionFromEsp
+	// treats the ESP as the boot partition. Returning an error here broke the output.artifacts extract
+	// path on ACL.
+	d := &aclDistroHandler{}
+	uuid, err := d.FindBootPartitionUuidFromEsp("/nonexistent-esp")
+	assert.NoError(t, err)
+	assert.Empty(t, uuid)
+}
