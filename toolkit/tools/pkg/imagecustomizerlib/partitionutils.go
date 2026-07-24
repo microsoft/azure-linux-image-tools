@@ -106,13 +106,6 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 
 	bootPartitionUuid, err := distroHandler.FindBootPartitionUuidFromEsp(tmpDir)
 	if err != nil {
-		// A missing grub.cfg on the ESP (fs.ErrNotExist) signals a distro that has no grub.cfg there
-		// (e.g. ACL / systemd-boot), where the ESP itself is the boot partition. Treat it the same as
-		// the empty-UUID signal below rather than a hard failure, so output.artifacts / boot-partition
-		// discovery works on systemd-boot images.
-		if errors.Is(err, fs.ErrNotExist) {
-			return efiSystemPartition, nil
-		}
 		return nil, fmt.Errorf("failed to read EFI system partition's grub.cfg file:\n%w", err)
 	}
 
