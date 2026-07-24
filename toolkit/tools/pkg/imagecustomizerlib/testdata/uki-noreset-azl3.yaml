@@ -1,0 +1,13 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: uki-noreset-base.yaml
+
+os:
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - systemd-boot

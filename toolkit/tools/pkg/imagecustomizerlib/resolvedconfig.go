@@ -87,6 +87,9 @@ type ResolvedConfig struct {
 
 	// ACL-only partition grow config (preview). Nil when not requested.
 	Acl *imagecustomizerapi.Acl
+
+	// Remove package manager tools and directories
+	RemovePackageManager bool
 }
 
 func (c *ResolvedConfig) InputFileExt() string {

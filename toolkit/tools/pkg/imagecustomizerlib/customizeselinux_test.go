@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -201,82 +200,40 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
 	existsArgs []string, notExistsArgs []string,
 ) {
-	var cmdline string
-	var err error
+	var kernelToArgs map[string]string
 
 	if hasUkis {
-		// UKI image: extract cmdline from UKI files.
-		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
-		cmdline, err = extractCmdlineFromUkiForTest(ukiDir)
-		if err != nil {
-			t.Fatalf("Failed to extract cmdline from UKI: %v", err)
+		// UKI image: extract the command line from every UKI (main image + all addons) on the ESP.
+		espPath := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi")
+
+		scratchDir, err := os.MkdirTemp("", "test-cmdline-extraction-*")
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer os.RemoveAll(scratchDir)
+
+		kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, scratchDir)
+		if !assert.NoError(t, err) {
 			return
 		}
 	} else {
-		// GRUB image: read grub.cfg or BLS entries.
+		// GRUB image: read the kernel arguments for every kernel from grub.cfg / BLS entries.
 		bootDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot")
 
 		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-		if err != nil {
-			t.Fatalf("Failed to detect distro handler: %v", err)
+		if !assert.NoError(t, err) {
 			return
 		}
 
 		parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
-		if err != nil {
-			t.Fatalf("Failed to extract kernel args from boot config: %v", err)
+		if !assert.NoError(t, err) {
 			return
 		}
-		kernelToArgs := grubKernelArgsToStringMap(parsedKernelToArgs)
 
-		for _, opts := range kernelToArgs {
-			// Like in the UKI scenario, we only test the first seen.
-			cmdline = opts
-			break
-		}
+		kernelToArgs = grubKernelArgsToStringMap(parsedKernelToArgs)
 	}
 
-	for _, existsArg := range existsArgs {
-		assert.Containsf(t, cmdline, existsArg,
-			"ensure kernel command arg exists (%s)", existsArg)
-	}
-
-	for _, notExistsArg := range notExistsArgs {
-		assert.NotContainsf(t, cmdline, notExistsArg,
-			"ensure kernel command arg not exists (%s)", notExistsArg)
-	}
-}
-
-func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
-	files, err := os.ReadDir(ukiDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to read UKI directory: %w", err)
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(f.Name(), ".efi") {
-			ukiPath := filepath.Join(ukiDir, f.Name())
-
-			tempDir, err := os.MkdirTemp("", "test-cmdline-extraction-*")
-			if err != nil {
-				return "", fmt.Errorf("failed to create temp directory: %w", err)
-			}
-			defer os.RemoveAll(tempDir)
-
-			// Use production code to extract cmdline (handles main UKI and all addons)
-			cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, tempDir)
-			if err != nil {
-				return "", fmt.Errorf("failed to extract cmdline: %w", err)
-			}
-
-			return cmdline, nil
-		}
-	}
-
-	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
+	assertKernelCmdlineArgs(t, kernelToArgs, existsArgs, notExistsArgs)
 }
 
 // partitionsSELinuxEnforcingConfigFile returns the partitions-selinux-enforcing test config file appropriate for the

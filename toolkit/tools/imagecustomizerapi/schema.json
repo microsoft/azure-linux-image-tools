@@ -570,6 +570,9 @@
         },
         "snapshotTime": {
           "type": "string"
+        },
+        "removePackageManager": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

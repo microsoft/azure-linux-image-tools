@@ -948,6 +948,57 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
 }
 
+func TestCustomizeImageRemovePackageManager(t *testing.T) {
+	for _, baseImageInfo := range slices.Concat(baseImageAzureLinuxAll, baseImageUbuntuAll) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageRemovePackageManager(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageRemovePackageManager(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageRemovePackageManager_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "remove-package-manager.yaml")
+
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Ensure LookPathChroot() is working correctly.
+	_, err = shell.LookPathChroot("sh", imageConnection.Chroot().RootDir())
+	assert.NoError(t, err)
+
+	// Ensure all the package manager commands were removed from the image.
+	removedCommands := []string{"rpm", "tdnf", "dnf", "dnf5", "apt", "apt-get"}
+	for _, command := range removedCommands {
+		_, err := shell.LookPathChroot(command, imageConnection.Chroot().RootDir())
+		assert.Error(t, err)
+	}
+
+	// Ensure files have been removed.
+	removedFiles := slices.Concat(packageManagementDirsDeb, packageManagementDirsFedora,
+		packageManagementDirsAzl3)
+
+	for _, removedFile := range removedFiles {
+		_, err := os.Stat(filepath.Join(imageConnection.Chroot().RootDir(), removedFile))
+		assert.ErrorIsf(t, err, os.ErrNotExist, "file/dir (%s) should be removed", removedFile)
+	}
+}
+
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {
 	var versionOutput string
 	out, _, err := shell.NewExecBuilder("rpm", "-q", pkgName).

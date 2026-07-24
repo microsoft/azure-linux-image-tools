@@ -63,7 +63,7 @@ os:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
-    - rd.debug
+    - console=ttyAMA0,115200n8
 
   uki:
     mode: create

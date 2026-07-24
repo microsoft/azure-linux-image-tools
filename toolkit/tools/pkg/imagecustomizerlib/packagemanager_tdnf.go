@@ -6,11 +6,14 @@ package imagecustomizerlib
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -26,21 +29,11 @@ func newTdnfPackageManager(version string) *tdnfPackageManager {
 	return &tdnfPackageManager{version: version}
 }
 
-func (pm *tdnfPackageManager) getPackageManagerBinary() string { return packageManagerTDNF }
-func (pm *tdnfPackageManager) getReleaseVersion() string       { return pm.version }
-func (pm *tdnfPackageManager) getConfigFile() string           { return customTdnfConfRelPath }
-
-// getVerbosityOption returns the package manager-specific verbosity flag
-func (pm *tdnfPackageManager) getVerbosityOption() string { return "-v" }
+func (pm *tdnfPackageManager) getReleaseVersion() string { return pm.version }
 
 // getCacheOnlyOptions returns TDNF-specific cache options for install/update operations
 func (pm *tdnfPackageManager) getCacheOnlyOptions() []string {
 	return nil // TDNF doesn't need additional cache options
-}
-
-// supportsSnapshotTime returns whether TDNF supports snapshot time functionality
-func (pm *tdnfPackageManager) supportsSnapshotTime() bool {
-	return true // TDNF supports snapshot time for Azure Linux
 }
 
 // TDNF-specific constants and output handling
@@ -65,12 +58,43 @@ var (
 	tdnfDownloadRegex         = regexp.MustCompile(tdnfDownloadPattern)
 )
 
-func (pm *tdnfPackageManager) createOutputCallback() func(string) {
+func (pm *tdnfPackageManager) configureSnapshotTime(packageManagerChroot *safechroot.Chroot,
+	snapshotTime imagecustomizerapi.PackageSnapshotTime,
+) (func() error, error) {
+	cleanup := func() error {
+		return cleanupSnapshotTimeConfig(packageManagerChroot)
+	}
+
+	// Setup Azure Linux specific TDNF configuration with snapshot
+	err := createTempTdnfConfigWithSnapshot(packageManagerChroot, snapshotTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return cleanup, nil
+}
+
+func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	pmChroot := imageChroot
+	if toolsChroot != nil {
+		pmChroot = toolsChroot
+	}
+
+	fullArgs := []string{"-v"}
+
+	if _, err := os.Stat(filepath.Join(pmChroot.RootDir(), customTdnfConfRelPath)); err == nil {
+		fullArgs = append(fullArgs, "--config", "/"+customTdnfConfRelPath)
+	}
+
+	fullArgs = append(fullArgs, args...)
+
 	lastDownloadPackageSeen := ""
 	inSummary := false
 	seenTransactionErrorMessage := false
 
-	return func(line string) {
+	stdoutCallback := func(line string) {
 		if !seenTransactionErrorMessage {
 			seenTransactionErrorMessage = tdnfTransactionErrorRegex.MatchString(line)
 		}
@@ -106,6 +130,13 @@ func (pm *tdnfPackageManager) createOutputCallback() func(string) {
 			logger.Log.Trace(line)
 		}
 	}
+
+	return shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
+		StdoutCallback(stdoutCallback).
+		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(pmChroot.ChrootDir()).
+		Execute()
 }
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
@@ -115,7 +146,7 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 	chroot := imageChroot
 	if toolsChroot != nil {
 		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL). Matches the executeRpmPackageManagerCommand pattern.
+		// imageChroot has no in-image tdnf (e.g. ACL).
 		args = append([]string{
 			"--releasever=" + pm.getReleaseVersion(),
 			"--installroot=/" + toolsRootImageDir,
@@ -148,7 +179,7 @@ func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chro
 	chroot := imageChroot
 	if toolsChroot != nil {
 		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL). Matches the executeRpmPackageManagerCommand pattern.
+		// imageChroot has no in-image tdnf (e.g. ACL).
 		args = append([]string{
 			"--releasever=" + pm.getReleaseVersion(),
 			"--installroot=/" + toolsRootImageDir,

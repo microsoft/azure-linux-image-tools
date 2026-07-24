@@ -117,6 +117,17 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		snapshotTime, d.packageManager)
 }
 
+func (d *aclDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
+}
+
+func (d *aclDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsAzl3)
+}
+
 // IsPackageInstalled queries the image's rpm database via tdnf. When toolsChroot is provided, tdnf runs
 // inside toolsChroot against the image bind-mounted at /_imageroot (required for stock ACL, which has no
 // in-image tdnf). When toolsChroot is nil, tdnf runs directly inside the image chroot (works on ACL-T).

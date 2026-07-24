@@ -955,3 +955,17 @@ func TestConfigIsValidAclOemIdDoesNotRequireGrowFeature(t *testing.T) {
 	}
 	assert.NoError(t, config.IsValid())
 }
+
+func TestConfigIsValidMissingRemovePackageManagerPreviewFeature(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{},
+		OS: &OS{
+			Packages: Packages{
+				RemovePackageManager: ptrutils.PtrTo(true),
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "the 'remove-package-manager' preview feature must be enabled to use 'os.packages.removePackageManager'")
+}

@@ -132,6 +132,17 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 		snapshotTime, d.packageManager)
 }
 
+func (d *azureLinux4DistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
+}
+
+func (d *azureLinux4DistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsFedora)
+}
+
 func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
@@ -280,8 +291,7 @@ func (d *azureLinux4DistroHandler) ConfigureDiskBootLoader(imageConnection *imag
 }
 
 func (d *azureLinux4DistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	// Azure Linux 4.0 uses BLS (Boot Loader Specification).
-	return readKernelCmdlinesFromBLSEntries(bootDir)
+	return readBLSOrGrubCfgKernelopts(bootDir)
 }
 
 func (d *azureLinux4DistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {

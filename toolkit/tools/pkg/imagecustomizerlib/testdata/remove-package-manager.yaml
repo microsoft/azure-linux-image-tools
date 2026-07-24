@@ -1,0 +1,26 @@
+previewFeatures:
+- remove-package-manager
+- preview-distro-version
+
+os:
+  packages:
+    removePackageManager: true
+
+scripts:
+  postCustomization:
+  - content: |
+      set -ux
+
+      du -sh \
+        /var/lib/apt \
+        /var/lib/dnf \
+        /var/lib/rpm \
+        /usr/lib/sysimage/libdnf5 \
+        /usr/lib/sysimage/tdnf \
+        /usr/lib/sysimage/rpm \
+        /var/cache/apt \
+        /var/cache/dnf \
+        /var/cache/dnf5daemon-server \
+        /var/cache/libdnf5 \
+        /var/cache/tdnf \
+        || true

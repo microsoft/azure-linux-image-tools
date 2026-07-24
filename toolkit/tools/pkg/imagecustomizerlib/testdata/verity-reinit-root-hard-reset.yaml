@@ -8,8 +8,14 @@ storage:
 os:
   bootloader:
     resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.debug"
+
   uki:
     mode: create
+
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel

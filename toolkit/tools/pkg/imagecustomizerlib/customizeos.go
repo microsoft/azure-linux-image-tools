@@ -61,16 +61,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 				return err
 			}
 
-			// Save the base kernel command-line now so that we can apply those changes later via uki-kernel-info.json
-			ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
-			err = os.MkdirAll(ukiBuildDir, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("failed to create UKI build directory:\n%w", err)
-			}
+			// Save the base kernel command-line now so that we can apply those changes later via uki-kernel-info.json.
+			// Skip this when the bootloader is being hard-reset. Pre-seeding here would carry the old UKI cmdline
+			// to the new UKI, defeating the reset.
+			if rc.BootLoader.ResetType != imagecustomizerapi.ResetBootLoaderTypeHard {
+				ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
+				err = os.MkdirAll(ukiBuildDir, os.ModePerm)
+				if err != nil {
+					return fmt.Errorf("failed to create UKI build directory:\n%w", err)
+				}
 
-			err = saveUkiBaseCmdlineForCreate(rc.BuildDirAbs, imageChroot, distroHandler)
-			if err != nil {
-				return err
+				err = saveUkiBaseCmdlineForCreate(rc.BuildDirAbs, imageChroot, distroHandler)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -225,6 +229,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		rc.OsKernelCommandLine.ExtraCommandLine, aclOemId)
 	if err != nil {
 		return err
+	}
+
+	if rc.RemovePackageManager {
+		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
+		}
 	}
 
 	err = restoreResolvConf(ctx, resolvConf, imageChroot)

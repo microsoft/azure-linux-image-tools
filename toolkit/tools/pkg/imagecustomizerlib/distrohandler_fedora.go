@@ -101,6 +101,17 @@ var (
 	// initramfs builds. Loading it from the initramfs instead would deny execute on the initramfs binaries under
 	// enforcing policy.
 	liveOSInitrdDracutModulesFedora = []string{"dmsquash-live", "livenet"}
+
+	packageManagementPackagesFedora = []string{"dnf5", "rpm"}
+	packageManagementDirsFedora     = []string{
+		"/var/lib/rpm",
+		"/var/lib/dnf",
+		"/usr/lib/sysimage/libdnf5",
+		"/usr/lib/sysimage/rpm",
+		"/var/cache/dnf",
+		"/var/cache/libdnf5",
+		"/var/cache/dnf5daemon-server",
+	}
 )
 
 func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
@@ -158,6 +169,17 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager,
 	)
+}
+
+func (d *fedoraDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
+}
+
+func (d *fedoraDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsFedora)
 }
 
 func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
@@ -277,7 +299,7 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 }
 
 func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	return readKernelCmdlinesFromBLSEntries(bootDir)
+	return readBLSOrGrubCfgKernelopts(bootDir)
 }
 
 func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {

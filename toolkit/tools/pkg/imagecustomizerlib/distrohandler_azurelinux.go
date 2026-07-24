@@ -41,6 +41,14 @@ var (
 	systemdBootPackagesAzl3       = []string{systemdBootPackage}
 	liveOSRequiredPackagesAzl3    = []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	liveOSInitrdDracutModulesAzl3 = []string{"dmsquash-live", "livenet", "selinux"}
+	packageManagementPackagesAzl3 = []string{"tdnf", "dnf", "rpm"}
+	packageManagementDirsAzl3     = []string{
+		"/var/lib/rpm",
+		"/var/lib/dnf",
+		"/usr/lib/sysimage/tdnf",
+		"/var/cache/tdnf",
+		"/var/cache/dnf",
+	}
 )
 
 func newAzureLinuxDistroHandler(targetOs targetos.TargetOs) *azureLinuxDistroHandler {
@@ -79,6 +87,17 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 	return managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
+}
+
+func (d *azureLinuxDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+) error {
+	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
+}
+
+func (d *azureLinuxDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
+) error {
+	return removePackageManagementFiles(imageChroot, packageManagementDirsAzl3)
 }
 
 // IsPackageInstalled implements DistroHandler.

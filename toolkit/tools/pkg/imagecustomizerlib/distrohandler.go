@@ -47,6 +47,12 @@ type DistroHandler interface {
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
+	// Removes the package management tools (e.g. rpm, dnf, apt).
+	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
+
+	// Removes the package management directories (e.g. rpm db).
+	RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot) error
+
 	// IsPackageInstalled reports whether packageName is installed in the image's package database. When toolsChroot is
 	// non-nil, implementations that depend on an in-image package manager should run their query inside toolsChroot
 	// against installroot=/_imageroot instead of imageChroot — this allows the check to work on images that ship no

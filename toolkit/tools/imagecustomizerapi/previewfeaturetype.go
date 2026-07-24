@@ -58,6 +58,9 @@ const (
 	// PreviewFeatureAclOemId enables the narrow, ACL-only API for overriding the flatcar OEM id
 	// (flatcar.oem.id) on the boot kernel command line.
 	PreviewFeatureAclOemId PreviewFeature = "acl-oem-id"
+
+	// PreviewFeatureRemovePackageManager enables support for the '.os.packages.removePackageManager' API.
+	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -66,7 +69,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId:
+		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId, PreviewFeatureRemovePackageManager:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

@@ -181,6 +181,9 @@ Supported options:
 
   See [acl](./acl.md) for more details.
 
+- `remove-package-manager`: Enables support for the
+  ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) API.
+
   Added in v1.6.
 
 ## output [[output](./output.md)]
