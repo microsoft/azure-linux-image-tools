@@ -371,16 +371,17 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Read the kernel command-line arguments from the grub boot config only. We do not fall back to reading them from
-	// the UKIs here: for a UKI base image (which has no grub.cfg) the existing UKI command-lines should already be
-	// captured in uki-kernel-info.json, which is read below and takes precedence over these grub-derived args. So when
-	// there is no grub.cfg, extractKernelToArgs returns an empty map and that saved info supplies the command-line
-	// instead.
+	// Read the kernel command-line arguments to seed the regenerated UKIs. Prefer the grub boot config
+	// (grub.cfg / BLS entries); for a UKI/systemd-boot base image (e.g. ACL) that has no grub.cfg, fall
+	// back to reading the command line(s) from the existing UKI(s) on the ESP. That fallback is what lets
+	// a kernel swapped in during this customization — absent from uki-kernel-info.json, which is keyed by
+	// the removed kernel — inherit the base image's UKI cmdline in the loop below. uki-kernel-info.json
+	// still takes precedence for kernels that have a saved per-kernel entry.
 	//
-	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but fall back to
-	// the `set kernelopts="..."` default in grub.cfg when no BLS entries are found. grub2-mkconfig writes the kernel
-	// command line into that kernelopts default.
-	kernelToArgs, err := extractKernelToArgs(bootDir, distroHandler)
+	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but
+	// fall back to the `set kernelopts="..."` default in grub.cfg when no BLS entries are found.
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
+	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
@@ -961,16 +962,35 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	return nil
 }
 
-func extractKernelToArgs(bootDir string, distroHandler DistroHandler) (map[string]string, error) {
+func extractKernelToArgs(espPath string, bootDir string, buildDir string, distroHandler DistroHandler,
+) (map[string]string, error) {
+	// Try the boot config (grub.cfg / BLS entries) first.
 	parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to extract kernel args from boot config:\n%w", err)
 		}
-		return map[string]string{}, nil
+	} else {
+		kernelToArgs := grubKernelArgsToStringMap(parsedKernelToArgs)
+		if len(kernelToArgs) > 0 {
+			return kernelToArgs, nil
+		}
 	}
 
-	return grubKernelArgsToStringMap(parsedKernelToArgs), nil
+	// No usable boot-config args (e.g. a UKI/systemd-boot image such as ACL, which has no grub.cfg).
+	// Fall back to reading the command line(s) from the existing UKI(s) on the ESP so kernels without a
+	// saved per-kernel entry (e.g. one swapped in during this customization) can inherit the base image's
+	// UKI cmdline. If the ESP has no UKIs, return an empty map and let the saved uki-kernel-info.json
+	// supply the command lines downstream.
+	ukiKernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+	}
+
+	return ukiKernelToArgs, nil
 }
 
 // readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from the grub.cfg,
