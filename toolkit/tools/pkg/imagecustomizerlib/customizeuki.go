@@ -418,40 +418,52 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	return nil
 }
 
-// getFallbackKernelArgs returns the non-empty kernel command line arguments that can serve as a fallback for a kernel
-// that has no command line of its own.
+// getFallbackKernelArgs returns the kernel command line that a kernel with no command line of its own should inherit.
+//
+// A kernel installed during re-customization (for example, after the kernel package is swapped) has no command line
+// to look up. It is absent from the existing UKI info, which only covers the kernels the image's current UKIs were
+// built for. It is absent from the grub config too, because converting an image to UKI clears /boot
+// (including grub.cfg). Image Customizer applies kernel command line changes to every kernel in the image, so the
+// command line that the image's other kernels already share is the correct thing for the new kernel to inherit.
+//
+// The kernels are therefore expected to agree on a single command line. This collects the *distinct* command lines
+// and requires that exactly one remains. It returns an error rather than guessing when there is no command line to
+// inherit, or when the kernels disagree and so there is no single correct answer.
 func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToArgs map[string]string) (string, error) {
-	seen := make(map[string]struct{})
+	// Prefer the command lines already baked into the existing UKIs. The grub config is only consulted for an image
+	// that has no UKIs yet, which is the case when a grub image is being converted to UKI for the first time.
+	distinctCmdlines := make(map[string]struct{})
 	for _, cmdline := range existingUkiCmdlines {
 		if cmdline != "" {
-			seen[cmdline] = struct{}{}
+			distinctCmdlines[cmdline] = struct{}{}
 		}
 	}
 	fallbackSource := "existing UKIs"
-	if len(seen) == 0 {
+	if len(distinctCmdlines) == 0 {
 		fallbackSource = "grub boot config"
 		for _, cmdline := range grubKernelToArgs {
 			if cmdline != "" {
-				seen[cmdline] = struct{}{}
+				distinctCmdlines[cmdline] = struct{}{}
 			}
 		}
 	}
 
-	args := make([]string, 0, len(seen))
-	for arg := range seen {
-		args = append(args, arg)
+	// Flatten the set so the number of distinct command lines can be checked below.
+	cmdlines := make([]string, 0, len(distinctCmdlines))
+	for cmdline := range distinctCmdlines {
+		cmdlines = append(cmdlines, cmdline)
 	}
 
-	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s) from %s: %s", len(args),
-		fallbackSource, strings.Join(args, " | "))
+	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s) from %s: %s", len(cmdlines),
+		fallbackSource, strings.Join(cmdlines, " | "))
 
-	if len(args) == 0 {
+	if len(cmdlines) == 0 {
 		return "", fmt.Errorf("no command line arguments found and no fallback command line available")
 	}
-	if len(args) > 1 {
+	if len(cmdlines) > 1 {
 		return "", fmt.Errorf("cannot pick a fallback command line: kernels have divergent command lines")
 	}
-	return args[0], nil
+	return cmdlines[0], nil
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
