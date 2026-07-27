@@ -256,9 +256,6 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 
 func TestCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwap(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
-		if baseImageInfo.Version == baseImageVersionAzl4 {
-			t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with")
-		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t, baseImageInfo)
 		})
@@ -313,6 +310,10 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	})
 	if !assert.NoError(t, err) {
 		return
+	}
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with, cannot swap kernels")
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
