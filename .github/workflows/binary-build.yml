@@ -208,7 +208,7 @@ jobs:
       env:
         ARCH: ${{ inputs.arch }}
 
-    - name: Run imagecustomizerapi tests
+    - name: Run imagecustomizerapi and cosiapi tests
       run: |
         set -euxo pipefail
 
@@ -220,6 +220,7 @@ jobs:
         go test -v \
           -coverprofile="$TEST_RESULTS_DIR/api.cov" -covermode count \
           ./imagecustomizerapi \
+          ./cosiapi \
           2>&1 \
           | tee "$TEST_RESULTS_DIR/api.txt"
 
