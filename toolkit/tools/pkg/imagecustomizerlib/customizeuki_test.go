@@ -294,6 +294,10 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		return
 	}
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with, cannot swap kernels")
+	}
+
 	// Pass 2: re-customize, swapping the kernel to kernel-npi and adding console=ttyAMA0,115200n8.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, verityReinitUsrUkiNoResetKernelSwapConfigFile(t, baseImageInfo))
@@ -310,10 +314,6 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	})
 	if !assert.NoError(t, err) {
 		return
-	}
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with, cannot swap kernels")
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
