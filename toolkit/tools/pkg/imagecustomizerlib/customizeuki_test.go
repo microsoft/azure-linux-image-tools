@@ -309,7 +309,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		return
 	}
 
-	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath0, ukiFilesChecksums0, ukiFilesChecksums1,
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath1, ukiFilesChecksums0, ukiFilesChecksums1,
 		addonFilesChecksums0, addonFilesChecksums1)
 
 	if baseImageInfo.Version == baseImageVersionAzl4 {
