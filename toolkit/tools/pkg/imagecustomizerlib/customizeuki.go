@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -451,6 +452,7 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 	for cmdline := range distinctCmdlines {
 		cmdlines = append(cmdlines, cmdline)
 	}
+	slices.Sort(cmdlines)
 
 	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s): %s", len(cmdlines),
 		strings.Join(cmdlines, " | "))
