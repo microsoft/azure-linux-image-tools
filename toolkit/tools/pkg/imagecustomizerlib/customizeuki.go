@@ -459,7 +459,8 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 		return "", fmt.Errorf("no command line arguments found and no fallback command line available")
 	}
 	if len(cmdlines) > 1 {
-		return "", fmt.Errorf("cannot pick a fallback command line: kernels have divergent command lines")
+		return "", fmt.Errorf("cannot pick a fallback command line: kernels have divergent command lines: %s",
+			strings.Join(cmdlines, " | "))
 	}
 	return cmdlines[0], nil
 }
