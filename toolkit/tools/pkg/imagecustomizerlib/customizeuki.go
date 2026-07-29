@@ -255,10 +255,10 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 	return nil
 }
 
-func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
+func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, hasUkis bool,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, hasUkis, imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -266,7 +266,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	return nil
 }
 
-func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
+func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, hasUkis bool,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
 	var err error
@@ -340,18 +340,22 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Read the kernel command-line arguments from the grub boot config only. We do not fall back to reading them from
-	// the UKIs here: for a UKI base image (which has no grub.cfg) the existing UKI command-lines should already be
-	// captured in uki-kernel-info.json, which is read below and takes precedence over these grub-derived args. So when
-	// there is no grub.cfg, extractKernelToArgs returns an empty map and that saved info supplies the command-line
-	// instead.
+	// A base image that already has UKIs carries its kernel command lines inside those UKIs, saved to
+	// uki-kernel-info.json and read below. Its grub boot config is deliberately not consulted, because converting an
+	// image to UKI clears /boot: anything found there now was written back during this run by a kernel package's
+	// install hooks (grub2-mkconfig, kernel-install), which run before os.kernelCommandLine changes are applied. Those
+	// files therefore hold a pre-customization command line, and reading them would hand a newly installed kernel
+	// (e.g. after a kernel package swap) a stale command line instead of the one the other kernels received.
 	//
-	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but fall back to
-	// the `set kernelopts="..."` default in grub.cfg when no BLS entries are found. grub2-mkconfig writes the kernel
-	// command line into that kernelopts default.
-	grubKernelToArgs, err := extractKernelToArgs(bootDir, distroHandler)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
+	// A grub image being converted to UKI for the first time has no UKIs to read from, so there the grub boot config is
+	// the only source of the kernel command lines and must be read. BLS-based distros such as Azure Linux 4 read the
+	// per-kernel loader/entries/*.conf files, falling back to the `set kernelopts="..."` default in grub.cfg.
+	grubKernelToArgs := map[string]string{}
+	if !hasUkis {
+		grubKernelToArgs, err = extractKernelToArgs(bootDir, distroHandler)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
+		}
 	}
 
 	err = distroHandler.CleanBootDirectory(imageChroot)

@@ -1,0 +1,14 @@
+previewFeatures:
+- reinitialize-verity
+- uki
+
+storage:
+  reinitializeVerity: all
+
+os:
+  kernelCommandLine:
+    extraCommandLine:
+    - systemd.log_level=debug
+
+  uki:
+    mode: create

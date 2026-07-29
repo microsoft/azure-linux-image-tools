@@ -279,20 +279,38 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 
 	buildDir := filepath.Join(testTempDir, "build")
 
-	// Pass 1: convert the grub base image into a usr-verity UKI image, install additional kernels, and add rd.info.
-	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
-	configFile1 := filepath.Join(testDir, verityUsrUkiMultiKernelConfigFile(t, baseImageInfo))
-	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, baseImage, outImageFilePath1, "raw",
+	// Pass 0: build the single-kernel usr-verity UKI image that the later passes re-customize. Adds rd.info.
+	outImageFilePath0 := filepath.Join(testTempDir, "image0.raw")
+	configFile0 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile0, baseImage, outImageFilePath0, "raw",
 		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
+	ukiFilesChecksums0, addonFilesChecksums0, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"},
 		nil, nil, nil)
 	if !ok {
 		return
 	}
+
+	// Pass 1: re-customize, adding new kernels to the UKI image. Adds systemd.log_level=debug.
+	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
+	configFile1 := filepath.Join(testDir, verityReinitUsrUkiNoResetMultiKernelConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, outImageFilePath0, outImageFilePath1,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
+		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil, nil)
+	if !ok {
+		return
+	}
+
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath0, ukiFilesChecksums0, ukiFilesChecksums1,
+		addonFilesChecksums0, addonFilesChecksums1)
 
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with, cannot swap kernels")
@@ -317,7 +335,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil, nil)
 	if !ok {
 		return
 	}
@@ -898,16 +916,17 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 	}
 }
 
-// verityUsrUkiMultiKernelConfigFile returns the initial grub->UKI verity config file that installs additional
-// kernels via installLists, matched to the same azl3/azl4+arch split as verityUsrUkiConfigFile.
-func verityUsrUkiMultiKernelConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+// verityReinitUsrUkiNoResetMultiKernelConfigFile returns the noreset recustomization config that installs
+// additional kernels into an existing UKI image.
+func verityReinitUsrUkiNoResetMultiKernelConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl3:
-		return "verity-usr-uki-multikernel-azl3.yaml"
+		return "verity-reinit-usr-uki-noreset-multikernel-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-usr-uki-multikernel-%s-azl4.yaml", runtime.GOARCH)
+		return "verity-reinit-usr-uki-noreset-multikernel-azl4.yaml"
 	default:
-		t.Fatalf("unsupported base image version for verity-usr-uki multikernel test: %s", baseImageInfo.Version)
+		t.Fatalf("unsupported base image version for verity-reinit-usr-uki-noreset multikernel test: %s",
+			baseImageInfo.Version)
 		return ""
 	}
 }
@@ -918,8 +937,6 @@ func verityReinitUsrUkiNoResetKernelSwapConfigFile(t *testing.T, baseImageInfo t
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl3:
 		return "verity-reinit-usr-uki-noreset-kernel-swap-azl3.yaml"
-	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-reinit-usr-uki-noreset-kernel-swap-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for verity-reinit-usr-uki-noreset kernel-swap test: %s",
 			baseImageInfo.Version)
