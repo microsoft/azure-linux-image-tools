@@ -47,10 +47,9 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	// extract the kernel and initramfs from the existing UKIs, and save their base kernel
 	// command-line so that os.kernelCommandLine changes can be applied to the regenerated
 	// UKIs. 'passthrough' mode skips this to preserve the existing UKIs.
-	var hasUkis bool
 	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeCreate {
 		// Check if base image has UKIs to determine if extraction is needed
-		hasUkis, err = baseImageHasUkis(imageChroot, distroHandler)
+		hasUkis, err := baseImageHasUkis(imageChroot, distroHandler)
 		if err != nil {
 			return err
 		}
@@ -221,7 +220,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, hasUkis, imageChroot, toolsChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return err
 	}

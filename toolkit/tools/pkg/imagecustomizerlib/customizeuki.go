@@ -255,10 +255,10 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 	return nil
 }
 
-func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, hasUkis bool,
+func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, hasUkis, imageChroot, toolsChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -266,7 +266,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	return nil
 }
 
-func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, hasUkis bool,
+func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
 	var err error
@@ -340,18 +340,31 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// A base image that already has UKIs carries its kernel command lines inside those UKIs, saved to
-	// uki-kernel-info.json and read below. Its grub boot config is deliberately not consulted, because converting an
-	// image to UKI clears /boot: anything found there now was written back during this run by a kernel package's
-	// install hooks (grub2-mkconfig, kernel-install), which run before os.kernelCommandLine changes are applied. Those
-	// files therefore hold a pre-customization command line, and reading them would hand a newly installed kernel
-	// (e.g. after a kernel package swap) a stale command line instead of the one the other kernels received.
+	// The base image's kernel command lines, saved to uki-kernel-info.json before the packages were customized and
+	// since updated in place by handleBootLoader and handleSELinux.
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	existingUkiKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
+	}
+	existingUkiCmdlines := make(map[string]string, len(existingUkiKernelInfo))
+	for kernel, info := range existingUkiKernelInfo {
+		existingUkiCmdlines[kernel] = info.Cmdline
+	}
+
+	// Once the base image's UKI command lines are in hand, the grub boot config is deliberately not consulted, because
+	// converting an image to UKI clears /boot: anything found there now was written back during this run by a kernel
+	// package's install hooks (grub2-mkconfig, kernel-install), which run before os.kernelCommandLine changes are
+	// applied. Those files therefore hold a pre-customization command line, and reading them would hand a newly
+	// installed kernel (e.g. after a kernel package swap) a stale command line instead of the one the other kernels
+	// received.
 	//
-	// A grub image being converted to UKI for the first time has no UKIs to read from, so there the grub boot config is
-	// the only source of the kernel command lines and must be read. BLS-based distros such as Azure Linux 4 read the
+	// Without them the grub boot config is the only source and must be read. That covers a grub image being converted
+	// to UKI for the first time, which has no UKIs to read from, and a hard bootloader reset, which skips the save and
+	// rewrites the grub config from the requested command line. BLS-based distros such as Azure Linux 4 read the
 	// per-kernel loader/entries/*.conf files, falling back to the `set kernelopts="..."` default in grub.cfg.
 	grubKernelToArgs := map[string]string{}
-	if !hasUkis {
+	if len(existingUkiCmdlines) == 0 {
 		grubKernelToArgs, err = extractKernelToArgs(bootDir, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
@@ -361,18 +374,6 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	err = distroHandler.CleanBootDirectory(imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
-	}
-
-	// Combine kernel-to-initramfs mapping and kernel command line arguments.
-	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	existingUkiKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
-	}
-	existingUkiCmdlines := make(map[string]string, len(existingUkiKernelInfo))
-	for kernel, info := range existingUkiKernelInfo {
-		existingUkiCmdlines[kernel] = info.Cmdline
 	}
 
 	kernelInfo := make(map[string]UkiKernelInfo)
@@ -434,18 +435,11 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 // and requires that exactly one remains. It returns an error rather than guessing when there is no command line to
 // inherit, or when the kernels disagree and so there is no single correct answer.
 func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToArgs map[string]string) (string, error) {
-	// Prefer the command lines already baked into the existing UKIs. The grub config is only consulted for an image
-	// that has no UKIs yet, which is the case when a grub image is being converted to UKI for the first time.
+	// Only one of the two maps is ever populated, since a pre-seeded UKI command line is exactly what stops the grub
+	// boot config from being read.
 	distinctCmdlines := make(map[string]struct{})
-	for _, cmdline := range existingUkiCmdlines {
-		if cmdline != "" {
-			distinctCmdlines[cmdline] = struct{}{}
-		}
-	}
-	fallbackSource := "existing UKIs"
-	if len(distinctCmdlines) == 0 {
-		fallbackSource = "grub boot config"
-		for _, cmdline := range grubKernelToArgs {
+	for _, kernelToCmdline := range []map[string]string{existingUkiCmdlines, grubKernelToArgs} {
+		for _, cmdline := range kernelToCmdline {
 			if cmdline != "" {
 				distinctCmdlines[cmdline] = struct{}{}
 			}
@@ -458,8 +452,8 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 		cmdlines = append(cmdlines, cmdline)
 	}
 
-	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s) from %s: %s", len(cmdlines),
-		fallbackSource, strings.Join(cmdlines, " | "))
+	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s): %s", len(cmdlines),
+		strings.Join(cmdlines, " | "))
 
 	if len(cmdlines) == 0 {
 		return "", fmt.Errorf("no command line arguments found and no fallback command line available")
