@@ -1252,16 +1252,22 @@ func TestGetFallbackKernelArgs(t *testing.T) {
 		expectedErrorMsg string
 	}{
 		{
-			name:            "prefers existing UKIs over grub",
+			name:            "shared cmdline from existing UKIs",
 			existingUkis:    map[string]string{"vmlinuz-1": "rd.info", "vmlinuz-2": "rd.info"},
-			grub:            map[string]string{"vmlinuz-3": "rd.debug"},
+			grub:            map[string]string{},
 			expectedCmdline: "rd.info",
 		},
 		{
-			name:            "falls back to grub when no UKI cmdlines",
-			existingUkis:    map[string]string{"vmlinuz-1": ""},
-			grub:            map[string]string{"vmlinuz-2": "rd.debug"},
+			name:            "shared cmdline from grub",
+			existingUkis:    map[string]string{},
+			grub:            map[string]string{"vmlinuz-1": "rd.debug", "vmlinuz-2": "rd.debug"},
 			expectedCmdline: "rd.debug",
+		},
+		{
+			name:            "ignores kernels with an empty cmdline",
+			existingUkis:    map[string]string{"vmlinuz-1": "", "vmlinuz-2": "rd.info"},
+			grub:            map[string]string{},
+			expectedCmdline: "rd.info",
 		},
 		{
 			name:             "no cmdline available",
