@@ -313,7 +313,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		addonFilesChecksums0, addonFilesChecksums1)
 
 	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 doesn't have an additional kernel to test with, cannot swap kernels")
+		t.Skip("Azure Linux 4.0 has no alternative kernel package to swap to, only other versions of 'kernel'")
 	}
 
 	// Pass 2: re-customize, swapping the kernel to kernel-npi and adding console=ttyAMA0,115200n8.
@@ -1241,4 +1241,51 @@ func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath strin
 
 	err = imageConnection.CleanClose()
 	assert.NoError(t, err)
+}
+
+func TestGetFallbackKernelArgs(t *testing.T) {
+	tests := []struct {
+		name             string
+		existingUkis     map[string]string
+		grub             map[string]string
+		expectedCmdline  string
+		expectedErrorMsg string
+	}{
+		{
+			name:            "prefers existing UKIs over grub",
+			existingUkis:    map[string]string{"vmlinuz-1": "rd.info", "vmlinuz-2": "rd.info"},
+			grub:            map[string]string{"vmlinuz-3": "rd.debug"},
+			expectedCmdline: "rd.info",
+		},
+		{
+			name:            "falls back to grub when no UKI cmdlines",
+			existingUkis:    map[string]string{"vmlinuz-1": ""},
+			grub:            map[string]string{"vmlinuz-2": "rd.debug"},
+			expectedCmdline: "rd.debug",
+		},
+		{
+			name:             "no cmdline available",
+			existingUkis:     map[string]string{},
+			grub:             map[string]string{},
+			expectedErrorMsg: "no fallback command line available",
+		},
+		{
+			name:             "divergent cmdlines",
+			existingUkis:     map[string]string{"vmlinuz-1": "rd.info", "vmlinuz-2": "rd.debug"},
+			grub:             map[string]string{},
+			expectedErrorMsg: "divergent command lines",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cmdline, err := getFallbackKernelArgs(test.existingUkis, test.grub)
+			if test.expectedErrorMsg != "" {
+				assert.ErrorContains(t, err, test.expectedErrorMsg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedCmdline, cmdline)
+		})
+	}
 }
