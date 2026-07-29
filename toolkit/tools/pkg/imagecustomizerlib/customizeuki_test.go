@@ -361,12 +361,12 @@ func verifyUsrVerityUkiRecustomizedKernelSwap(t *testing.T, buildDir string, ima
 
 	assert.Equal(t, 1, len(newUkiChecksums), "kernel swap should leave exactly one main UKI")
 	for newUkiFile := range newUkiChecksums {
-		assert.Contains(t, newUkiFile, "npi", "expected swapped kernel UKI path to contain npi")
+		assert.Contains(t, filepath.Base(newUkiFile), "npi", "expected swapped kernel UKI path to contain npi")
 	}
 
 	assert.Equal(t, 1, len(newAddonChecksums), "kernel swap should leave exactly one UKI addon")
 	for newAddonFile := range newAddonChecksums {
-		assert.Contains(t, newAddonFile, "npi", "expected swapped kernel addon path to contain npi")
+		assert.Contains(t, filepath.Base(newAddonFile), "npi", "expected swapped kernel addon path to contain npi")
 	}
 
 	verifyUsrVerityUkiRecustomizedCommon(t, buildDir, imagePath)
