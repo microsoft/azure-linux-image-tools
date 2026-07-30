@@ -2,14 +2,9 @@ previewFeatures:
 - base-configs
 
 baseConfigs:
-- path: multikernel-base.yaml
+- path: verity-reinit-usr-uki-noreset-multikernel-base.yaml
 
 os:
   packages:
     installLists:
     - lists/multikernel-azl3.yaml
-
-  kernelCommandLine:
-    extraCommandLine:
-    - console=tty0
-    - console=ttyS0

@@ -43,6 +43,10 @@ Supported values:
 - `create`: Create UKI files for all installed kernels. When used with a base image that
   already has UKIs, the new UKIs will be generated and override the old ones.
 
+  A kernel installed during the same run, for example when the kernel package is swapped, has no kernel command line of
+  its own to carry forward. It inherits the command line that the image's other kernels share. Customization fails if
+  those kernels have divergent command lines, since there is then no single correct value to inherit.
+
 - `passthrough`: Preserve existing UKI files without modification.
 
 - `modify`: Modify only the UKI addon to append or update kernel command-line arguments.

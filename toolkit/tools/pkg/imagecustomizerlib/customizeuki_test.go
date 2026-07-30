@@ -254,6 +254,124 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		addonFilesChecksums, newAddonFilesChecksums)
 }
 
+func TestCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwap(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t *testing.T,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	testTempDir := filepath.Join(tmpDir,
+		fmt.Sprintf("TestCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwap_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+
+	// Pass 0: build the single-kernel usr-verity UKI image that the later passes re-customize. Adds rd.info.
+	outImageFilePath0 := filepath.Join(testTempDir, "image0.raw")
+	configFile0 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile0, baseImage, outImageFilePath0, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums0, addonFilesChecksums0, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"},
+		nil, nil, nil)
+	if !ok {
+		return
+	}
+
+	// Pass 1: re-customize, adding new kernels to the UKI image. Adds systemd.log_level=debug.
+	outImageFilePath1 := filepath.Join(testTempDir, "image1.raw")
+	configFile1 := filepath.Join(testDir, verityReinitUsrUkiNoResetMultiKernelConfigFile(t, baseImageInfo))
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile1, outImageFilePath0, outImageFilePath1,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
+		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil, nil)
+	if !ok {
+		return
+	}
+
+	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath1, ukiFilesChecksums0, ukiFilesChecksums1,
+		addonFilesChecksums0, addonFilesChecksums1)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 has no alternative kernel package to swap to, only other versions of 'kernel'")
+	}
+
+	// Pass 2: re-customize, swapping the kernel to kernel-npi and adding console=ttyAMA0,115200n8.
+	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
+	configFile2 := filepath.Join(testDir, verityReinitUsrUkiNoResetKernelSwapConfigFile(t, baseImageInfo))
+	repoFile := filepath.Join(testDir, "repos", "lsg-6.18.repo")
+	err = CustomizeImageWithConfigFile(t.Context(), configFile2, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath1,
+		OutputImageFile:      outImageFilePath2,
+		OutputImageFormat:    "raw",
+		RpmsSources:          []string{repoFile},
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		SetFilesContext:      *setfilesContext,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
+		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+	if !ok {
+		return
+	}
+
+	verifyUsrVerityUkiRecustomizedKernelSwap(t, buildDir, outImageFilePath2, ukiFilesChecksums1, ukiFilesChecksums2,
+		addonFilesChecksums1, addonFilesChecksums2)
+}
+
+// verifyUsrVerityUkiRecustomizedKernelSwap checks that kernel swap re-customization replaces the previously
+// generated UKIs/addons with new ones for the swapped-in kernel.
+func verifyUsrVerityUkiRecustomizedKernelSwap(t *testing.T, buildDir string, imagePath string,
+	oldUkiChecksums, newUkiChecksums, oldAddonChecksums, newAddonChecksums map[string]string,
+) {
+	for oldUkiFile := range oldUkiChecksums {
+		_, exists := newUkiChecksums[oldUkiFile]
+		assert.False(t, exists, "old UKI file should be removed after kernel swap: %s", oldUkiFile)
+	}
+
+	for oldAddonFile := range oldAddonChecksums {
+		_, exists := newAddonChecksums[oldAddonFile]
+		assert.False(t, exists, "old addon file should be removed after kernel swap: %s", oldAddonFile)
+	}
+
+	assert.Equal(t, 1, len(newUkiChecksums), "kernel swap should leave exactly one main UKI")
+	for newUkiFile := range newUkiChecksums {
+		assert.Contains(t, filepath.Base(newUkiFile), "npi", "expected swapped kernel UKI path to contain npi")
+	}
+
+	assert.Equal(t, 1, len(newAddonChecksums), "kernel swap should leave exactly one UKI addon")
+	for newAddonFile := range newAddonChecksums {
+		assert.Contains(t, filepath.Base(newAddonFile), "npi", "expected swapped kernel addon path to contain npi")
+	}
+
+	verifyUsrVerityUkiRecustomizedCommon(t, buildDir, imagePath)
+}
+
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -408,7 +526,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 	// Pass 2: re-customize that UKI image with 'os.uki.mode: create' and os.kernelCommandLine.extraCommandLine but
 	// doesn't hard-reset the bootloader. Preserves rd.info and adds console=ttyAMA0,115200n8.
 	outImageFilePath2 := filepath.Join(testTempDir, "image.raw")
-	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki-cmdline.yaml")
+	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki-noreset.yaml")
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2, "raw",
 		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
@@ -448,6 +566,10 @@ func verifyUsrVerityUkiRecustomized(t *testing.T, buildDir string, imagePath str
 			"Addon checksum should change after re-customization: %s", addonFile)
 	}
 
+	verifyUsrVerityUkiRecustomizedCommon(t, buildDir, imagePath)
+}
+
+func verifyUsrVerityUkiRecustomizedCommon(t *testing.T, buildDir string, imagePath string) {
 	// Mount parent-first (/, then /boot, then the ESP) so the ESP is actually exposed for reads.
 	mountPoints := []testutils.MountPoint{
 		{PartitionNum: 5, Path: "/", FileSystemType: "ext4"},
@@ -794,6 +916,34 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 	}
 }
 
+// verityReinitUsrUkiNoResetMultiKernelConfigFile returns the noreset recustomization config that installs
+// additional kernels into an existing UKI image.
+func verityReinitUsrUkiNoResetMultiKernelConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-reinit-usr-uki-noreset-multikernel-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "verity-reinit-usr-uki-noreset-multikernel-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for verity-reinit-usr-uki-noreset multikernel test: %s",
+			baseImageInfo.Version)
+		return ""
+	}
+}
+
+// verityReinitUsrUkiNoResetKernelSwapConfigFile returns the noreset recustomization config that swaps the kernel
+// to kernel-npi.
+func verityReinitUsrUkiNoResetKernelSwapConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-reinit-usr-uki-noreset-kernel-swap-azl3.yaml"
+	default:
+		t.Fatalf("unsupported base image version for verity-reinit-usr-uki-noreset kernel-swap test: %s",
+			baseImageInfo.Version)
+		return ""
+	}
+}
+
 // ukiNoResetConfigFile returns the pass-2 grub->UKI-without-reset test config file appropriate for the given base
 // image version (azl3 vs azl4) and host architecture.
 func ukiNoResetConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
@@ -1091,4 +1241,57 @@ func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath strin
 
 	err = imageConnection.CleanClose()
 	assert.NoError(t, err)
+}
+
+func TestGetFallbackKernelArgs(t *testing.T) {
+	tests := []struct {
+		name             string
+		existingUkis     map[string]string
+		grub             map[string]string
+		expectedCmdline  string
+		expectedErrorMsg string
+	}{
+		{
+			name:            "shared cmdline from existing UKIs",
+			existingUkis:    map[string]string{"vmlinuz-1": "rd.info", "vmlinuz-2": "rd.info"},
+			grub:            map[string]string{},
+			expectedCmdline: "rd.info",
+		},
+		{
+			name:            "shared cmdline from grub",
+			existingUkis:    map[string]string{},
+			grub:            map[string]string{"vmlinuz-1": "rd.debug", "vmlinuz-2": "rd.debug"},
+			expectedCmdline: "rd.debug",
+		},
+		{
+			name:            "ignores kernels with an empty cmdline",
+			existingUkis:    map[string]string{"vmlinuz-1": "", "vmlinuz-2": "rd.info"},
+			grub:            map[string]string{},
+			expectedCmdline: "rd.info",
+		},
+		{
+			name:             "no cmdline available",
+			existingUkis:     map[string]string{},
+			grub:             map[string]string{},
+			expectedErrorMsg: "no fallback command line available",
+		},
+		{
+			name:             "divergent cmdlines",
+			existingUkis:     map[string]string{"vmlinuz-1": "rd.info", "vmlinuz-2": "rd.debug"},
+			grub:             map[string]string{},
+			expectedErrorMsg: "divergent command lines",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cmdline, err := getFallbackKernelArgs(test.existingUkis, test.grub)
+			if test.expectedErrorMsg != "" {
+				assert.ErrorContains(t, err, test.expectedErrorMsg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedCmdline, cmdline)
+		})
+	}
 }
