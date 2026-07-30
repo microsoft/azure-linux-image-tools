@@ -928,10 +928,14 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 		UseBaseImageRpmRepos: true, // Set to true for Azure Linux; it will be ignored for Ubuntu images.
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
-	assert.NoError(t, err, "failed to customize image with config file options")
+	if !assert.NoError(t, err, "failed to customize image with config file options") {
+		return
+	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
-	assert.NoError(t, err, "failed to connect to image after customization")
+	if !assert.NoError(t, err, "failed to connect to image after customization") {
+		return
+	}
 	defer imageConnection.Close()
 
 	packagePath := "/usr/bin/unzip"
