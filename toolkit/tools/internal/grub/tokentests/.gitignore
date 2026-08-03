@@ -1,1 +1,4 @@
 actual/
+
+# These are test input fixtures, not `go test -c` binaries.
+!*.test

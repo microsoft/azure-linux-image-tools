@@ -1,0 +1,13 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: verity-reinit-usr-uki-noreset.yaml
+
+os:
+  packages:
+    remove:
+    - kernel
+
+    install:
+    - kernel-npi

@@ -1,0 +1,5 @@
+# These are old kernel versions that are still available but not installed on the latest AZL3 test image.
+# The latest AZL3 test image has kernel-6.6.144.1-1.azl3 installed at the time of this writing.
+packages:
+- kernel-6.6.57.1-7.azl3
+- kernel-6.6.64.2-1.azl3

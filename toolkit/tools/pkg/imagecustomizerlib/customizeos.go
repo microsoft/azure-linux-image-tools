@@ -225,8 +225,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		aclOemId = rc.Acl.OemId
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler,
-		rc.OsKernelCommandLine.ExtraCommandLine, aclOemId)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, toolsChroot, distroHandler, aclOemId)
 	if err != nil {
 		return err
 	}

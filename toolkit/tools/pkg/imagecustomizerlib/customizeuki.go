@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -228,23 +229,6 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	return nil
 }
 
-// isUkiOnlyBootConfig reports whether the image boots via UKI with no grub config (e.g. ACL /
-// systemd-boot). In that case there is no grub file to carry kernel cmdline changes, so they must
-// be baked directly into the regenerated UKIs. The check is based solely on the absence of a grub
-// config (not on UKI file presence), so it is robust to the UKIs having already been cleaned from
-// the boot directory during regeneration.
-func isUkiOnlyBootConfig(imageChroot *safechroot.Chroot, distroHandler DistroHandler) (bool, error) {
-	grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageChroot)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return true, nil
-		}
-		return false, err
-	}
-
-	return grubCfgContent == "", nil
-}
-
 // saveUkiBaseCmdlineForCreate extracts the current kernel command-line from each existing UKI
 // (main UKI plus addons) and saves them to uki-kernel-info.json. A UKI base image has no
 // grub.cfg, so the cmdline is read directly from the UKIs.
@@ -274,10 +258,9 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
-	extraCommandLine []string, aclOemId string,
+	aclOemId string,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, extraCommandLine,
-		aclOemId)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, aclOemId)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -287,7 +270,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
-	extraCommandLine []string, aclOemId string,
+	aclOemId string,
 ) error {
 	var err error
 
@@ -371,19 +354,35 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Read the kernel command-line arguments to seed the regenerated UKIs. Prefer the grub boot config
-	// (grub.cfg / BLS entries); for a UKI/systemd-boot base image (e.g. ACL) that has no grub.cfg, fall
-	// back to reading the command line(s) from the existing UKI(s) on the ESP. That fallback is what lets
-	// a kernel swapped in during this customization — absent from uki-kernel-info.json, which is keyed by
-	// the removed kernel — inherit the base image's UKI cmdline in the loop below. uki-kernel-info.json
-	// still takes precedence for kernels that have a saved per-kernel entry.
+	// The base image's kernel command lines, saved to uki-kernel-info.json before the packages were customized and
+	// since updated in place by handleBootLoader and handleSELinux.
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	existingUkiKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
+	}
+	existingUkiCmdlines := make(map[string]string, len(existingUkiKernelInfo))
+	for kernel, info := range existingUkiKernelInfo {
+		existingUkiCmdlines[kernel] = info.Cmdline
+	}
+
+	// Once the base image's UKI command lines are in hand, the grub boot config is deliberately not consulted, because
+	// converting an image to UKI clears /boot: anything found there now was written back during this run by a kernel
+	// package's install hooks (grub2-mkconfig, kernel-install), which run before os.kernelCommandLine changes are
+	// applied. Those files therefore hold a pre-customization command line, and reading them would hand a newly
+	// installed kernel (e.g. after a kernel package swap) a stale command line instead of the one the other kernels
+	// received.
 	//
-	// BLS-based distros such as Azure Linux 4 prefer the per-kernel loader/entries/*.conf BLS files, but
-	// fall back to the `set kernelopts="..."` default in grub.cfg when no BLS entries are found.
-	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
-	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir, distroHandler)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
+	// Without them the grub boot config is the only source and must be read. That covers a grub image being converted
+	// to UKI for the first time, which has no UKIs to read from, and a hard bootloader reset, which skips the save and
+	// rewrites the grub config from the requested command line. BLS-based distros such as Azure Linux 4 read the
+	// per-kernel loader/entries/*.conf files, falling back to the `set kernelopts="..."` default in grub.cfg.
+	grubKernelToArgs := map[string]string{}
+	if len(existingUkiCmdlines) == 0 {
+		grubKernelToArgs, err = extractKernelToArgs(bootDir, distroHandler)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
+		}
 	}
 
 	err = distroHandler.CleanBootDirectory(imageChroot)
@@ -391,55 +390,38 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
 
-	// Combine kernel-to-initramfs mapping and kernel command line arguments.
-	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	existingKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
-	}
-
-	// For images that boot via UKI with no grub config (e.g. ACL / systemd-boot), extraCommandLine is
-	// carried into the regenerated UKIs. BootCustomizer.AddKernelCommandLine already appends it to
-	// every entry saved in uki-kernel-info.json (extractAndSaveUkiCmdline / saveUkiBaseCmdlineForCreate).
-	// A kernel swapped in during this customization has no such saved entry, so its inherited cmdline
-	// must have extraCommandLine applied here instead (see the loop below); computed once.
-	extraArgs := ""
-	if len(extraCommandLine) > 0 {
-		isUkiOnly, err := isUkiOnlyBootConfig(imageChroot, distroHandler)
-		if err != nil {
-			return err
-		}
-		if isUkiOnly {
-			extraArgs = GrubArgsToString(extraCommandLine)
-		}
-	}
-
 	kernelInfo := make(map[string]UkiKernelInfo)
 
-	// For a kernel swap (e.g. remove 'kernel', install 'kernel-hwe'), the newly installed kernel has
-	// no per-kernel cmdline of its own: it is absent from both the existing uki-kernel-info.json and
-	// the args extracted from the base image's UKI(s) (which are keyed by the removed kernel). Fall
-	// back to inheriting the base image's UKI cmdline so the new kernel's UKI carries the essential
-	// boot args (root=, /usr dm-verity args, console, ...). The stale verity args are refreshed by
-	// the verity re-seal.
-	fallbackCmdline, hasFallback := inheritedBaseCmdline(kernelToArgs)
+	logger.Log.Debugf("UKI cmdline resolution: kernels found under /boot (need a cmdline) = %v", kernelToInitramfs)
+	logger.Log.Debugf("UKI cmdline resolution: kernels with an existing UKI cmdline = %v", existingUkiCmdlines)
+	logger.Log.Debugf("UKI cmdline resolution: kernels with a grub-derived cmdline = %v", grubKernelToArgs)
 
+	var fallbackArgs string
 	for kernel, initramfs := range kernelToInitramfs {
-		cmdline, err := selectKernelBaseCmdline(kernel, existingKernelInfo, kernelToArgs, fallbackCmdline,
-			hasFallback)
-		if err != nil {
-			return err
+		var cmdline string
+		var cmdlineSource string
+		if existingCmdline, ok := existingUkiCmdlines[kernel]; ok {
+			cmdline = existingCmdline
+			cmdlineSource = "existing UKIs"
+		} else if args, ok := grubKernelToArgs[kernel]; ok {
+			cmdline = args
+			cmdlineSource = "grub boot config"
+		} else {
+			if fallbackArgs == "" {
+				fallbackArgs, err = getFallbackKernelArgs(existingUkiCmdlines, grubKernelToArgs)
+				if err != nil {
+					return fmt.Errorf("no command line arguments found for kernel (%s) and cannot determine fallback "+
+						"command line:\n%w", kernel, err)
+				}
+			}
+			cmdline = fallbackArgs
+			cmdlineSource = "fallback"
+			logger.Log.Infof("No command line arguments found for kernel (%s): using fallback command line", kernel)
 		}
 
-		// extraCommandLine is already baked into uki-kernel-info.json entries by
-		// BootCustomizer.AddKernelCommandLine; only apply it to kernels sourced elsewhere (e.g. a
-		// swapped-in kernel that inherited the base UKI cmdline) to avoid double-application.
-		_, fromExisting := existingKernelInfo[kernel]
-		if extraArgs != "" && !fromExisting {
-			cmdline = strings.TrimSpace(strings.TrimSpace(cmdline) + " " + extraArgs)
-		}
+		logger.Log.Debugf("UKI cmdline resolution: kernel (%s) resolved via %s -> %q", kernel, cmdlineSource, cmdline)
 
+		// ACL-only: override the flatcar OEM id on the resolved cmdline (idempotent; no-op when unset).
 		if aclOemId != "" {
 			cmdline = applyAclOemId(cmdline, aclOemId)
 		}
@@ -460,51 +442,47 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	return nil
 }
 
-// selectKernelBaseCmdline chooses the base kernel command line for a kernel when regenerating UKIs.
-// It prefers an existing per-kernel cmdline (from uki-kernel-info.json), then the args extracted
-// from the base image's boot config / UKI keyed by that kernel, and finally — for a kernel that has
-// neither (e.g. one newly installed by a kernel swap) — inherits the base image's UKI cmdline.
-func selectKernelBaseCmdline(kernel string, existingKernelInfo map[string]UkiKernelInfo,
-	kernelToArgs map[string]string, fallbackCmdline string, hasFallback bool,
-) (string, error) {
-	if existingInfo, ok := existingKernelInfo[kernel]; ok {
-		return existingInfo.Cmdline, nil
-	}
-
-	if args, ok := kernelToArgs[kernel]; ok {
-		return args, nil
-	}
-
-	if hasFallback {
-		logger.Log.Infof("Kernel (%s) has no existing cmdline (e.g. installed via a kernel swap); "+
-			"inheriting the base image UKI cmdline", kernel)
-		return fallbackCmdline, nil
-	}
-
-	return "", fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
-}
-
-// inheritedBaseCmdline returns the single, unambiguous base cmdline to inherit for kernels that have
-// no per-kernel cmdline of their own, sourced from the args extracted from the base image's UKI(s).
-// ACL ships a single UKI, so there is exactly one candidate. Returns ok=false when there is no
-// candidate or when multiple distinct cmdlines exist (ambiguous — do not guess).
-func inheritedBaseCmdline(kernelToArgs map[string]string) (string, bool) {
-	candidate := ""
-	found := false
-	for _, cmdline := range kernelToArgs {
-		trimmed := strings.TrimSpace(cmdline)
-		if trimmed == "" {
-			continue
-		}
-		if !found {
-			candidate = trimmed
-			found = true
-		} else if candidate != trimmed {
-			// Ambiguous: multiple distinct base cmdlines.
-			return "", false
+// getFallbackKernelArgs returns the kernel command line that a kernel with no command line of its own should inherit.
+//
+// A kernel installed during re-customization (for example, after the kernel package is swapped) has no command line
+// to look up. It is absent from the existing UKI info, which only covers the kernels the image's current UKIs were
+// built for. It is absent from the grub config too, because converting an image to UKI clears /boot
+// (including grub.cfg). Image Customizer applies kernel command line changes to every kernel in the image, so the
+// command line that the image's other kernels already share is the correct thing for the new kernel to inherit.
+//
+// The kernels are therefore expected to agree on a single command line. This collects the *distinct* command lines
+// and requires that exactly one remains. It returns an error rather than guessing when there is no command line to
+// inherit, or when the kernels disagree and so there is no single correct answer.
+func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToArgs map[string]string) (string, error) {
+	// Only one of the two maps is ever populated, since a pre-seeded UKI command line is exactly what stops the grub
+	// boot config from being read.
+	distinctCmdlines := make(map[string]struct{})
+	for _, kernelToCmdline := range []map[string]string{existingUkiCmdlines, grubKernelToArgs} {
+		for _, cmdline := range kernelToCmdline {
+			if cmdline != "" {
+				distinctCmdlines[cmdline] = struct{}{}
+			}
 		}
 	}
-	return candidate, found
+
+	// Flatten the set so the number of distinct command lines can be checked below.
+	cmdlines := make([]string, 0, len(distinctCmdlines))
+	for cmdline := range distinctCmdlines {
+		cmdlines = append(cmdlines, cmdline)
+	}
+	slices.Sort(cmdlines)
+
+	logger.Log.Debugf("UKI cmdline fallback: found %d distinct non-empty cmdline(s): %s", len(cmdlines),
+		strings.Join(cmdlines, " | "))
+
+	if len(cmdlines) == 0 {
+		return "", fmt.Errorf("no command line arguments found and no fallback command line available")
+	}
+	if len(cmdlines) > 1 {
+		return "", fmt.Errorf("cannot pick a fallback command line: kernels have divergent command lines: %s",
+			strings.Join(cmdlines, " | "))
+	}
+	return cmdlines[0], nil
 }
 
 // applyAclOemId rewrites the OEM id on a kernel cmdline: it strips every existing flatcar.oem.id=*
@@ -962,35 +940,16 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	return nil
 }
 
-func extractKernelToArgs(espPath string, bootDir string, buildDir string, distroHandler DistroHandler,
-) (map[string]string, error) {
-	// Try the boot config (grub.cfg / BLS entries) first.
+func extractKernelToArgs(bootDir string, distroHandler DistroHandler) (map[string]string, error) {
 	parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to extract kernel args from boot config:\n%w", err)
 		}
-	} else {
-		kernelToArgs := grubKernelArgsToStringMap(parsedKernelToArgs)
-		if len(kernelToArgs) > 0 {
-			return kernelToArgs, nil
-		}
+		return map[string]string{}, nil
 	}
 
-	// No usable boot-config args (e.g. a UKI/systemd-boot image such as ACL, which has no grub.cfg).
-	// Fall back to reading the command line(s) from the existing UKI(s) on the ESP so kernels without a
-	// saved per-kernel entry (e.g. one swapped in during this customization) can inherit the base image's
-	// UKI cmdline. If the ESP has no UKIs, return an empty map and let the saved uki-kernel-info.json
-	// supply the command lines downstream.
-	ukiKernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return map[string]string{}, nil
-		}
-		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
-	}
-
-	return ukiKernelToArgs, nil
+	return grubKernelArgsToStringMap(parsedKernelToArgs), nil
 }
 
 // readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from the grub.cfg,

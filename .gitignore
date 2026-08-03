@@ -4,6 +4,9 @@ out/
 
 *.tmp
 
+# Go
+*.test
+
 # Python
 __pycache__/
 *.py[cod]
