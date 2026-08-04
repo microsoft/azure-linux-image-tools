@@ -188,12 +188,6 @@ func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
-}
-
 func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
@@ -313,10 +307,10 @@ func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 }
 
 func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, savedConfigs)
 }
 
 func (d *fedoraDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,

@@ -149,12 +149,6 @@ func (d *azureLinux4DistroHandler) IsPackageInstalled(imageChroot safechroot.Chr
 	return d.packageManager.isPackageInstalled(imageChroot, toolsChroot, packageName)
 }
 
-func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
-}
-
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
@@ -305,10 +299,10 @@ func (d *azureLinux4DistroHandler) UpdateBootConfigForVerity(verityMetadata []ve
 }
 
 func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, disableSELinux, savedConfigs)
+	return updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent, bootDir, initramfsType, savedConfigs)
 }
 
 func (d *azureLinux4DistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
