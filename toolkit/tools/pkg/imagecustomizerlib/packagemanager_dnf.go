@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 
