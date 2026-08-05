@@ -288,7 +288,8 @@ func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
 			len(storage.Disks) > 0 ||
 			len(storage.FileSystems) > 0 ||
 			len(storage.Verity) > 0 ||
-			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault ||
+			storage.ResizeDisk != nil {
 
 			foundStorage = storage
 			foundStorageCount += 1

@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -35,9 +34,6 @@ import (
 var (
 	bootPartitionRegexAzl3 = regexp.MustCompile(`(?m)^[\t ]*search\s+-n\s+-u\s+([a-zA-Z0-9\-]+)\s+-s\s*$`)
 	bootPartitionRegexAzl4 = regexp.MustCompile(`(?m)^[\t ]*search\s+--fs-uuid\s+--set=root\s+([a-zA-Z0-9\-]+)\s*$`)
-
-	// Extract the partition number from the loopback partition path.
-	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
 const (
@@ -1383,24 +1379,6 @@ func getNonSpecialChrootMountPoints(imageChroot *safechroot.Chroot) []*safechroo
 			return true
 		},
 	)
-}
-
-// Extract the partition number from the partition path.
-// Ideally, we would use `lsblk --output PARTN` instead of this. But that is only available in util-linux v2.39+.
-func getPartitionNum(partitionLoopDevice string) (int, error) {
-	match := partitionNumberRegex.FindStringSubmatch(partitionLoopDevice)
-	if match == nil {
-		return 0, fmt.Errorf("failed to find partition number in partition dev path (%s)", partitionLoopDevice)
-	}
-
-	numStr := match[1]
-
-	num, err := strconv.Atoi(numStr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
-	}
-
-	return num, nil
 }
 
 // Find the closest parent for a target path, given a set of parent paths.

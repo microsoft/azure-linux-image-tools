@@ -1,0 +1,5 @@
+storage:
+  resizeDisk:
+    partitions:
+    - ref: last
+      freeSpace: 10G

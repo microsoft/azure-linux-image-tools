@@ -17,11 +17,14 @@ const (
 	// In addition, the imager's diskutils works in MiB.
 	DefaultPartitionAlignment = diskutils.MiB
 
-	// The number of sectors (LBA) that the GPT header requires.
-	GptHeaderSectorNum = 34
-
-	// The number of sectors (LBA) that the GPT footer requires.
-	GptFooterSectorNum = 33
+	// Windows enforces a maximum of 128 partitions. And no reasonable disk layout would have anywhere near that many.
+	// Also, while GPT partition entries can be any multiple of 128 bytes, in practice it is always 128 bytes.
+	// So, the maximum GPT header size is:
+	//    512 sector size: 512 (MBR header) + 512 (GPT header) + 16384 (entries) = 17408 bytes
+	//    4k: 4096 (MBR header) + 4096 (GPT header) + 16384 (entries) = 24576 bytes
+	// Same thing for the GPT footer, except that there is no MBR header.
+	// Since we use 1 MiB alignment for partitions, this rounds up to 1 MiB.
+	GptHeaderSize = diskutils.MiB
 )
 
 type Disk struct {
@@ -55,16 +58,13 @@ func (d *Disk) IsValid() error {
 		}
 	}
 
-	gptHeaderSize := DiskSize(roundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
-	gptFooterSize := DiskSize(roundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
-
 	// Auto-fill the start value from the previous partition's end value.
 	for i := range d.Partitions {
 		partition := &d.Partitions[i]
 
 		if partition.Start == nil {
 			if i == 0 {
-				partition.Start = ptrutils.PtrTo(DiskSize(DefaultPartitionAlignment))
+				partition.Start = ptrutils.PtrTo(DiskSize(GptHeaderSize))
 			} else {
 				prev := &d.Partitions[i-1]
 				prevEnd, prevHasEnd := partGetEnd(prev)
@@ -113,9 +113,9 @@ func (d *Disk) IsValid() error {
 	if len(d.Partitions) > 0 {
 		// Make sure the first block isn't used.
 		firstPartition := d.Partitions[0]
-		if *firstPartition.Start < gptHeaderSize {
+		if *firstPartition.Start < GptHeaderSize {
 			return fmt.Errorf("invalid partition (%s) start:\nfirst %s of disk is reserved for the GPT header",
-				firstPartition.Id, gptHeaderSize.HumanReadable())
+				firstPartition.Id, DiskSize(GptHeaderSize).HumanReadable())
 		}
 
 		// Verify MaxSize value.
@@ -129,7 +129,7 @@ func (d *Disk) IsValid() error {
 
 		case d.MaxSize == nil:
 			// Fill in the disk's size.
-			diskSize := lastPartitionEnd + gptFooterSize
+			diskSize := lastPartitionEnd + GptHeaderSize
 			d.MaxSize = &diskSize
 
 			partFillSizeAndEnd(lastPartition, lastPartitionEnd)
@@ -143,18 +143,18 @@ func (d *Disk) IsValid() error {
 				requiredSize = lastPartitionEnd
 			}
 
-			requiredSize += gptFooterSize
+			requiredSize += GptHeaderSize
 
 			if requiredSize > *d.MaxSize {
 				return fmt.Errorf("disk's partitions need %s but maxSize is only %s:\nGPT footer size is %s",
-					requiredSize.HumanReadable(), d.MaxSize.HumanReadable(), gptFooterSize.HumanReadable())
+					requiredSize.HumanReadable(), d.MaxSize.HumanReadable(), DiskSize(GptHeaderSize).HumanReadable())
 			}
 
 			if !lastPartitionHasEnd {
 				// Explicitly set the size of the last partition.
 				// This allows us to control the alignment of the GPT footer instead of relying on the behavior of the
 				// partitioning tool (e.g. sfdisk).
-				lastPartitionEnd = *d.MaxSize - gptFooterSize
+				lastPartitionEnd = *d.MaxSize - GptHeaderSize
 			}
 
 			partFillSizeAndEnd(lastPartition, lastPartitionEnd)
@@ -162,27 +162,6 @@ func (d *Disk) IsValid() error {
 	}
 
 	return nil
-}
-
-func roundUp(size uint64, alignment uint64) uint64 {
-	div := size / alignment
-	mod := size % alignment
-	if mod == 0 {
-		return size
-	}
-	return (div + 1) * alignment
-}
-
-func roundDown(size uint64, alignment uint64) uint64 {
-	div := size / alignment
-	mod := size % alignment
-	if mod == 0 {
-		return size
-	}
-	if div == 0 {
-		return 0
-	}
-	return (div - 1) * alignment
 }
 
 func partGetEnd(p *Partition) (DiskSize, bool) {

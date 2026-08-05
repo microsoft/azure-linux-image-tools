@@ -894,7 +894,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	if shrinkHashPartition && !formatSettings.IsInlineVerity() {
 		partitionSizeInSectors := convertBytesToSectors(hashSizeInBytes, sectorSize)
 
-		err = resizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
+		err = diskutils.ResizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
 		if err != nil {
 			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}

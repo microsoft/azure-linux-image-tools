@@ -226,7 +226,7 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile cosiapi.ImageFile
 	})
 
 	for _, partition := range pt.Partitions {
-		partNum, err := getPartitionNum(partition.Path)
+		partNum, err := diskutils.GetPartitionNum(partition.Path)
 		if err != nil {
 			return cosiapi.Disk{}, fmt.Errorf("failed to get partition number from path (%s):\n%w", partition.Path, err)
 		}

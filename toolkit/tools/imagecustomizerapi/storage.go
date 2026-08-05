@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
@@ -28,6 +29,7 @@ type Storage struct {
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 	ReinitializeVerity       ReinitializeVerityType   `yaml:"reinitializeVerity" json:"reinitializeVerity,omitempty"`
+	ResizeDisk               *ResizeDisk              `yaml:"resizeDisk" json:"resizeDisk,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`
@@ -543,7 +545,7 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	}
 
 	dataSizeBytes := answer * uint64(dataBlockSize)
-	dataSizeBytes = roundDown(dataSizeBytes, DefaultPartitionAlignment)
+	dataSizeBytes = diskutils.RoundDown(dataSizeBytes, DefaultPartitionAlignment)
 	if dataSizeBytes == 0 {
 		return 0, fmt.Errorf("partition is too small for inline verity")
 	}

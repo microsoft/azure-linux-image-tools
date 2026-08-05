@@ -6,10 +6,12 @@ package safeloopback
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 type Loopback struct {
@@ -107,6 +109,29 @@ func (l *Loopback) close(async bool) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (l *Loopback) Resize(newSize int64) error {
+	diskFile, err := os.OpenFile(l.diskFilePath, os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	// Increase the size of the disk file.
+	err = diskFile.Truncate(newSize)
+	if err != nil {
+		return err
+	}
+
+	// Update the block device with the new size.
+	err = shell.NewExecBuilder("losetup", "--set-capacity", l.devicePath).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to update lookback device capacity:\n%w", err)
 	}
 
 	return nil
