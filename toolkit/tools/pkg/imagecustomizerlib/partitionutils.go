@@ -163,6 +163,22 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
+	// ACL images provide an fstab at /usr/share/ic/etc/fstab (seen as
+	// "share/ic/etc/fstab" from the USR partition's filesystem root) so that
+	// Image Customizer can discover the partition layout. When this marker is
+	// present, use that partition as the rootfs directly and skip BTRFS
+	// subvolume enumeration. Enumeration relies on the BTRFS_IOC_TREE_SEARCH
+	// ioctl, which qemu-user does not translate, so `btrfs subvolume list`
+	// fails with ENOTTY when converting an ARM64 ACL image on an AMD64 host.
+	// The marker fully identifies the rootfs, so enumeration is unnecessary.
+	aclPartition, err := findAclFstabPartition(diskPartitions, tmpDir)
+	if err != nil {
+		return nil, "", err
+	}
+	if aclPartition != nil {
+		return aclPartition, "share/ic", nil
+	}
+
 	var rootfsPartitions []*diskutils.PartitionInfo
 	var rootfsPaths []string
 	for i := range diskPartitions {
@@ -203,6 +219,104 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	rootfsPartition := rootfsPartitions[0]
 	rootfsPath := rootfsPaths[0]
 	return rootfsPartition, rootfsPath, nil
+}
+
+// findAclFstabPartition looks for the ACL-provided fstab marker
+// (share/ic/etc/fstab) without enumerating BTRFS subvolumes. ACL places the
+// marker on its USR partition (a plain "usr" partition on older layouts, or
+// "usr-a" on A/B layouts), so USR partitions are probed first. Remaining
+// candidate partitions are probed only as a fallback, so layouts where the USR
+// partition type/label is not discoverable still work. It returns the first
+// partition that contains the marker, or nil if none do.
+func findAclFstabPartition(diskPartitions []diskutils.PartitionInfo, tmpDir string) (*diskutils.PartitionInfo, error) {
+	var usrCandidates []*diskutils.PartitionInfo
+	var otherCandidates []*diskutils.PartitionInfo
+	for i := range diskPartitions {
+		diskPartition := diskPartitions[i]
+
+		if diskPartition.Type != "part" {
+			continue
+		}
+
+		switch diskPartition.FileSystemType {
+		case "ext2", "ext3", "ext4", "xfs", "btrfs":
+
+		default:
+			continue
+		}
+
+		if isAclUsrPartition(diskPartition) {
+			usrCandidates = append(usrCandidates, &diskPartitions[i])
+		} else {
+			otherCandidates = append(otherCandidates, &diskPartitions[i])
+		}
+	}
+
+	for _, diskPartition := range append(usrCandidates, otherCandidates...) {
+		found, err := partitionContainsAclFstab(*diskPartition, tmpDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search for ACL fstab in partition (%s):\n%w",
+				diskPartition.Path, err)
+		}
+		if found {
+			return diskPartition, nil
+		}
+	}
+	return nil, nil
+}
+
+// isAclUsrPartition reports whether the partition is a USR (or usr-verity)
+// partition, based on its GPT partition type GUID or its partition label. ACL
+// places the fstab marker on the USR partition. The USR type GUID is identical
+// for USR-A and USR-B, so the label ("usr", "usr-a", ...) is also matched. Both
+// architectures' GUIDs are checked because an ACL image may target either.
+func isAclUsrPartition(diskPartition diskutils.PartitionInfo) bool {
+	switch strings.ToLower(diskPartition.PartitionTypeUuid) {
+	case usrPartitionTypeUuidAmd64, usrVerityPartitionTypeUuidAmd64,
+		usrPartitionTypeUuidArm64, usrVerityPartitionTypeUuidArm64:
+		return true
+	}
+	return strings.Contains(strings.ToLower(diskPartition.PartLabel), "usr")
+}
+
+// USR / usr-verity GPT partition type GUIDs for both architectures. The running
+// ImageCustomizer binary only knows its own GOARCH GUIDs, but an ACL image may
+// target either architecture, so all four are matched here.
+const (
+	usrPartitionTypeUuidAmd64       = "8484680c-9521-48c6-9c11-b0720656f69e"
+	usrVerityPartitionTypeUuidAmd64 = "77ff5f63-e7b6-4633-acf4-1565b864c0e6"
+	usrPartitionTypeUuidArm64       = "b0e01050-ee5f-4390-949a-9101b17104e9"
+	usrVerityPartitionTypeUuidArm64 = "6e11a4e7-fbca-4ded-b9e9-e1a512bb664e"
+)
+
+// partitionContainsAclFstab mounts the partition read-only and checks for the
+// ACL fstab marker (share/ic/etc/fstab) at the filesystem root. It does not
+// enumerate BTRFS subvolumes.
+func partitionContainsAclFstab(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, error) {
+	mountOptions := ""
+	if diskPartition.FileSystemType == "btrfs" {
+		mountOptions = fmt.Sprintf("subvolid=%d", BtrfsTopLevelSubvolumeId)
+	}
+
+	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+		unix.MS_RDONLY, mountOptions, true)
+	if err != nil {
+		return false, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+	}
+	defer partitionMount.Close()
+
+	fstabAclPath := filepath.Join(tmpDir, "share/ic/etc/fstab")
+	exists, err := file.PathExists(fstabAclPath)
+	if err != nil {
+		return false, err
+	}
+
+	err = partitionMount.CleanClose()
+	if err != nil {
+		return false, fmt.Errorf("failed to close partition mount (%s):\n%w", diskPartition.Path, err)
+	}
+
+	return exists, nil
 }
 
 // findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes.
