@@ -11,6 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAclFindBootPartitionUsesEsp(t *testing.T) {
+	handler := &aclDistroHandler{}
+
+	uuid, err := handler.FindBootPartitionUuidFromEsp(t.TempDir())
+
+	require.NoError(t, err)
+	assert.Empty(t, uuid)
+}
+
 func TestAclDracutRegenerateArgsUsesExplicitTmpdir(t *testing.T) {
 	args := aclDracutRegenerateArgs()
 
