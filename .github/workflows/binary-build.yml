@@ -131,10 +131,10 @@ jobs:
 
         sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
           curl -sSLo zizmor-x86_64-unknown-linux-gnu.tar.gz \
-            https://github.com/zizmorcore/zizmor/releases/download/v1.12.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
+            https://github.com/zizmorcore/zizmor/releases/download/v1.29.0/zizmor-x86_64-unknown-linux-gnu.tar.gz
 
         tarHash="$(sha256sum zizmor-x86_64-unknown-linux-gnu.tar.gz | cut -d ' ' -f 1)"
-        if [ "$tarHash" != "d73cd379078cae18d5439ce1f8716d30de5a4d2d29cac62cfbe01e6a8251fe0e" ]; then
+        if [ "$tarHash" != "dd96df044a6e8538d5f423790f453bdd03d49e5b2bcc38214acc41a2f1297839" ]; then
           echo "Bad zizmor tarball"
           exit 1
         fi
