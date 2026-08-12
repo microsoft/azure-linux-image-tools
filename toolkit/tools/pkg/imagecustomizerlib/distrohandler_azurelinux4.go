@@ -233,7 +233,8 @@ func (d *azureLinux4DistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecust
 }
 
 func (d *azureLinux4DistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
-) (*EtcOverlay, error) {
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
 	return nil, nil
 }
 

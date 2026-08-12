@@ -95,7 +95,8 @@ type DistroHandler interface {
 	// SetupEtcOverlay assembles the distro's runtime /etc overlay over the image's /etc for the
 	// duration of OS customization, so that in-chroot code (e.g. package manager scriptlets, user
 	// scripts, service enablement) sees the same merged /etc the booted OS sees.
-	SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot) (*EtcOverlay, error)
+	SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+		reinitializeVerity imagecustomizerapi.ReinitializeVerityType) (*AclEtcOverlay, error)
 
 	// ExtractUkiAddonCmdline returns the current kernel command line from the
 	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,

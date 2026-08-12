@@ -35,6 +35,16 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	buildTime := time.Now().Format(buildTimeFormat)
 
+	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
+	// the same merged /etc the booted OS sees.
+	etcOverlay, err := distroHandler.SetupEtcOverlay(ctx, imageChroot, rc.Storage.ReinitializeVerity)
+	if err != nil {
+		return err
+	}
+	if etcOverlay != nil {
+		defer etcOverlay.Close()
+	}
+
 	// The toolsChroot (when present) has its own resolv.conf overridden at chroot
 	// initialization time; here we override the imageChroot's so that user scripts
 	// (e.g. postCustomization) have network access.
@@ -241,6 +251,15 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		rc.Options.SetFilesContext)
 	if err != nil {
 		return err
+	}
+
+	// Finalize the /etc overlay before the finalizeCustomization scripts run, so that those
+	// scripts can modify the /etc baseline's contents if they need to.
+	if etcOverlay != nil {
+		err = etcOverlay.Finalize(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, configWithBase := range rc.ConfigChain {

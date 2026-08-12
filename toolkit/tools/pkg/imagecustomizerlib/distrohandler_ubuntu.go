@@ -195,7 +195,8 @@ func (d *ubuntuDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomize
 }
 
 func (d *ubuntuDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
-) (*EtcOverlay, error) {
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
 	return nil, nil
 }
 

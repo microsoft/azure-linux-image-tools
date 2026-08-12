@@ -727,14 +727,6 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
-	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
-	// the same merged /etc the booted OS sees.
-	etcOverlay, err := distroHandler.SetupEtcOverlay(ctx, imageConnection.Chroot())
-	if err != nil {
-		return nil, nil, nil, "", err
-	}
-	defer etcOverlay.Close()
-
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -761,14 +753,6 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	// So, warn about any partitions with low free space.
 	warnOnLowFreeSpace(rc.BuildDirAbs, imageConnection)
 
-	if err != nil {
-		return nil, nil, nil, "", err
-	}
-
-	// Finalize the /etc overlay, this is a no-op for distros without one. When the distro's /etc
-	// baseline is writable, this folds the customized /etc into it. Must happen while the image is
-	// still mounted and before the filesystems are trimmed and verity is recalculated.
-	err = etcOverlay.Finalize(ctx)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

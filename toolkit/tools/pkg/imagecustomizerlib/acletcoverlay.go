@@ -5,11 +5,11 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	ErrEtcOverlayAssemble = NewImageCustomizerError("EtcOverlay:Assemble", "failed to assemble /etc overlay")
-	ErrEtcOverlayFinalize = NewImageCustomizerError("EtcOverlay:Finalize", "failed to finalize /etc overlay")
+	ErrAclEtcOverlayAssemble = NewImageCustomizerError("AclEtcOverlay:Assemble", "failed to assemble /etc overlay")
+	ErrAclEtcOverlayFinalize = NewImageCustomizerError("AclEtcOverlay:Finalize", "failed to finalize /etc overlay")
 )
 
 const (
@@ -31,22 +31,23 @@ const (
 	aclEtcBaselineDir = "usr/share/distro/etc"
 
 	// Scratch directory holding the overlay's work directory for the duration of customization.
-	etcOverlayWorkDirName = ".ic-etc-work"
+	// Matches the work directory the ACL initrd uses (and recreates) for the runtime mount.
+	aclEtcOverlayWorkDirName = ".etc-work"
 
 	// Temporary directory holding the merged /etc snapshot while folding.
-	etcOverlayFoldTmpName = ".ic-etc-fold"
+	aclEtcOverlayFoldTmpName = ".ic-etc-fold"
 )
 
-// etcOverlayFoldExclusions lists paths that are relative to /etc that must never be folded into the
+// aclEtcOverlayFoldExclusions lists paths that are relative to /etc that must never be folded into the
 // baseline. machine-id is per-machine identity: the ACL image build removes it before populating
 // the baseline so that systemd sees a missing file on first boot and runs its first-boot logic.
-var etcOverlayFoldExclusions = []string{
+var aclEtcOverlayFoldExclusions = []string{
 	"machine-id",
 }
 
-// EtcOverlay is a distro's /etc overlay, assembled over an image's /etc for the duration of OS
+// AclEtcOverlay is a distro's /etc overlay, assembled over an image's /etc for the duration of OS
 // customization. See DistroHandler.SetupEtcOverlay.
-type EtcOverlay struct {
+type AclEtcOverlay struct {
 	// Host path of the image's /etc: the overlay's mountpoint and its writable upper layer.
 	etcDir string
 	// Host path of the /etc baseline, the overlay's read-only lower layer.
@@ -57,27 +58,29 @@ type EtcOverlay struct {
 	// Whether the baseline's filesystem is writable, so the merged /etc can be folded into
 	// the baseline when the overlay is finalized.
 	foldable bool
-	done     bool
 }
 
 // newAclEtcOverlay assembles ACL's /etc overlay over the image's /etc, mirroring the mount the ACL
 // initrd creates at runtime: the baseline is the lower layer and the physical /etc is the upper.
-func newAclEtcOverlay(ctx context.Context, rootDir string) (*EtcOverlay, error) {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "assemble_etc_overlay")
+func newAclEtcOverlay(ctx context.Context, rootDir string,
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "assemble_acl_etc_overlay")
 	defer span.End()
 
-	overlay, err := newAclEtcOverlayHelper(rootDir)
+	overlay, err := assembleAclEtcOverlay(rootDir, reinitializeVerity)
 	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrEtcOverlayAssemble, err)
+		return nil, fmt.Errorf("%w:\n%w", ErrAclEtcOverlayAssemble, err)
 	}
 
 	return overlay, nil
 }
 
-func newAclEtcOverlayHelper(rootDir string) (*EtcOverlay, error) {
+func assembleAclEtcOverlay(rootDir string, reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
 	baselineDir := filepath.Join(rootDir, aclEtcBaselineDir)
 	etcDir := filepath.Join(rootDir, "etc")
-	workDir := filepath.Join(rootDir, etcOverlayWorkDirName)
+	workDir := filepath.Join(rootDir, aclEtcOverlayWorkDirName)
 
 	baselineExists, err := file.DirExists(baselineDir)
 	if err != nil {
@@ -87,20 +90,11 @@ func newAclEtcOverlayHelper(rootDir string) (*EtcOverlay, error) {
 		return nil, fmt.Errorf("image has no /etc baseline directory (%s)", aclEtcBaselineDir)
 	}
 
-	// The baseline lives on the /usr filesystem, which is only mounted read-write when the image is
-	// customized with reinitializeVerity: all. When it is writable, finalizing the overlay folds the
-	// merged /etc into the baseline, while when it is read-only, the /etc changes are left on the
-	// root partition, just like changes made on a booted system.
-	foldable := false
-	err = unix.Access(baselineDir, unix.W_OK)
-	switch {
-	case err == nil:
-		foldable = true
-	case errors.Is(err, unix.EROFS):
-		foldable = false
-	default:
-		return nil, fmt.Errorf("failed to check /etc baseline writability:\n%w", err)
-	}
+	// Folding writes the baseline, which lives on the dm-verity protected /usr filesystem. /usr is
+	// only mounted read-write (and its verity hashes recomputed) when reinitializeVerity is 'all',
+	// so that setting decides the finalize behavior: fold the merged /etc into the baseline, or
+	// leave the /etc changes on the root partition, just like changes made on a booted system.
+	foldable := reinitializeVerity == imagecustomizerapi.ReinitializeVerityTypeAll
 
 	if foldable {
 		logger.Log.Infof("Assembling /etc overlay")
@@ -134,14 +128,10 @@ func newAclEtcOverlayHelper(rootDir string) (*EtcOverlay, error) {
 	mount, err := safemount.NewMount("overlay", etcDir, "overlay", unix.MS_NOATIME, options,
 		false /*makeAndDeleteDir*/)
 	if err != nil {
-		removeErr := os.RemoveAll(workDir)
-		if removeErr != nil {
-			logger.Log.Warnf("Failed to remove overlay work directory (%s): %v", workDir, removeErr)
-		}
 		return nil, err
 	}
 
-	overlay := &EtcOverlay{
+	overlay := &AclEtcOverlay{
 		etcDir:      etcDir,
 		baselineDir: baselineDir,
 		workDir:     workDir,
@@ -151,36 +141,31 @@ func newAclEtcOverlayHelper(rootDir string) (*EtcOverlay, error) {
 	return overlay, nil
 }
 
-func (o *EtcOverlay) foldTmpDir() string {
-	return filepath.Join(filepath.Dir(o.baselineDir), etcOverlayFoldTmpName)
+func (o *AclEtcOverlay) foldTmpDir() string {
+	return filepath.Join(filepath.Dir(o.baselineDir), aclEtcOverlayFoldTmpName)
 }
 
 // Finalize unmounts the overlay. When the baseline is writable, the merged /etc is first folded
 // into the baseline and the physical /etc is left empty; otherwise the accumulated /etc changes
 // remain on the root partition, matching what the same changes would produce on a booted system.
-func (o *EtcOverlay) Finalize(ctx context.Context) error {
-	if o == nil {
-		return nil
-	}
-
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "finalize_etc_overlay")
+func (o *AclEtcOverlay) Finalize(ctx context.Context) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "finalize_acl_etc_overlay")
 	defer span.End()
 
 	var err error
 	if o.foldable {
-		err = o.foldAndUnmountHelper()
+		err = o.foldAndUnmount()
 	} else {
-		err = o.unmountHelper()
+		err = o.unmount()
 	}
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrEtcOverlayFinalize, err)
+		return fmt.Errorf("%w:\n%w", ErrAclEtcOverlayFinalize, err)
 	}
 
-	o.done = true
 	return nil
 }
 
-func (o *EtcOverlay) unmountHelper() error {
+func (o *AclEtcOverlay) unmount() error {
 	logger.Log.Infof("Unmounting /etc overlay (leaving /etc changes on the root partition)")
 
 	err := o.mount.CleanClose()
@@ -196,7 +181,7 @@ func (o *EtcOverlay) unmountHelper() error {
 	return nil
 }
 
-func (o *EtcOverlay) foldAndUnmountHelper() error {
+func (o *AclEtcOverlay) foldAndUnmount() error {
 	logger.Log.Infof("Folding /etc overlay into the image's /etc baseline")
 
 	// Snapshot the merged /etc through the mountpoint, so whiteouts and directory redirects are
@@ -218,7 +203,7 @@ func (o *EtcOverlay) foldAndUnmountHelper() error {
 		return fmt.Errorf("failed to snapshot merged /etc:\n%w", err)
 	}
 
-	for _, relPath := range etcOverlayFoldExclusions {
+	for _, relPath := range aclEtcOverlayFoldExclusions {
 		err = os.RemoveAll(filepath.Join(foldTmpDir, relPath))
 		if err != nil {
 			return fmt.Errorf("failed to exclude (%s) from the /etc baseline:\n%w", relPath, err)
@@ -230,27 +215,16 @@ func (o *EtcOverlay) foldAndUnmountHelper() error {
 		return err
 	}
 
-	// Swap the snapshot in as the new baseline. Both paths are on the same filesystem, so the
-	// window without a baseline is two renames wide.
-	oldBaselineDir := o.baselineDir + ".old"
-	err = os.RemoveAll(oldBaselineDir)
+	// Swap the snapshot in as the new baseline. The snapshot lives next to the baseline, so the
+	// rename is a same-filesystem move.
+	err = os.RemoveAll(o.baselineDir)
 	if err != nil {
-		return fmt.Errorf("failed to remove stale directory (%s):\n%w", oldBaselineDir, err)
-	}
-
-	err = os.Rename(o.baselineDir, oldBaselineDir)
-	if err != nil {
-		return fmt.Errorf("failed to move aside old /etc baseline:\n%w", err)
+		return fmt.Errorf("failed to remove old /etc baseline:\n%w", err)
 	}
 
 	err = os.Rename(foldTmpDir, o.baselineDir)
 	if err != nil {
 		return fmt.Errorf("failed to install new /etc baseline:\n%w", err)
-	}
-
-	err = os.RemoveAll(oldBaselineDir)
-	if err != nil {
-		return fmt.Errorf("failed to remove old /etc baseline:\n%w", err)
 	}
 
 	// Empty the physical /etc: its previous contents are part of the new baseline now.
@@ -267,21 +241,9 @@ func (o *EtcOverlay) foldAndUnmountHelper() error {
 	return nil
 }
 
-// Close unmounts the overlay without folding. Intended as deferred error-path cleanup, the image
-// is expected to be discarded. No-op after a successful Finalize and on a nil receiver.
-func (o *EtcOverlay) Close() {
-	if o == nil || o.done {
-		return
-	}
-
+// Close unmounts the overlay without folding. Intended as deferred error-path cleanup: only the
+// host-side mount is released; scratch directories are left behind, since a failed customization's
+// image is never output. Safe to call after a successful Finalize: the mount tracks its own state.
+func (o *AclEtcOverlay) Close() {
 	o.mount.Close()
-
-	for _, dir := range []string{o.workDir, o.foldTmpDir()} {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			logger.Log.Warnf("Failed to remove overlay directory (%s): %v", dir, err)
-		}
-	}
-
-	o.done = true
 }

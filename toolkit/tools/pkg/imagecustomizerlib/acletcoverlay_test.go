@@ -9,15 +9,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/moby/sys/mountinfo"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
 
-// makeEtcOverlayTestRoot creates a fake ACL image root:
+// makeAclEtcOverlayTestRoot creates a fake ACL image root:
 //   - a baseline (usr/share/distro/etc) with passwd, chrony.conf, obsolete.conf, and a subdirectory
 //   - a physical /etc with a shadowing chrony.conf, a stale.conf, and a machine-id
-func makeEtcOverlayTestRoot(t *testing.T, testName string) string {
+func makeAclEtcOverlayTestRoot(t *testing.T, testName string) string {
 	rootDir := filepath.Join(tmpDir, testName)
 
 	baselineDir := filepath.Join(rootDir, aclEtcBaselineDir)
@@ -58,18 +59,18 @@ func assertFileContent(t *testing.T, path string, expected string) {
 	}
 }
 
-func TestEtcOverlayFold(t *testing.T) {
+func TestAclEtcOverlayFold(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it mounts an overlay filesystem")
 	}
 
-	rootDir := makeEtcOverlayTestRoot(t, "TestEtcOverlayFold")
+	rootDir := makeAclEtcOverlayTestRoot(t, "TestAclEtcOverlayFold")
 	defer os.RemoveAll(rootDir)
 
 	etcDir := filepath.Join(rootDir, "etc")
 	baselineDir := filepath.Join(rootDir, aclEtcBaselineDir)
 
-	overlay, err := newAclEtcOverlay(context.Background(), rootDir)
+	overlay, err := newAclEtcOverlay(context.Background(), rootDir, imagecustomizerapi.ReinitializeVerityTypeAll)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -135,16 +136,16 @@ func TestEtcOverlayFold(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, entries, "physical /etc must be empty after fold")
 
-	assert.NoDirExists(t, filepath.Join(rootDir, etcOverlayWorkDirName))
-	assert.NoDirExists(t, filepath.Join(filepath.Dir(baselineDir), etcOverlayFoldTmpName))
+	assert.NoDirExists(t, filepath.Join(rootDir, aclEtcOverlayWorkDirName))
+	assert.NoDirExists(t, filepath.Join(filepath.Dir(baselineDir), aclEtcOverlayFoldTmpName))
 }
 
-func TestEtcOverlayReadOnlyBaseline(t *testing.T) {
+func TestAclEtcOverlayReadOnlyBaseline(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it mounts filesystems")
 	}
 
-	rootDir := makeEtcOverlayTestRoot(t, "TestEtcOverlayReadOnlyBaseline")
+	rootDir := makeAclEtcOverlayTestRoot(t, "TestAclEtcOverlayReadOnlyBaseline")
 	defer os.RemoveAll(rootDir)
 
 	etcDir := filepath.Join(rootDir, "etc")
@@ -161,7 +162,7 @@ func TestEtcOverlayReadOnlyBaseline(t *testing.T) {
 		return
 	}
 
-	overlay, err := newAclEtcOverlay(context.Background(), rootDir)
+	overlay, err := newAclEtcOverlay(context.Background(), rootDir, imagecustomizerapi.ReinitializeVerityTypeNone)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -193,21 +194,21 @@ func TestEtcOverlayReadOnlyBaseline(t *testing.T) {
 	assertFileContent(t, filepath.Join(etcDir, "stale.conf"), "stale\n")
 	assertFileContent(t, filepath.Join(etcDir, "machine-id"), "0123456789abcdef\n")
 
-	assert.NoDirExists(t, filepath.Join(rootDir, etcOverlayWorkDirName))
+	assert.NoDirExists(t, filepath.Join(rootDir, aclEtcOverlayWorkDirName))
 }
 
-func TestEtcOverlayCloseWithoutFinalize(t *testing.T) {
+func TestAclEtcOverlayCloseWithoutFinalize(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it mounts an overlay filesystem")
 	}
 
-	rootDir := makeEtcOverlayTestRoot(t, "TestEtcOverlayCloseWithoutFinalize")
+	rootDir := makeAclEtcOverlayTestRoot(t, "TestAclEtcOverlayCloseWithoutFinalize")
 	defer os.RemoveAll(rootDir)
 
 	etcDir := filepath.Join(rootDir, "etc")
 	baselineDir := filepath.Join(rootDir, aclEtcBaselineDir)
 
-	overlay, err := newAclEtcOverlay(context.Background(), rootDir)
+	overlay, err := newAclEtcOverlay(context.Background(), rootDir, imagecustomizerapi.ReinitializeVerityTypeAll)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -230,26 +231,19 @@ func TestEtcOverlayCloseWithoutFinalize(t *testing.T) {
 	assertFileContent(t, filepath.Join(etcDir, "stale.conf"), "stale\n")
 	assertFileContent(t, filepath.Join(etcDir, "machine-id"), "0123456789abcdef\n")
 
-	assert.NoDirExists(t, filepath.Join(rootDir, etcOverlayWorkDirName))
+	// Close deliberately leaves the scratch state behind: a failed customization's image is never
+	// output.
+	assert.DirExists(t, filepath.Join(rootDir, aclEtcOverlayWorkDirName))
 }
 
-func TestEtcOverlayMissingBaseline(t *testing.T) {
-	rootDir := filepath.Join(tmpDir, "TestEtcOverlayMissingBaseline")
+func TestAclEtcOverlayMissingBaseline(t *testing.T) {
+	rootDir := filepath.Join(tmpDir, "TestAclEtcOverlayMissingBaseline")
 	defer os.RemoveAll(rootDir)
 
 	err := os.MkdirAll(filepath.Join(rootDir, "etc"), os.ModePerm)
 	assert.NoError(t, err)
 
-	_, err = newAclEtcOverlay(context.Background(), rootDir)
-	assert.ErrorIs(t, err, ErrEtcOverlayAssemble)
+	_, err = newAclEtcOverlay(context.Background(), rootDir, imagecustomizerapi.ReinitializeVerityTypeAll)
+	assert.ErrorIs(t, err, ErrAclEtcOverlayAssemble)
 	assert.ErrorContains(t, err, "baseline")
-}
-
-func TestEtcOverlayNilReceiver(t *testing.T) {
-	var overlay *EtcOverlay
-
-	err := overlay.Finalize(context.Background())
-	assert.NoError(t, err)
-
-	overlay.Close()
 }
