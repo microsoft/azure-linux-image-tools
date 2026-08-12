@@ -240,6 +240,11 @@ func (d *fedoraDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomize
 	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
+func (d *fedoraDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+) (*EtcOverlay, error) {
+	return nil, nil
+}
+
 func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }

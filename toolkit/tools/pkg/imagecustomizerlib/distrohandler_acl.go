@@ -213,6 +213,14 @@ func (d *aclDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerap
 	return nil
 }
 
+// SetupEtcOverlay assembles ACL's /etc overlay for the duration of
+// customization. At runtime, ACL composes /etc from an overlay: the read-only
+// baseline under /usr below the writable physical /etc on the root partition.
+func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+) (*EtcOverlay, error) {
+	return newAclEtcOverlay(ctx, imageChroot.RootDir())
+}
+
 func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	_, statErr := os.Stat(addonFilePath)
 	if statErr == nil {
