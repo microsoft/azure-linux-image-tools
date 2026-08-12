@@ -679,7 +679,7 @@ func createMountsDirOverlay(buildDir string, includeDefaultMounts bool, layout [
 
 	// Overlay the ACL root on top of the special directories directory.
 	mountPoint := safechroot.NewPreDefaultsMountPoint("overlay", "/", "overlay", unix.MS_RDONLY,
-		fmt.Sprintf("lowerdir=%s:%s", mountDirsDir, rootMountPoint))
+		fmt.Sprintf("lowerdir=%s:%s", rootMountPoint, mountDirsDir))
 
 	ok = true
 	return mountPoint, mountDirsDir, nil
