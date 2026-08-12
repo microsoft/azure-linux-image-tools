@@ -45,11 +45,13 @@ var (
 )
 
 const (
-	BootDir           = "boot"
-	EspDir            = "boot/efi"
-	UkiKernelInfoJson = "uki-kernel-info.json"
-	UkiBuildDir       = "UkiBuildDir"
-	UkiOutputDir      = "EFI/Linux"
+	BootDir                    = "boot"
+	EspDir                     = "boot/efi"
+	UkiKernelInfoJson          = "uki-kernel-info.json"
+	UkiBuildDir                = "UkiBuildDir"
+	UkiOutputDir               = "EFI/Linux"
+	firstBootAddonFileName     = "firstboot.addon.efi"
+	firstBootAddonTemplatePath = "acl/uki-addons/firstboot.addon.efi"
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
@@ -922,6 +924,11 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 		}
 	}
 
+	err = restoreFirstBootAddon(systemBootPartitionTmpDir, kernelInfo)
+	if err != nil {
+		return err
+	}
+
 	err = cleanupUkiBuildDir(rc.BuildDirAbs)
 	if err != nil {
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
@@ -1137,6 +1144,37 @@ func buildUkiAddon(kernel string, kernelArgs string, stubPath string, systemBoot
 
 	logger.Log.Infof("Successfully built UKI addon: (%s)", addonFullPath)
 	logger.Log.Infof("Main UKI (%s) will load addon cmdline at boot time", ukiFullPath)
+	return nil
+}
+
+func restoreFirstBootAddon(systemBootPartitionDir string, kernelInfo map[string]UkiKernelInfo) error {
+	templatePath := filepath.Join(systemBootPartitionDir, firstBootAddonTemplatePath)
+	templateInfo, err := os.Stat(templatePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to inspect first-boot addon template (%s):\n%w", templatePath, err)
+	}
+	if templateInfo.IsDir() {
+		return fmt.Errorf("first-boot addon template is a directory (%s)", templatePath)
+	}
+
+	for kernel := range kernelInfo {
+		addonDir := filepath.Join(systemBootPartitionDir, UkiOutputDir, fmt.Sprintf("%s.efi.extra.d", kernel))
+		err = os.MkdirAll(addonDir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create UKI addon directory (%s):\n%w", addonDir, err)
+		}
+
+		destination := filepath.Join(addonDir, firstBootAddonFileName)
+		err = file.Copy(templatePath, destination)
+		if err != nil {
+			return fmt.Errorf("failed to restore first-boot addon (%s):\n%w", destination, err)
+		}
+		logger.Log.Infof("Restored first-boot addon: (%s)", destination)
+	}
+
 	return nil
 }
 

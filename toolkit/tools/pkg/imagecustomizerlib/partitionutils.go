@@ -1104,6 +1104,10 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 
 		// Extract cmdline from each addon in sorted order
 		for _, addonFile := range addonFiles {
+			if shouldPreserveUkiAddon(ukiFile, addonFile) {
+				continue
+			}
+
 			addonFilePath := filepath.Join(addonDirPath, addonFile)
 			addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
 			if err != nil {
@@ -1128,6 +1132,16 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 	}
 
 	return strings.Join(cmdlines, " "), nil
+}
+
+func shouldPreserveUkiAddon(ukiFile string, addonFile string) bool {
+	if addonFile != firstBootAddonFileName {
+		return false
+	}
+
+	espDir := filepath.Clean(filepath.Join(filepath.Dir(ukiFile), "..", ".."))
+	templateInfo, err := os.Stat(filepath.Join(espDir, firstBootAddonTemplatePath))
+	return err == nil && !templateInfo.IsDir()
 }
 
 // extractCmdlineFromSinglePE extracts the .cmdline section from a single PE file (UKI or addon).
