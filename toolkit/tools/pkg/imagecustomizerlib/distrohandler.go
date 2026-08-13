@@ -92,6 +92,12 @@ type DistroHandler interface {
 	// the mode is already applied via the kernel command line in that case.
 	UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface) error
 
+	// SetupEtcOverlay assembles the distro's runtime /etc overlay over the image's /etc for the
+	// duration of OS customization, so that in-chroot code (e.g. package manager scriptlets, user
+	// scripts, service enablement) sees the same merged /etc the booted OS sees.
+	SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+		reinitializeVerity imagecustomizerapi.ReinitializeVerityType) (*AclEtcOverlay, error)
+
 	// ExtractUkiAddonCmdline returns the current kernel command line from the
 	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,
 	// distros that support a first-run addon-creation flow (e.g. ACL) return an

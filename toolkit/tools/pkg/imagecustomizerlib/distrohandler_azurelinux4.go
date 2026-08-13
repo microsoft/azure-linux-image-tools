@@ -232,6 +232,12 @@ func (d *azureLinux4DistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecust
 	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
+func (d *azureLinux4DistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
+	return nil, nil
+}
+
 func (d *azureLinux4DistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
