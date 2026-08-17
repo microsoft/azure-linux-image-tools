@@ -110,7 +110,7 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	}
 
 	mountPoints, readonlyPartUuids, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, partitions,
-		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts)
+		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts, mountPath)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
@@ -166,7 +166,7 @@ func reconnectToExistingImageHelper(imageFilePath string, buildDir string, mount
 	}
 
 	mountPoints, readonlyPartUuids, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, partitions,
-		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts)
+		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts, mountPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
@@ -382,8 +382,10 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 		return nil, "", fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
 
+	imageChrootDir := filepath.Join(buildDir, chrootDirName)
+
 	mountPoints, _, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, diskPartitions, false, false,
-		distroHandler, buildDir, false)
+		distroHandler, buildDir, false, imageChrootDir)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
@@ -391,8 +393,6 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
-	imageChrootDir := filepath.Join(buildDir, chrootDirName)
-
 	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, false)
 	if err != nil {
 		return nil, "", err
