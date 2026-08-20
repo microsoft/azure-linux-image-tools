@@ -161,7 +161,7 @@ func growAclStandardPartitions(ctx context.Context, acl *imagecustomizerapi.Acl,
 
 	// Recreate the ESP vfat at the larger size, preserving volume id, label, and files.
 	if espRecreated {
-		err = recreateAclEspFilesystem(newLoopback.DevicePath(), newPartitions)
+		err = recreateAclEspFilesystem(partitions, newPartitions)
 		if err != nil {
 			return err
 		}
@@ -503,11 +503,14 @@ func partitionsByLabel(partitions []diskutils.PartitionInfo) map[string]diskutil
 
 // recreateAclEspFilesystem recreates the ESP vfat filesystem at the enlarged partition size,
 // preserving its volume id, label, and files. FAT cannot be grown in place without fatresize
-// (not a toolkit dependency), so the ESP is copied out, reformatted, and copied back in.
-func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.PartitionInfo) error {
-	espPart, ok := partitionsByLabel(newPartitions)[aclPartLabelEsp]
-	if !ok {
-		return fmt.Errorf("%w: ESP partition not found on new disk", ErrAclGrowFilesystem)
+// (not a toolkit dependency), so the ESP is copied from the base partition, the new partition is
+// formatted, and the files are copied back into it.
+func recreateAclEspFilesystem(oldPartitions []diskutils.PartitionInfo,
+	newPartitions []diskutils.PartitionInfo,
+) error {
+	oldEspPart, newEspPart, err := resolveAclEspPartitions(oldPartitions, newPartitions)
+	if err != nil {
+		return err
 	}
 
 	tmpDir, err := os.MkdirTemp("", "acl-esp-")
@@ -519,14 +522,14 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 	stageDir := filepath.Join(tmpDir, "stage")
 	mountDir := filepath.Join(tmpDir, "mnt")
 
-	// Read the current volume id and label so the reformatted ESP keeps the same identity.
-	volumeId, label, err := readVfatIdentity(espPart.Path)
+	// Read the current volume id and label from the base ESP so the reformatted ESP keeps the same identity.
+	volumeId, label, err := readVfatIdentity(oldEspPart.Path)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrAclGrowFilesystem, err)
 	}
 
-	// Copy the existing ESP files out.
-	espMount, err := safemount.NewMount(espPart.Path, mountDir, "vfat", 0, "", true)
+	// Copy the existing ESP files out of the base image.
+	espMount, err := safemount.NewMount(oldEspPart.Path, mountDir, "vfat", 0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w: failed to mount existing ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
@@ -553,7 +556,7 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 	if label != "" {
 		mkfsArgs = append(mkfsArgs, "-n", label)
 	}
-	mkfsArgs = append(mkfsArgs, espPart.Path)
+	mkfsArgs = append(mkfsArgs, newEspPart.Path)
 	err = shell.NewExecBuilder("mkfs.vfat", mkfsArgs...).
 		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
 		ErrorStderrLines(1).
@@ -562,8 +565,8 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 		return fmt.Errorf("%w: mkfs.vfat failed on ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
 
-	// Copy the files back in.
-	espMount, err = safemount.NewMount(espPart.Path, mountDir, "vfat", 0, "", false)
+	// Copy the files into the enlarged ESP on the new image.
+	espMount, err = safemount.NewMount(newEspPart.Path, mountDir, "vfat", 0, "", false)
 	if err != nil {
 		return fmt.Errorf("%w: failed to remount ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
@@ -578,6 +581,24 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 	}
 
 	return nil
+}
+
+func resolveAclEspPartitions(oldPartitions []diskutils.PartitionInfo,
+	newPartitions []diskutils.PartitionInfo,
+) (diskutils.PartitionInfo, diskutils.PartitionInfo, error) {
+	oldEspPart, ok := partitionsByLabel(oldPartitions)[aclPartLabelEsp]
+	if !ok {
+		return diskutils.PartitionInfo{}, diskutils.PartitionInfo{},
+			fmt.Errorf("%w: ESP partition not found on base disk", ErrAclGrowFilesystem)
+	}
+
+	newEspPart, ok := partitionsByLabel(newPartitions)[aclPartLabelEsp]
+	if !ok {
+		return diskutils.PartitionInfo{}, diskutils.PartitionInfo{},
+			fmt.Errorf("%w: ESP partition not found on new disk", ErrAclGrowFilesystem)
+	}
+
+	return oldEspPart, newEspPart, nil
 }
 
 // readVfatIdentity returns the vfat volume id (as an 8-hex-digit string suitable for `mkfs.vfat -i`)

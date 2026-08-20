@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -171,6 +172,34 @@ func TestApplyAclGrownLayoutEsp(t *testing.T) {
 
 	// ROOT keeps its original size.
 	assert.Equal(t, origRootSizeSect, table.partitions[4].sizeSect)
+}
+
+func TestResolveAclEspPartitionsUsesBaseAsSourceAndNewAsTarget(t *testing.T) {
+	oldPartitions := []diskutils.PartitionInfo{
+		{Type: "part", PartLabel: aclPartLabelEsp, Path: "/dev/loop0p1"},
+	}
+	newPartitions := []diskutils.PartitionInfo{
+		{Type: "part", PartLabel: aclPartLabelEsp, Path: "/dev/loop1p1"},
+	}
+
+	oldEspPart, newEspPart, err := resolveAclEspPartitions(oldPartitions, newPartitions)
+	require.NoError(t, err)
+	assert.Equal(t, "/dev/loop0p1", oldEspPart.Path)
+	assert.Equal(t, "/dev/loop1p1", newEspPart.Path)
+}
+
+func TestResolveAclEspPartitionsRejectsMissingEsp(t *testing.T) {
+	validPartitions := []diskutils.PartitionInfo{
+		{Type: "part", PartLabel: aclPartLabelEsp, Path: "/dev/loop0p1"},
+	}
+
+	_, _, err := resolveAclEspPartitions(nil, validPartitions)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "ESP partition not found on base disk")
+
+	_, _, err = resolveAclEspPartitions(validPartitions, nil)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "ESP partition not found on new disk")
 }
 
 func TestAclAlignedDiskSizeGrowsByDelta(t *testing.T) {
