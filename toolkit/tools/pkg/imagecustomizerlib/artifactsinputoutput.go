@@ -224,28 +224,33 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	// Output bootloader (e.g. GRUBX64.efi)
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemBootloader) {
-		bootloaderOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemBootloader))
-		err = os.MkdirAll(bootloaderOutputSubdir, 0o755)
-		if err != nil {
-			return fmt.Errorf("failed to create bootloader subdirectory:\n%w", err)
+		subfiles := []string{bootConfig.espGrubBinaryPath, filepath.Join("/HvLoader.efi"), filepath.Join(espBootloaderDir, "/second.efi")}
+		for _, subfile := range subfiles {
+			subfileName := filepath.Base(subfile)
+
+			bootloaderOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemBootloader))
+			err = os.MkdirAll(bootloaderOutputSubdir, 0o755)
+			if err != nil {
+				return fmt.Errorf("failed to create bootloader subdirectory:\n%w", err)
+			}
+
+			srcPath := filepath.Join(systemBootPartitionTmpDir, subfile)
+			destPath := filepath.Join(bootloaderOutputSubdir, subfileName)
+			err := file.Copy(srcPath, destPath)
+			if err != nil {
+				return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			}
+
+			source := "./" + string(imagecustomizerapi.OutputArtifactsItemBootloader) + "/" + subfileName
+
+			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+				Partition:   espInjectFilePartition,
+				Source:      source,
+				Destination: filepath.Join("/", subfile),
+				Type:        imagecustomizerapi.OutputArtifactsItemBootloader,
+			})
+			logger.Log.Debugf("Added bootloader file to metadata: %s", subfileName)
 		}
-
-		srcPath := filepath.Join(systemBootPartitionTmpDir, bootConfig.espGrubBinaryPath)
-		destPath := filepath.Join(bootloaderOutputSubdir, bootConfig.grubBinary)
-		err := file.Copy(srcPath, destPath)
-		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
-		}
-
-		source := "./" + string(imagecustomizerapi.OutputArtifactsItemBootloader) + "/" + bootConfig.grubBinary
-
-		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:   espInjectFilePartition,
-			Source:      source,
-			Destination: filepath.Join("/", bootConfig.espGrubBinaryPath),
-			Type:        imagecustomizerapi.OutputArtifactsItemBootloader,
-		})
-		logger.Log.Debugf("Added bootloader file to metadata: %s", bootConfig.grubBinary)
 	}
 
 	// Output verity hash
