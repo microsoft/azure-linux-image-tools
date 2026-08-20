@@ -236,6 +236,11 @@ func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir
 	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
+// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons.
+func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+	return aclGetUkiAddonSpecs(kernel, cmdline)
+}
+
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
 	// Only remove kernel/initramfs file patterns; preserve all directories and other files.
