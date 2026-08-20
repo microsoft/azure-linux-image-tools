@@ -566,7 +566,7 @@ func recreateAclEspFilesystem(oldPartitions []diskutils.PartitionInfo,
 	}
 
 	// Copy the files into the enlarged ESP on the new image.
-	espMount, err = safemount.NewMount(newEspPart.Path, mountDir, "vfat", 0, "", false)
+	espMount, err = safemount.NewMount(newEspPart.Path, mountDir, "vfat", 0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w: failed to remount ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
