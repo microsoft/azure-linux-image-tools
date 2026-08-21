@@ -204,6 +204,10 @@ func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
+func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+	return defaultGetUkiAddonSpecs(kernel, cmdline)
+}
+
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }

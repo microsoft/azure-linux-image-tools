@@ -1295,3 +1295,11 @@ func TestGetFallbackKernelArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultGetUkiAddonSpecs(t *testing.T) {
+	specs, err := defaultGetUkiAddonSpecs("vmlinuz-6.6.92.2-2.azl3", "console=tty0 rw")
+	assert.NoError(t, err)
+	assert.Equal(t, []UkiAddonSpec{
+		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 rw"},
+	}, specs)
+}
