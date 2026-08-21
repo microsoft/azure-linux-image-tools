@@ -104,6 +104,12 @@ type DistroHandler interface {
 	// empty string; all other distros return an error.
 	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
 
+	// GetUkiAddonSpecs returns the cmdline addon files to write for a kernel in UKI
+	// create mode. Most distros emit a single addon holding the full command
+	// line; distros with a first-boot addon contract (e.g. ACL) split the
+	// command line across multiple addons.
+	GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error)
+
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only
 	// remove kernel and initramfs files; all other entries are preserved.
