@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -28,6 +29,29 @@ const (
 	// Name of the transient addon that carries only aclFirstBootArg.
 	aclFirstBootAddonName = "firstboot.addon.efi"
 )
+
+// aclVerityAddonArgPrefixes lists the kernel argument prefixes that ACL routes into its per-slot
+// verity.addon.efi. This is intentionally narrower than verityArgPrefixes (customizeuki.go):
+// verity.addon.efi only ever carries the /usr dm-verity arguments Trident swaps between A/B
+// slots, so root-verity and generic verity-mount arguments (rd.systemd.verity=, roothash=,
+// systemd.verity_root_*, pre.verity.mount=) are left in the persistent addon rather than moved
+// here.
+var aclVerityAddonArgPrefixes = []string{
+	"systemd.verity_usr_data=",
+	"systemd.verity_usr_hash=",
+	"systemd.verity_usr_options=",
+	"usrhash=",
+}
+
+// isAclVerityAddonArg reports whether arg matches one of aclVerityAddonArgPrefixes.
+func isAclVerityAddonArg(arg string) bool {
+	for _, prefix := range aclVerityAddonArgPrefixes {
+		if strings.HasPrefix(arg, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 // aclGetUkiAddonSpecs returns ACL's cmdline addon layout: a persistent <kernel>.addon.efi holding
 // every argument except aclFirstBootArg and dm-verity args, a verity.addon.efi holding the current
@@ -109,10 +133,10 @@ func aclStripFirstBootArg(cmdline string) (string, bool, error) {
 	return GrubArgsToString(persistentArgs), hasFirstBootArg, nil
 }
 
-// aclStripVerityArgs removes every dm-verity kernel argument (see verityArgPrefixes in
-// customizeuki.go) from cmdline and returns the remaining ("persistent") cmdline together with the
-// removed verity arguments, in their original relative order, so they can be routed into ACL's
-// per-slot verity.addon.efi instead of being baked permanently into the persistent addon.
+// aclStripVerityArgs removes every /usr dm-verity kernel argument (see aclVerityAddonArgPrefixes
+// above) from cmdline and returns the remaining ("persistent") cmdline together with the removed
+// verity arguments, in their original relative order, so they can be routed into ACL's per-slot
+// verity.addon.efi instead of being baked permanently into the persistent addon.
 func aclStripVerityArgs(cmdline string) (string, string, error) {
 	tokens, err := grub.TokenizeConfig(cmdline)
 	if err != nil {
@@ -133,7 +157,7 @@ func aclStripVerityArgs(cmdline string) (string, string, error) {
 			return "", "", fmt.Errorf("kernel command-line arg (%s) contains a variable expansion", arg.Arg)
 		}
 
-		if isVerityArg(arg.Arg) {
+		if isAclVerityAddonArg(arg.Arg) {
 			verityArgs = append(verityArgs, arg.Arg)
 			continue
 		}
