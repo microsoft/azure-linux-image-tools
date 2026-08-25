@@ -161,8 +161,10 @@ func (d *azureLinuxDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, b
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *azureLinuxDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *azureLinuxDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string,
+	existingAddons map[string]string,
+) ([]UkiAddonSpec, error) {
+	return defaultGetUkiAddonSpecs(kernel, cmdline, existingAddons)
 }
 
 func (d *azureLinuxDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

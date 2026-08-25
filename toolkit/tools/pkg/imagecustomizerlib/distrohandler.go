@@ -108,7 +108,14 @@ type DistroHandler interface {
 	// create mode. Most distros emit a single addon holding the full command
 	// line; distros with a first-boot addon contract (e.g. ACL) split the
 	// command line across multiple addons.
-	GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error)
+	//
+	// existingAddons is the base image's existing per-addon-file command lines for this kernel
+	// (keyed by addon file name, with the main UKI's own .cmdline section under
+	// ukiMainCmdlineAddonKey), or nil when there is no prior UKI addon structure to preserve (e.g. a
+	// brand-new kernel installed during customization). Implementations that don't need to inspect
+	// individual addon files can ignore it and use cmdline, which already holds every existing
+	// addon's arguments flattened together.
+	GetUkiAddonSpecs(kernel string, cmdline string, existingAddons map[string]string) ([]UkiAddonSpec, error)
 
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only

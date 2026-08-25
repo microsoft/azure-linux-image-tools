@@ -236,9 +236,12 @@ func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir
 	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
-// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons.
-func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return aclGetUkiAddonSpecs(kernel, cmdline)
+// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons,
+// preserving every other existing addon file (e.g. oem, verity, fips, kdump) untouched.
+func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string,
+	existingAddons map[string]string,
+) ([]UkiAddonSpec, error) {
+	return aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

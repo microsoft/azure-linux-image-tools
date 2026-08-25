@@ -59,6 +59,15 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 type UkiKernelInfo struct {
 	Cmdline   string `json:"cmdline"`
 	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
+
+	// ExistingAddons holds each existing addon file's own command line for this kernel, keyed by
+	// addon file name (with the main UKI's own .cmdline section under ukiMainCmdlineAddonKey), when
+	// Cmdline was read from a base image that already has UKIs. DistroHandler.GetUkiAddonSpecs
+	// implementations can use it to pass through addon files they don't manage untouched, instead
+	// of folding every existing addon into one generated file. It is nil when there is no prior UKI
+	// addon structure to preserve (e.g. a brand-new kernel installed during customization, or a
+	// cmdline sourced from grub.cfg or a fallback).
+	ExistingAddons map[string]string `json:"existingAddons,omitempty"`
 }
 
 // UkiAddonSpec describes one cmdline addon file to write for a UKI in create mode.
@@ -196,8 +205,8 @@ func defaultExtractUkiAddonCmdline(addonFilePath string, buildDir string) (strin
 }
 
 // defaultGetUkiAddonSpecs returns the standard layout: a single addon per kernel holding the full
-// command line.
-func defaultGetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+// command line. existingAddons is unused by this default implementation.
+func defaultGetUkiAddonSpecs(kernel string, cmdline string, existingAddons map[string]string) ([]UkiAddonSpec, error) {
 	return []UkiAddonSpec{
 		{FileName: ukiAddonFileName(kernel), Cmdline: cmdline},
 	}, nil
@@ -261,9 +270,14 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 		return fmt.Errorf("failed to extract base kernel command-line from UKIs:\n%w", err)
 	}
 
+	kernelToAddons, err := extractKernelCmdlineAndAddonsFromUkiEfis(espDir, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract base UKI addon structure:\n%w", err)
+	}
+
 	kernelInfo := make(map[string]UkiKernelInfo, len(kernelToArgs))
 	for kernel, cmdline := range kernelToArgs {
-		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline}
+		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline, ExistingAddons: kernelToAddons[kernel]}
 	}
 
 	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
@@ -368,8 +382,10 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
 	}
 	existingUkiCmdlines := make(map[string]string, len(existingUkiKernelInfo))
+	existingUkiAddons := make(map[string]map[string]string, len(existingUkiKernelInfo))
 	for kernel, info := range existingUkiKernelInfo {
 		existingUkiCmdlines[kernel] = info.Cmdline
+		existingUkiAddons[kernel] = info.ExistingAddons
 	}
 
 	// Once the base image's UKI command lines are in hand, the grub boot config is deliberately not consulted, because
@@ -427,10 +443,16 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 		logger.Log.Debugf("UKI cmdline resolution: kernel (%s) resolved via %s -> %q", kernel, cmdlineSource, cmdline)
 
-		kernelInfo[kernel] = UkiKernelInfo{
+		info := UkiKernelInfo{
 			Cmdline:   cmdline,
 			Initramfs: initramfs,
 		}
+		if cmdlineSource == "existing UKIs" {
+			// Only kernels whose cmdline came directly from an existing UKI have an addon-file
+			// structure to preserve; grub-derived and fallback cmdlines have no addon files at all.
+			info.ExistingAddons = existingUkiAddons[kernel]
+		}
+		kernelInfo[kernel] = info
 	}
 
 	// Dump kernel information to a file in buildDir.
@@ -820,7 +842,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	}
 
 	for kernel, info := range kernelInfo {
-		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
+		err := buildUki(kernel, info.Initramfs, info.Cmdline, info.ExistingAddons, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
 			systemBootPartitionTmpDir, distroHandler,
 		)
 		if err != nil {
@@ -940,9 +962,9 @@ func grubKernelArgsToStringMap(kernelToArgs map[string][]grubConfigLinuxArg) map
 	return kernelToArgsString
 }
 
-func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFullPath string,
-	stubPath string, addonStubPath string, buildDir string, systemBootPartitionTmpDir string,
-	distroHandler DistroHandler,
+func buildUki(kernel string, initramfs string, kernelArgs string, existingAddons map[string]string,
+	osSubreleaseFullPath string, stubPath string, addonStubPath string, buildDir string,
+	systemBootPartitionTmpDir string, distroHandler DistroHandler,
 ) error {
 	kernelVersion, err := getKernelVersion(kernel)
 	if err != nil {
@@ -956,7 +978,7 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 	}
 
 	// Build UKI cmdline addons
-	addonSpecs, err := distroHandler.GetUkiAddonSpecs(kernel, kernelArgs)
+	addonSpecs, err := distroHandler.GetUkiAddonSpecs(kernel, kernelArgs, existingAddons)
 	if err != nil {
 		return fmt.Errorf("failed to get UKI addon specs:\n%w", err)
 	}

@@ -1078,6 +1078,88 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 	return kernelToArgsString, nil
 }
 
+// ukiMainCmdlineAddonKey is the reserved key used in the per-addon-file cmdline map returned by
+// extractKernelCmdlineAndAddonsFromUkiEfis to represent the main UKI's own .cmdline PE section, as
+// opposed to one of its *.addon.efi files. No real addon file can use this name (addon file names
+// always end in ".addon.efi").
+const ukiMainCmdlineAddonKey = "<main>"
+
+// extractKernelCmdlineAndAddonsFromUkiEfis is like extractKernelCmdlineFromUkiEfis, but instead of
+// flattening the main UKI's .cmdline section and every *.addon.efi file's .cmdline section into a
+// single string per kernel, it returns each one individually, keyed by addon file name (with the
+// main UKI's own section under ukiMainCmdlineAddonKey). This preserves the file-name boundary that
+// extractKernelCmdlineFromUkiEfis intentionally discards, so a caller can pass through addon files
+// it doesn't need to modify (e.g. ACL's oem/verity addons) instead of collapsing everything into
+// one generated addon.
+func extractKernelCmdlineAndAddonsFromUkiEfis(espPath string, buildDir string) (map[string]map[string]string, error) {
+	ukiFiles, err := getUkiFiles(espPath)
+	if err != nil {
+		return nil, err
+	}
+
+	kernelToAddons := make(map[string]map[string]string)
+	for _, ukiFile := range ukiFiles {
+		kernelName, err := getKernelNameFromUki(ukiFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
+		}
+
+		addons, err := extractCmdlineAndAddonsFromUki(ukiFile, buildDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract cmdline and addons from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		kernelToAddons[kernelName] = addons
+	}
+
+	return kernelToAddons, nil
+}
+
+// extractCmdlineAndAddonsFromUki mirrors extractCmdlineFromUkiWithObjcopy's file discovery, but
+// returns each addon's cmdline individually instead of concatenating them into one string. See
+// extractKernelCmdlineAndAddonsFromUkiEfis for why.
+func extractCmdlineAndAddonsFromUki(ukiFile string, buildDir string) (map[string]string, error) {
+	addons := make(map[string]string)
+
+	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	}
+	if strings.TrimSpace(mainUkiCmdline) != "" {
+		addons[ukiMainCmdlineAddonKey] = strings.TrimSpace(mainUkiCmdline)
+	}
+
+	// Construct addon directory path: <uki-file>.extra.d/
+	ukiFileName := filepath.Base(ukiFile)
+	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+
+	entries, err := os.ReadDir(addonDirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No addon directory: this UKI has no addons (yet).
+			return addons, nil
+		}
+		return nil, fmt.Errorf("failed to read addon directory (%s):\n%w", addonDirPath, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".addon.efi") {
+			continue
+		}
+
+		addonFilePath := filepath.Join(addonDirPath, entry.Name())
+		addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+		}
+		if strings.TrimSpace(addonCmdline) != "" {
+			addons[entry.Name()] = strings.TrimSpace(addonCmdline)
+		}
+	}
+
+	return addons, nil
+}
+
 // extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
 // It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
 func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
