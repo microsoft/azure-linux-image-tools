@@ -1096,23 +1096,35 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	return nil
 }
 
+// verityArgPrefixes lists the kernel argument prefixes that identify dm-verity configuration
+// (root/usr hash, verity device-mapper targets, etc). Shared by removeVerityArgsFromCmdline
+// (which discards these args) and aclStripVerityArgs (which extracts them into their own addon).
+var verityArgPrefixes = []string{
+	"rd.systemd.verity=",
+	"roothash=",
+	"usrhash=",
+	"systemd.verity_root_data=",
+	"systemd.verity_root_hash=",
+	"systemd.verity_root_options=",
+	"systemd.verity_usr_data=",
+	"systemd.verity_usr_hash=",
+	"systemd.verity_usr_options=",
+	"pre.verity.mount=",
+}
+
+// isVerityArg reports whether arg matches one of verityArgPrefixes.
+func isVerityArg(arg string) bool {
+	for _, prefix := range verityArgPrefixes {
+		if strings.HasPrefix(arg, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
 // This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
 func removeVerityArgsFromCmdline(cmdline string) string {
-	// List of verity-related argument prefixes that need to be removed
-	verityArgPrefixes := []string{
-		"rd.systemd.verity=",
-		"roothash=",
-		"usrhash=",
-		"systemd.verity_root_data=",
-		"systemd.verity_root_hash=",
-		"systemd.verity_root_options=",
-		"systemd.verity_usr_data=",
-		"systemd.verity_usr_hash=",
-		"systemd.verity_usr_options=",
-		"pre.verity.mount=",
-	}
-
 	tokens, err := grub.TokenizeConfig(cmdline)
 	if err != nil {
 		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
@@ -1132,15 +1144,7 @@ func removeVerityArgsFromCmdline(cmdline string) string {
 			continue
 		}
 
-		isVerityArg := false
-		for _, prefix := range verityArgPrefixes {
-			if strings.HasPrefix(arg.Arg, prefix) {
-				isVerityArg = true
-				break
-			}
-		}
-
-		if !isVerityArg {
+		if !isVerityArg(arg.Arg) {
 			filteredArgs = append(filteredArgs, arg.Arg)
 		}
 	}
