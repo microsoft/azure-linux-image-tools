@@ -208,6 +208,11 @@ func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([
 	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 
+func (d *ubuntuDistroHandler) UpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStubPath string, newUsrHash string) error {
+	// No static per-slot verity addon templates for this distro.
+	return nil
+}
+
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }

@@ -828,6 +828,16 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 		}
 	}
 
+	newUsrHash, err := extractConsistentAclVerityUsrHash(kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to determine /usr dm-verity root hash for verity addon template refresh:\n%w", err)
+	}
+
+	err = distroHandler.UpdateVerityAddonTemplates(systemBootPartitionTmpDir, rc.BuildDirAbs, addonStubPath, newUsrHash)
+	if err != nil {
+		return fmt.Errorf("failed to update verity addon templates:\n%w", err)
+	}
+
 	err = cleanupUkiBuildDir(rc.BuildDirAbs)
 	if err != nil {
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
@@ -1054,6 +1064,33 @@ func buildUkiAddon(kernel string, addonFileName string, kernelArgs string, stubP
 	logger.Log.Infof("Successfully built UKI addon: (%s)", addonFullPath)
 	logger.Log.Infof("Main UKI (%s) will load addon cmdline at boot time", ukiFullPath)
 	return nil
+}
+
+// extractConsistentAclVerityUsrHash extracts the /usr dm-verity root hash from each kernel's
+// cmdline in kernelInfo and returns it, provided every kernel that has one agrees. Returns "" (no
+// error) if no kernel has a /usr dm-verity root hash -- e.g. the image doesn't use /usr verity.
+// Returns an error if kernels disagree, since every kernel is expected to share the same /usr
+// filesystem and therefore the same root hash.
+func extractConsistentAclVerityUsrHash(kernelInfo map[string]UkiKernelInfo) (string, error) {
+	hash := ""
+	for kernel, info := range kernelInfo {
+		kernelHash, found, err := extractAclVerityUsrHash(info.Cmdline)
+		if err != nil {
+			return "", fmt.Errorf("failed to extract /usr dm-verity root hash from kernel (%s) cmdline:\n%w", kernel, err)
+		}
+		if !found {
+			continue
+		}
+
+		if hash == "" {
+			hash = kernelHash
+		} else if hash != kernelHash {
+			return "", fmt.Errorf("kernels have inconsistent /usr dm-verity root hashes ('%s' vs '%s'); "+
+				"expected all kernels to share a single /usr filesystem", hash, kernelHash)
+		}
+	}
+
+	return hash, nil
 }
 
 func cleanupUkiBuildDir(buildDir string) error {
