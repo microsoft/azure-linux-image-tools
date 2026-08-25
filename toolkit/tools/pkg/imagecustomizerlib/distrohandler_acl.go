@@ -244,6 +244,13 @@ func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string,
 	return aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
 }
 
+// UpdateVerityAddonTemplates refreshes ACL's static per-A/B-slot verity addon templates
+// (acl/uki-addons/verity-{a,b}.addon.efi on the image ESP) so their embedded /usr dm-verity root
+// hash matches newUsrHash. See aclUpdateVerityAddonTemplates for details.
+func (d *aclDistroHandler) UpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStubPath string, newUsrHash string) error {
+	return aclUpdateVerityAddonTemplates(espMountDir, buildDir, addonStubPath, newUsrHash)
+}
+
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
 	// Only remove kernel/initramfs file patterns; preserve all directories and other files.

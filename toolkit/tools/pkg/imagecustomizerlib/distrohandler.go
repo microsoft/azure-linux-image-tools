@@ -117,6 +117,13 @@ type DistroHandler interface {
 	// addon's arguments flattened together.
 	GetUkiAddonSpecs(kernel string, cmdline string, existingAddons map[string]string) ([]UkiAddonSpec, error)
 
+	// UpdateVerityAddonTemplates refreshes any static per-A/B-slot verity addon templates on the
+	// image ESP (e.g. ACL's acl/uki-addons/verity-{a,b}.addon.efi, which Trident copies into the
+	// live UKI addon directory when activating an A/B slot) so they carry newUsrHash, the current
+	// /usr dm-verity root hash. newUsrHash is "" when the image has no /usr dm-verity root hash.
+	// Distros with no such template contract (i.e. all distros except ACL) no-op.
+	UpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStubPath string, newUsrHash string) error
+
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only
 	// remove kernel and initramfs files; all other entries are preserved.

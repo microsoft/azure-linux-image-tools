@@ -248,6 +248,11 @@ func (d *azureLinux4DistroHandler) GetUkiAddonSpecs(kernel string, cmdline strin
 	return defaultGetUkiAddonSpecs(kernel, cmdline, existingAddons)
 }
 
+func (d *azureLinux4DistroHandler) UpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStubPath string, newUsrHash string) error {
+	// No static per-slot verity addon templates for this distro.
+	return nil
+}
+
 func (d *azureLinux4DistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }
