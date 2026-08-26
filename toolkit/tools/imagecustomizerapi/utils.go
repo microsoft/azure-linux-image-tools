@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type HasIsValid interface {
