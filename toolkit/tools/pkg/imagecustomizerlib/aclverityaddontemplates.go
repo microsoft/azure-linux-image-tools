@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -43,7 +44,7 @@ var aclVerityHashArgNames = []string{"usrhash", "systemd.verity_usr_hash"}
 // extractAclVerityUsrHash returns the /usr dm-verity root hash digest embedded in cmdline (the
 // value of usrhash= or systemd.verity_usr_hash=, whichever is present), and whether one was found.
 func extractAclVerityUsrHash(cmdline string) (string, bool, error) {
-	tokens, err := grub.TokenizeConfig(cmdline)
+	tokens, err := grub.TokenizeConfig(strings.TrimSpace(cmdline))
 	if err != nil {
 		return "", false, fmt.Errorf("failed to tokenize kernel command line:\n%w", err)
 	}
@@ -67,7 +68,7 @@ func extractAclVerityUsrHash(cmdline string) (string, bool, error) {
 // as systemd.verity_usr_data= / systemd.verity_usr_options=) untouched. Returns the rewritten
 // cmdline and whether any argument was actually changed.
 func aclRewriteVerityHashArgs(cmdline string, newHash string) (string, bool, error) {
-	tokens, err := grub.TokenizeConfig(cmdline)
+	tokens, err := grub.TokenizeConfig(strings.TrimSpace(cmdline))
 	if err != nil {
 		return "", false, fmt.Errorf("failed to tokenize kernel command line:\n%w", err)
 	}
@@ -155,10 +156,15 @@ func aclUpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStu
 			return fmt.Errorf("failed to stat ACL verity addon template (%s):\n%w", templatePath, err)
 		}
 
-		cmdline, err := extractCmdlineFromSinglePE(templatePath, buildDir)
+		rawCmdline, err := extractCmdlineFromSinglePE(templatePath, buildDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract cmdline from ACL verity addon template (%s):\n%w", templatePath, err)
 		}
+		// The .cmdline PE section can carry a trailing newline/whitespace (e.g. from how the
+		// template was originally authored by acl-scripts); the grub tokenizer treats newlines as
+		// significant, so trim before parsing. Every other consumer of extractCmdlineFromSinglePE
+		// in this package does the same (see extractCmdlineAndAddonsFromUki).
+		cmdline := strings.TrimSpace(rawCmdline)
 
 		newCmdline, changed, err := aclRewriteVerityHashArgs(cmdline, newUsrHash)
 		if err != nil {

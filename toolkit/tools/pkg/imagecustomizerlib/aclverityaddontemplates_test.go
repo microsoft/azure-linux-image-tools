@@ -42,6 +42,16 @@ func TestExtractAclVerityUsrHash(t *testing.T) {
 			expectedHash: "",
 			expectedOk:   false,
 		},
+		{
+			// Regression test: a real ACL verity addon template's extracted .cmdline PE section
+			// content can carry a trailing newline (and possibly a leading one too). The grub
+			// tokenizer treats newlines as significant, so an untrimmed cmdline previously caused
+			// "unexpected token (NEWLINE)" failures in production (real ACL pipeline runs).
+			name:         "trailing and leading newline is tolerated",
+			cmdline:      "\nconsole=tty0 usrhash=abc123 root=/dev/sda\n",
+			expectedHash: "abc123",
+			expectedOk:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -84,6 +94,15 @@ func TestAclRewriteVerityHashArgs(t *testing.T) {
 			newHash:         "newhash",
 			expectedCmdline: "console=tty0 root=/dev/sda",
 			expectedChanged: false,
+		},
+		{
+			// Regression test: see the matching case in TestExtractAclVerityUsrHash for why this
+			// matters.
+			name:            "trailing newline is tolerated",
+			cmdline:         "console=tty0 usrhash=oldhash root=/dev/sda\n",
+			newHash:         "newhash",
+			expectedCmdline: "console=tty0 usrhash=newhash root=/dev/sda",
+			expectedChanged: true,
 		},
 	}
 
