@@ -192,3 +192,25 @@ func TestAclUpdateVerityAddonTemplatesNoOp(t *testing.T) {
 	err = aclUpdateVerityAddonTemplates(testTempDir, testTempDir, filepath.Join(testTempDir, "stub.efi"), "somehash")
 	assert.NoError(t, err)
 }
+
+// TestAclUpdateLiveVerityAddonsNoOp verifies aclUpdateLiveVerityAddons is a silent no-op when
+// there are no UKI files at all (nothing to refresh), and when a UKI exists but has no live
+// verity.addon.efi yet (e.g. a kernel never activated by Trident).
+func TestAclUpdateLiveVerityAddonsNoOp(t *testing.T) {
+	testTempDir := t.TempDir()
+
+	// No-op: no UKI files present under the ESP at all.
+	err := aclUpdateLiveVerityAddons(testTempDir, testTempDir, filepath.Join(testTempDir, "stub.efi"), "somehash")
+	assert.NoError(t, err)
+
+	// No-op: a UKI exists, but it has no <uki>.efi.extra.d/verity.addon.efi yet.
+	ukiDir := filepath.Join(testTempDir, UkiOutputDir)
+	err = os.MkdirAll(ukiDir, os.ModePerm)
+	assert.NoError(t, err)
+	ukiPath := filepath.Join(ukiDir, "vmlinuz-6.6.92.2-2.azl3.efi")
+	err = os.WriteFile(ukiPath, []byte("fake uki"), os.ModePerm)
+	assert.NoError(t, err)
+
+	err = aclUpdateLiveVerityAddons(testTempDir, testTempDir, filepath.Join(testTempDir, "stub.efi"), "somehash")
+	assert.NoError(t, err)
+}

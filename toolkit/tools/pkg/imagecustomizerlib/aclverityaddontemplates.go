@@ -189,5 +189,61 @@ func aclUpdateVerityAddonTemplates(espMountDir string, buildDir string, addonStu
 		logger.Log.Infof("Refreshed /usr dm-verity root hash in ACL verity addon template (%s)", templatePath)
 	}
 
+	return aclUpdateLiveVerityAddons(espMountDir, buildDir, addonStubPath, newUsrHash)
+}
+
+// aclUpdateLiveVerityAddons refreshes the /usr dm-verity root hash embedded in each UKI's live
+// verity.addon.efi (under <uki>.efi.extra.d/), if present, so it matches newUsrHash. This is the
+// live counterpart to the per-slot templates aclUpdateVerityAddonTemplates refreshes above:
+// Trident copies whichever per-slot template matches the target A/B slot into this live file
+// during install/update, but that only happens through Trident's own slot-activation step. Any
+// live verity.addon.efi that's already on the ESP at customization time (e.g. carried over from a
+// prior customization pass, or present because the image was booted directly without going
+// through Trident's install/update flow) would otherwise keep a stale root hash after a /usr
+// content change, even though the templates themselves were refreshed.
+//
+// A UKI with no live verity.addon.efi yet (e.g. a kernel that's never been activated by Trident)
+// is silently skipped -- there's nothing to refresh, and aclGetUkiAddonSpecs / preserving will
+// create one from scratch with the correct hash the next time this kernel's addons are written.
+func aclUpdateLiveVerityAddons(espMountDir string, buildDir string, addonStubPath string, newUsrHash string) error {
+	ukiFiles, err := getUkiFiles(espMountDir)
+	if err != nil {
+		return fmt.Errorf("failed to enumerate UKI files under (%s) for live ACL verity addon refresh:\n%w",
+			espMountDir, err)
+	}
+
+	for _, ukiFile := range ukiFiles {
+		verityAddonPath := filepath.Join(ukiFile+".extra.d", aclVerityAddonName)
+
+		if _, err := os.Stat(verityAddonPath); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("failed to stat live ACL verity addon (%s):\n%w", verityAddonPath, err)
+		}
+
+		rawCmdline, err := extractCmdlineFromSinglePE(verityAddonPath, buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract cmdline from live ACL verity addon (%s):\n%w", verityAddonPath, err)
+		}
+		cmdline := strings.TrimSpace(rawCmdline)
+
+		newCmdline, changed, err := aclRewriteVerityHashArgs(cmdline, newUsrHash)
+		if err != nil {
+			return fmt.Errorf("failed to rewrite verity hash args in live ACL verity addon (%s):\n%w", verityAddonPath, err)
+		}
+
+		if !changed {
+			logger.Log.Debugf("Live ACL verity addon (%s) already has the current /usr verity root hash", verityAddonPath)
+			continue
+		}
+
+		err = rebuildAddonEfiAtPath(verityAddonPath, newCmdline, addonStubPath)
+		if err != nil {
+			return fmt.Errorf("failed to refresh live ACL verity addon (%s):\n%w", verityAddonPath, err)
+		}
+
+		logger.Log.Infof("Refreshed /usr dm-verity root hash in live ACL verity addon (%s)", verityAddonPath)
+	}
+
 	return nil
 }
