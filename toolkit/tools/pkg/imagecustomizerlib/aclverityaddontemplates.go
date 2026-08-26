@@ -35,14 +35,19 @@ const aclVerityAddonTemplatesDir = "acl/uki-addons"
 // matching activate_verity_addon_for_target_volume's slot-A / slot-B file names exactly.
 var aclVerityAddonTemplateFileNames = []string{"verity-a.addon.efi", "verity-b.addon.efi"}
 
-// aclVerityHashArgNames lists the kernel argument names that carry the /usr dm-verity root hash
-// digest. Both are kept in sync, since they encode the same digest in two forms. Other verity args
-// that may appear in these templates (e.g. systemd.verity_usr_data=, systemd.verity_usr_options=)
-// encode per-slot device addressing, not content, and must NOT be rewritten here.
-var aclVerityHashArgNames = []string{"usrhash", "systemd.verity_usr_hash"}
+// aclVerityHashArgNames lists the kernel argument name(s) that carry the /usr dm-verity root hash
+// digest itself. systemd.verity_usr_hash= is deliberately NOT included here: despite the similar
+// name, its value is a device locator (e.g. PARTUUID=...) identifying the verity hash-tree
+// partition, not the digest -- that partition/PARTUUID never changes across an image rebuild, so
+// it must be preserved untouched. Only bare usrhash= carries the actual digest that needs
+// refreshing. Other verity args that may appear in these templates (e.g. systemd.verity_usr_data=,
+// systemd.verity_usr_options=) likewise encode per-slot device addressing, not content, and must
+// NOT be rewritten here.
+var aclVerityHashArgNames = []string{"usrhash"}
 
 // extractAclVerityUsrHash returns the /usr dm-verity root hash digest embedded in cmdline (the
-// value of usrhash= or systemd.verity_usr_hash=, whichever is present), and whether one was found.
+// value of usrhash=, the only arg that carries the digest itself -- see aclVerityHashArgNames),
+// and whether one was found.
 func extractAclVerityUsrHash(cmdline string) (string, bool, error) {
 	tokens, err := grub.TokenizeConfig(strings.TrimSpace(cmdline))
 	if err != nil {
@@ -63,10 +68,10 @@ func extractAclVerityUsrHash(cmdline string) (string, bool, error) {
 	return "", false, nil
 }
 
-// aclRewriteVerityHashArgs replaces the value of every usrhash= / systemd.verity_usr_hash=
-// argument in cmdline with newHash, leaving every other argument (including other verity args such
-// as systemd.verity_usr_data= / systemd.verity_usr_options=) untouched. Returns the rewritten
-// cmdline and whether any argument was actually changed.
+// aclRewriteVerityHashArgs replaces the value of every usrhash= argument in cmdline with newHash,
+// leaving every other argument -- including systemd.verity_usr_hash= (a PARTUUID device locator,
+// not a digest) and other verity args such as systemd.verity_usr_data= / systemd.verity_usr_options=
+// -- untouched. Returns the rewritten cmdline and whether any argument was actually changed.
 func aclRewriteVerityHashArgs(cmdline string, newHash string) (string, bool, error) {
 	tokens, err := grub.TokenizeConfig(strings.TrimSpace(cmdline))
 	if err != nil {

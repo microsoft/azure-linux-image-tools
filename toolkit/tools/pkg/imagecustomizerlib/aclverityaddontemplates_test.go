@@ -25,10 +25,12 @@ func TestExtractAclVerityUsrHash(t *testing.T) {
 			expectedOk:   true,
 		},
 		{
-			name:         "systemd.verity_usr_hash present",
-			cmdline:      "console=tty0 systemd.verity_usr_hash=def456 root=/dev/sda",
-			expectedHash: "def456",
-			expectedOk:   true,
+			// systemd.verity_usr_hash= is a PARTUUID device locator, not a digest -- it must NOT
+			// be recognized as the /usr dm-verity root hash.
+			name:         "systemd.verity_usr_hash alone is not treated as the digest",
+			cmdline:      "console=tty0 systemd.verity_usr_hash=PARTUUID=aaa root=/dev/sda",
+			expectedHash: "",
+			expectedOk:   false,
 		},
 		{
 			name:         "no verity hash arg",
@@ -73,19 +75,19 @@ func TestAclRewriteVerityHashArgs(t *testing.T) {
 		expectedChanged bool
 	}{
 		{
-			name: "rewrites both hash args, leaves other verity args untouched",
+			name: "rewrites usrhash, leaves systemd.verity_usr_hash device locator untouched",
 			cmdline: "console=tty0 systemd.verity_usr_data=/dev/disk/by-partuuid/aaa " +
-				"systemd.verity_usr_hash=oldhash systemd.verity_usr_options=panic-on-corruption usrhash=oldhash",
+				"systemd.verity_usr_hash=PARTUUID=bbb systemd.verity_usr_options=panic-on-corruption usrhash=oldhash",
 			newHash: "newhash",
 			expectedCmdline: "console=tty0 systemd.verity_usr_data=/dev/disk/by-partuuid/aaa " +
-				"systemd.verity_usr_hash=newhash systemd.verity_usr_options=panic-on-corruption usrhash=newhash",
+				"systemd.verity_usr_hash=PARTUUID=bbb systemd.verity_usr_options=panic-on-corruption usrhash=newhash",
 			expectedChanged: true,
 		},
 		{
 			name:            "already up to date is a no-op",
-			cmdline:         "usrhash=samehash systemd.verity_usr_hash=samehash",
+			cmdline:         "usrhash=samehash systemd.verity_usr_hash=PARTUUID=ccc",
 			newHash:         "samehash",
-			expectedCmdline: "usrhash=samehash systemd.verity_usr_hash=samehash",
+			expectedCmdline: "usrhash=samehash systemd.verity_usr_hash=PARTUUID=ccc",
 			expectedChanged: false,
 		},
 		{
