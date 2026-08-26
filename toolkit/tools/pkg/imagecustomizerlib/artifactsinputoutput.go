@@ -224,7 +224,8 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	// Output bootloader (e.g. GRUBX64.efi)
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemBootloader) {
-		subfiles := []string{bootConfig.espGrubBinaryPath, filepath.Join("/HvLoader.efi"), filepath.Join(espBootloaderDir, "/second.efi")}
+		subfiles := []string{bootConfig.espGrubBinaryPath, filepath.Join("/HvLoader.efi"), filepath.Join(espBootloaderDir, "/second.efi"),
+			"/Windows/System32/hvix64.exe", "/Windows/System32/hvax64.exe", "/lxhvloader.dll"}
 		for _, subfile := range subfiles {
 			subfileName := filepath.Base(subfile)
 
@@ -445,29 +446,38 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	}
 
 	partitionsToMountpoints := make(map[imagecustomizerapi.InjectFilePartition]string)
+	partUuidsToMountpoints := make(map[string]string)
 	var mountedPartitions []*safemount.Mount
 
-	for idx, item := range metadata {
+	for _, item := range metadata {
 		partitionKey := item.Partition
-		if _, exists := partitionsToMountpoints[partitionKey]; !exists {
-			partitionsToMountpoints[partitionKey] = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
 
+		mountPath, exists := partitionsToMountpoints[item.Partition]
+		if !exists {
 			partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions)
 			if err != nil {
 				return err
 			}
 
-			mount, err := safemount.NewMount(partition.Path, partitionsToMountpoints[partitionKey], partition.FileSystemType, 0, "", true)
-			if err != nil {
-				return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
-			}
-			defer mount.Close()
+			mountPath, exists = partUuidsToMountpoints[partition.PartUuid]
+			if !exists {
+				mountPath = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", len(mountedPartitions)))
 
-			mountedPartitions = append(mountedPartitions, mount)
+				mount, err := safemount.NewMount(partition.Path, mountPath, partition.FileSystemType, 0, "", true)
+				if err != nil {
+					return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
+				}
+				defer mount.Close()
+
+				mountedPartitions = append(mountedPartitions, mount)
+				partUuidsToMountpoints[partition.PartUuid] = mountPath
+			}
+
+			partitionsToMountpoints[partitionKey] = mountPath
 		}
 
 		srcPath := filepath.Join(baseConfigPath, item.Source)
-		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
+		destPath := filepath.Join(mountPath, item.Destination)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)

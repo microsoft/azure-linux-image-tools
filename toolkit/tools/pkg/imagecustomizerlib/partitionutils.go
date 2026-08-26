@@ -774,6 +774,8 @@ func findPartitionHelper(mountIdType imagecustomizerapi.MountIdentifierType, mou
 			matches = partition.PartLabel == mountId
 		case MountIdentifierTypeLabel:
 			matches = partition.Label == mountId
+		case imagecustomizerapi.MountIdentifierTypePartTypeUuid:
+			matches = partition.PartitionTypeUuid == mountId
 		}
 		if matches {
 			matchedPartitionIndexes = append(matchedPartitionIndexes, i)

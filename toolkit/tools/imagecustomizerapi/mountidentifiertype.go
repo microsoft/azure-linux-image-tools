@@ -18,13 +18,18 @@ const (
 	// MountIdentifierTypePartLabel mounts this partition via the GPT PARTLABEL
 	MountIdentifierTypePartLabel MountIdentifierType = "part-label"
 
+	// MountIdentifierTypePartTypeUuid
+	MountIdentifierTypePartTypeUuid MountIdentifierType = "part-type-uuid"
+
 	// MountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	MountIdentifierTypeDefault MountIdentifierType = ""
 )
 
 func (m MountIdentifierType) IsValid() error {
 	switch m {
-	case MountIdentifierTypeUuid, MountIdentifierTypePartUuid, MountIdentifierTypePartLabel, MountIdentifierTypeDefault:
+	case MountIdentifierTypeUuid, MountIdentifierTypePartUuid, MountIdentifierTypePartLabel, MountIdentifierTypeDefault,
+		MountIdentifierTypePartTypeUuid:
+
 		// All good.
 		return nil
 
