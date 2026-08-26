@@ -236,8 +236,10 @@ func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir
 	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
-// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons,
-// preserving every other existing addon file (e.g. oem, verity, fips, kdump) untouched.
+// GetUkiAddonSpecs returns ACL's UKI cmdline addon layout for a kernel, mirroring the input
+// image's existing addon structure exactly (oem, verity, firstboot, fips, kdump, or any other
+// existing file) untouched, aside from routing new/changed cmdline customization into
+// customized.addon.efi. See aclGetUkiAddonSpecsPreserving for details.
 func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string,
 	existingAddons map[string]string,
 ) ([]UkiAddonSpec, error) {

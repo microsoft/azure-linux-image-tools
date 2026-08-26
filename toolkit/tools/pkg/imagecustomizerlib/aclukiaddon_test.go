@@ -9,171 +9,117 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAclGetUkiAddonSpecs(t *testing.T) {
-	tests := []struct {
-		name              string
-		cmdline           string
-		expectedSpecs     []UkiAddonSpec
-		expectedErr       error
-		expectedErrSubstr string
-	}{
-		{
-			name:    "first-boot arg in the middle",
-			cmdline: "console=tty0 flatcar.first_boot=detected root=/dev/sda",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
-				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "duplicated first-boot args (first, last, adjacent)",
-			cmdline: "flatcar.first_boot=detected console=tty0 flatcar.first_boot=detected flatcar.first_boot=detected",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "oem.addon.efi", Cmdline: "console=tty0"},
-				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "no first-boot arg (already-booted image)",
-			cmdline: "console=tty0 root=/dev/sda",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
-			},
-		},
-		{
-			name:    "extra whitespace collapsed",
-			cmdline: "console=ttyS0,115200n8   flatcar.first_boot=detected  flatcar.oem.id=azure",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "oem.addon.efi", Cmdline: "console=ttyS0,115200n8 flatcar.oem.id=azure"},
-				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name: "similar args preserved",
-			cmdline: "myflatcar.first_boot=detected flatcar.first_boot=1 flatcar.first_boot=detected2 " +
-				"flatcar.first_boot=detected",
-			expectedSpecs: []UkiAddonSpec{
-				{
-					FileName: "oem.addon.efi",
-					Cmdline:  "myflatcar.first_boot=detected flatcar.first_boot=1 flatcar.first_boot=detected2",
-				},
-				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "verity args split into their own addon",
-			cmdline: "console=tty0 systemd.verity_usr_data=PARTUUID=aaaa systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef root=/dev/sda flatcar.first_boot=detected",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
-				{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_data=PARTUUID=aaaa systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef"},
-				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "verity args only, no oem args",
-			cmdline: "systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef",
-			expectedSpecs: []UkiAddonSpec{
-				{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef"},
-			},
-		},
-		{
-			name:        "first-boot arg only",
-			cmdline:     "flatcar.first_boot=detected",
-			expectedErr: ErrAclUkiAddonEmptyPersistentCmdline,
-		},
-		{
-			name:              "variable expansion",
-			cmdline:           "console=tty0 foo=$bar flatcar.first_boot=detected",
-			expectedErr:       ErrAclUkiAddonSplit,
-			expectedErrSubstr: "variable expansion",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			specs, err := aclGetUkiAddonSpecs("vmlinuz-6.6.92.2-2.azl3", tt.cmdline)
-			if tt.expectedErr != nil {
-				assert.ErrorIs(t, err, tt.expectedErr)
-				if tt.expectedErrSubstr != "" {
-					assert.ErrorContains(t, err, tt.expectedErrSubstr)
-				}
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedSpecs, specs)
-		})
-	}
-}
-
-// TestAclGetUkiAddonSpecsRoundTrip verifies that re-customization converges: the addons merge back
-// in file-name order with the first-boot arg first, and re-splitting that cmdline yields identical
-// specs.
-func TestAclGetUkiAddonSpecsRoundTrip(t *testing.T) {
-	kernel := "vmlinuz-6.6.92.2-2.azl3"
-
-	specs, err := aclGetUkiAddonSpecs(kernel, "console=tty0 flatcar.first_boot=detected root=/dev/sda")
-	assert.NoError(t, err)
-	assert.Len(t, specs, 2)
-
-	respecs, err := aclGetUkiAddonSpecs(kernel, "flatcar.first_boot=detected console=tty0 root=/dev/sda")
-	assert.NoError(t, err)
-	assert.Equal(t, specs, respecs)
-
-	bootedSpecs, err := aclGetUkiAddonSpecs(kernel, "console=tty0 root=/dev/sda")
-	assert.NoError(t, err)
-	assert.Equal(t, specs[:1], bootedSpecs)
-}
-
-// TestAclGetUkiAddonSpecsPreserving_NoExistingAddons verifies the nil/empty-existingAddons case
-// falls back to the exact same behavior as aclGetUkiAddonSpecs.
+// TestAclGetUkiAddonSpecsPreserving_NoExistingAddons verifies that when there's no existing addon
+// structure at all to preserve (existingAddons is nil), every argument in cmdline is treated as
+// new: verity-named arguments are rejected, and every other argument is written into a single
+// aclCustomizedAddonName -- no oem/verity/firstboot split is invented, since there's no input
+// structure to justify one. (For ACL this case should never actually occur in practice: every ACL
+// kernel ships with existing UKI structure.)
 func TestAclGetUkiAddonSpecsPreserving_NoExistingAddons(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
 	cmdline := "console=tty0 flatcar.first_boot=detected root=/dev/sda"
 
-	expected, err := aclGetUkiAddonSpecs(kernel, cmdline)
-	assert.NoError(t, err)
-
 	specs, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, expected, specs)
+
+	assert.Equal(t, []UkiAddonSpec{
+		{FileName: aclCustomizedAddonName, Cmdline: "console=tty0 flatcar.first_boot=detected root=/dev/sda"},
+	}, specs)
+}
+
+// TestAclGetUkiAddonSpecsPreserving_NoExistingAddonsVerityRejected verifies that even with no
+// existing structure at all, a verity-named argument is still rejected rather than silently
+// written into aclCustomizedAddonName.
+func TestAclGetUkiAddonSpecsPreserving_NoExistingAddonsVerityRejected(t *testing.T) {
+	kernel := "vmlinuz-6.6.92.2-2.azl3"
+	cmdline := "console=tty0 usrhash=deadbeef"
+
+	_, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, nil)
+	assert.ErrorIs(t, err, ErrAclUkiAddonSplit)
+	assert.ErrorContains(t, err, "usrhash=deadbeef")
 }
 
 // TestAclGetUkiAddonSpecsPreserving_PassesThroughExistingAddonsVerbatim verifies that when
 // cmdline matches (is fully accounted for by) the existing addon structure, every existing addon
-// file -- including ones ACL doesn't specifically know about (fips, kdump, a legacy
-// "vmlinuz-<kernel>.addon.efi" bundle, ...) -- passes through as its own file, byte-for-byte
-// unmodified, and no customized.addon.efi is created. This is the core fix for the ACL-T AB-update
-// regression: verity.addon.efi in particular must never have its arguments folded into (or
-// overridden by) any other addon file, since Trident regenerates it independently per A/B slot.
+// file -- including ones ACL doesn't specifically know about (fips, kdump, ...) -- passes through
+// as its own file, byte-for-byte unmodified, and no customized.addon.efi is created. This is the
+// core fix for the ACL-T AB-update regression: verity.addon.efi in particular must never have its
+// arguments folded into (or overridden by) any other addon file, since Trident regenerates it
+// independently per A/B slot.
 func TestAclGetUkiAddonSpecsPreserving_PassesThroughExistingAddonsVerbatim(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
 
 	existingAddons := map[string]string{
-		ukiMainCmdlineAddonKey:              "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw",
-		"oem.addon.efi":                     "flatcar.oem.id=azure console=ttyS0",
-		"verity.addon.efi":                  "systemd.verity_usr_hash=PARTUUID=aaaa usrhash=deadbeef",
-		"vmlinuz-6.6.92.2-2.azl3.addon.efi": "consoleblank=0",
-		"firstboot.addon.efi":               "flatcar.first_boot=detected",
+		"oem.addon.efi":       "flatcar.oem.id=azure console=ttyS0",
+		"verity.addon.efi":    "systemd.verity_usr_hash=PARTUUID=aaaa usrhash=deadbeef",
+		"firstboot.addon.efi": "flatcar.first_boot=detected",
 	}
 
 	// The flattened cmdline is what extractCmdlineFromUkiWithObjcopy would have produced -- every
 	// argument is already accounted for by some existing addon file, so nothing should change.
-	flattenedCmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw consoleblank=0 " +
-		"flatcar.first_boot=detected flatcar.oem.id=azure console=ttyS0 " +
+	flattenedCmdline := "flatcar.first_boot=detected flatcar.oem.id=azure console=ttyS0 " +
 		"systemd.verity_usr_hash=PARTUUID=aaaa usrhash=deadbeef"
 
 	specs, err := aclGetUkiAddonSpecsPreserving(kernel, flattenedCmdline, existingAddons)
 	assert.NoError(t, err)
 
-	// Every non-main existing addon file passes through untouched -- including the legacy
-	// "vmlinuz-<kernel>.addon.efi" bundle, which is no longer specially self-healed. No
-	// customized.addon.efi is created since there's nothing new/changed.
+	// Every existing addon file passes through untouched. No customized.addon.efi is created since
+	// there's nothing new/changed.
 	assert.Equal(t, []UkiAddonSpec{
 		{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
 		{FileName: "oem.addon.efi", Cmdline: "flatcar.oem.id=azure console=ttyS0"},
 		{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_hash=PARTUUID=aaaa usrhash=deadbeef"},
-		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "consoleblank=0"},
+	}, specs)
+}
+
+// TestAclGetUkiAddonSpecsPreserving_MainCmdlinePreservedInVmlinuzAddon verifies that whatever
+// cmdline the input image's main UKI carried directly in its own .cmdline section is re-homed into
+// its own addon file (ukiAddonFileName(kernel)) rather than silently dropped -- Image Customizer's
+// UKI build never re-embeds a cmdline into the rebuilt main UKI itself.
+func TestAclGetUkiAddonSpecsPreserving_MainCmdlinePreservedInVmlinuzAddon(t *testing.T) {
+	kernel := "vmlinuz-6.6.92.2-2.azl3"
+
+	existingAddons := map[string]string{
+		ukiMainCmdlineAddonKey: "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw consoleblank=0",
+		"oem.addon.efi":        "flatcar.oem.id=azure",
+	}
+	// cmdline exactly matches the existing structure -- nothing new/changed.
+	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw consoleblank=0 flatcar.oem.id=azure"
+
+	specs, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []UkiAddonSpec{
+		{FileName: "oem.addon.efi", Cmdline: "flatcar.oem.id=azure"},
+		{
+			FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi",
+			Cmdline:  "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw consoleblank=0",
+		},
+	}, specs)
+}
+
+// TestAclGetUkiAddonSpecsPreserving_MainCmdlineMergesWithExistingSameNamedAddon verifies that if
+// the input image happens to already have both a main-embedded cmdline AND a separate addon file
+// that happens to share the exact output name Image Customizer would otherwise invent for the
+// preserved main cmdline (ukiAddonFileName(kernel)), the two are merged into that single file
+// rather than one silently overwriting the other.
+func TestAclGetUkiAddonSpecsPreserving_MainCmdlineMergesWithExistingSameNamedAddon(t *testing.T) {
+	kernel := "vmlinuz-6.6.92.2-2.azl3"
+
+	existingAddons := map[string]string{
+		ukiMainCmdlineAddonKey:              "mount.usr=/dev/mapper/usr root=LABEL=ROOT",
+		"vmlinuz-6.6.92.2-2.azl3.addon.efi": "consoleblank=0",
+	}
+	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT consoleblank=0"
+
+	specs, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []UkiAddonSpec{
+		{
+			FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi",
+			Cmdline:  "mount.usr=/dev/mapper/usr root=LABEL=ROOT consoleblank=0",
+		},
 	}, specs)
 }
 
@@ -260,11 +206,12 @@ func TestAclGetUkiAddonSpecsPreserving_CustomizedAddonUpdatedInPlace(t *testing.
 	assert.Equal(t, "mitigations=auto panic=30", mustFindAddonSpec(t, specs, aclCustomizedAddonName).Cmdline)
 }
 
-// TestAclGetUkiAddonSpecsPreserving_NewVerityArgIgnored verifies that a dm-verity-named argument
-// added via cmdline (not already present in any existing addon) is silently ignored rather than
-// being written into customized.addon.efi: Trident and Image Customizer's own verity-hash refresh
-// (aclUpdateVerityAddonTemplates) already own that data exclusively.
-func TestAclGetUkiAddonSpecsPreserving_NewVerityArgIgnored(t *testing.T) {
+// TestAclGetUkiAddonSpecsPreserving_NewVerityArgErrors verifies that a dm-verity-named argument
+// added via cmdline (not already present in any existing addon) is rejected with an error rather
+// than being written into customized.addon.efi or silently ignored: Trident and Image Customizer's
+// own verity-hash refresh (aclUpdateVerityAddonTemplates) already own that data exclusively, and
+// kernel command-line customization is never a supported way to set it.
+func TestAclGetUkiAddonSpecsPreserving_NewVerityArgErrors(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
 
 	existingAddons := map[string]string{
@@ -272,16 +219,55 @@ func TestAclGetUkiAddonSpecsPreserving_NewVerityArgIgnored(t *testing.T) {
 	}
 	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT usrhash=deadbeef"
 
+	_, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
+	assert.ErrorIs(t, err, ErrAclUkiAddonSplit)
+	assert.ErrorContains(t, err, "usrhash=deadbeef")
+}
+
+// TestAclGetUkiAddonSpecsPreserving_ChangedVerityArgErrors verifies that CHANGING the value of an
+// argument already owned by an existing verity addon file is also rejected -- not just a brand-new
+// verity-named argument -- since verity settings can never be a supported target for kernel
+// command-line customization, regardless of whether they previously existed.
+func TestAclGetUkiAddonSpecsPreserving_ChangedVerityArgErrors(t *testing.T) {
+	kernel := "vmlinuz-6.6.92.2-2.azl3"
+
+	existingAddons := map[string]string{
+		ukiMainCmdlineAddonKey: "mount.usr=/dev/mapper/usr root=LABEL=ROOT",
+		"verity.addon.efi":     "usrhash=deadbeef",
+	}
+	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT usrhash=beefdead"
+
+	_, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
+	assert.ErrorIs(t, err, ErrAclUkiAddonSplit)
+	assert.ErrorContains(t, err, "usrhash=beefdead")
+}
+
+// TestAclGetUkiAddonSpecsPreserving_OverrideOfExistingAddonArgStripsAndMoves verifies that
+// changing the value of an argument already owned by an existing (non-verity) addon file strips
+// the stale copy from that file and moves the new value into customized.addon.efi, rather than
+// erroring out: the owning file keeps every argument it's not being overridden on.
+func TestAclGetUkiAddonSpecsPreserving_OverrideOfExistingAddonArgStripsAndMoves(t *testing.T) {
+	kernel := "vmlinuz-6.6.92.2-2.azl3"
+
+	existingAddons := map[string]string{
+		ukiMainCmdlineAddonKey: "mount.usr=/dev/mapper/usr root=LABEL=ROOT",
+		"oem.addon.efi":        "console=tty0 flatcar.oem.id=azure",
+	}
+	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT console=ttyS0 flatcar.oem.id=azure"
+
 	specs, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
 	assert.NoError(t, err)
 
-	assert.Empty(t, specs)
+	// console= was stripped out of oem.addon.efi; flatcar.oem.id= (unaffected) remains.
+	assert.Equal(t, "flatcar.oem.id=azure", mustFindAddonSpec(t, specs, "oem.addon.efi").Cmdline)
+	// The new console= value lives only in customized.addon.efi.
+	assert.Equal(t, "console=ttyS0", mustFindAddonSpec(t, specs, aclCustomizedAddonName).Cmdline)
 }
 
-// TestAclGetUkiAddonSpecsPreserving_OverrideOfExistingAddonArgErrors verifies that changing the
-// value of an argument already owned by an existing (non-customized) addon file is rejected: since
-// addons load in a fixed alphabetical order, such an override cannot be reliably expressed.
-func TestAclGetUkiAddonSpecsPreserving_OverrideOfExistingAddonArgErrors(t *testing.T) {
+// TestAclGetUkiAddonSpecsPreserving_OverrideEmptiesOwningFile verifies that if stripping a
+// conflicting argument leaves an existing addon file with no arguments at all, that file is
+// omitted from the result entirely rather than emitted as an empty addon.
+func TestAclGetUkiAddonSpecsPreserving_OverrideEmptiesOwningFile(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
 
 	existingAddons := map[string]string{
@@ -290,9 +276,13 @@ func TestAclGetUkiAddonSpecsPreserving_OverrideOfExistingAddonArgErrors(t *testi
 	}
 	cmdline := "mount.usr=/dev/mapper/usr root=LABEL=ROOT console=ttyS0"
 
-	_, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
-	assert.ErrorIs(t, err, ErrAclUkiAddonSplit)
-	assert.ErrorContains(t, err, "console=ttyS0")
+	specs, err := aclGetUkiAddonSpecsPreserving(kernel, cmdline, existingAddons)
+	assert.NoError(t, err)
+
+	for _, spec := range specs {
+		assert.NotEqual(t, "oem.addon.efi", spec.FileName)
+	}
+	assert.Equal(t, "console=ttyS0", mustFindAddonSpec(t, specs, aclCustomizedAddonName).Cmdline)
 }
 
 func mustFindAddonSpec(t *testing.T, specs []UkiAddonSpec, fileName string) UkiAddonSpec {
