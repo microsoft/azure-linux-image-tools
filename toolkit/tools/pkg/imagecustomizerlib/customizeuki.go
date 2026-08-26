@@ -1127,6 +1127,22 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
+// verityArgPrefixes lists the kernel argument prefixes removeVerityArgsFromCmdline and
+// cmdlineHasVerityArg treat as verity-owned (root and /usr, device locators, digests, and
+// options), covering every distro's dm-verity cmdline shape, not just ACL's.
+var verityArgPrefixes = []string{
+	"rd.systemd.verity=",
+	"roothash=",
+	"usrhash=",
+	"systemd.verity_root_data=",
+	"systemd.verity_root_hash=",
+	"systemd.verity_root_options=",
+	"systemd.verity_usr_data=",
+	"systemd.verity_usr_hash=",
+	"systemd.verity_usr_options=",
+	"pre.verity.mount=",
+}
+
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
@@ -1142,8 +1158,9 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 		cleanedCmdline := removeVerityArgsFromCmdline(info.Cmdline)
 		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(cleanedCmdline), strings.TrimSpace(newArgsStr))
 		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedArgs,
-			Initramfs: info.Initramfs,
+			Cmdline:        updatedArgs,
+			Initramfs:      info.Initramfs,
+			ExistingAddons: refreshVerityArgsInExistingAddons(info.ExistingAddons, newArgsStr),
 		}
 	}
 
@@ -1155,23 +1172,74 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	return nil
 }
 
+// refreshVerityArgsInExistingAddons returns existingAddons (the main UKI's own preserved cmdline
+// plus every existing addon file's cmdline, keyed by file name -- see UkiKernelInfo.ExistingAddons)
+// with the same old-verity-args-removed/new-verity-args-appended treatment appendKernelArgsToUkiCmdlineFile
+// applies to the flattened Cmdline also applied to whichever entries already carry a verity
+// argument, so ExistingAddons stays consistent with Cmdline. Without this, a DistroHandler that
+// mirrors ExistingAddons' per-file structure (e.g. ACL's aclGetUkiAddonSpecsPreserving) would see
+// the freshly-refreshed verity args in Cmdline as a change relative to a now-stale ExistingAddons
+// entry, and reject it as if it were user-supplied cmdline customization touching verity settings
+// -- when it's actually Image Customizer's own internal verity root-hash refresh.
+//
+// An entry with no verity argument at all is left completely untouched. existingAddons is
+// nil-safe: returns nil unchanged when there's no existing addon structure to keep in sync (e.g. a
+// brand-new kernel with no prior UKI addon structure).
+func refreshVerityArgsInExistingAddons(existingAddons map[string]string, newArgsStr string) map[string]string {
+	if existingAddons == nil {
+		return nil
+	}
+
+	updated := make(map[string]string, len(existingAddons))
+	for fileName, addonCmdline := range existingAddons {
+		if !cmdlineHasVerityArg(addonCmdline) {
+			updated[fileName] = addonCmdline
+			continue
+		}
+
+		cleaned := removeVerityArgsFromCmdline(addonCmdline)
+		updated[fileName] = strings.TrimSpace(fmt.Sprintf("%s %s", strings.TrimSpace(cleaned), strings.TrimSpace(newArgsStr)))
+	}
+
+	return updated
+}
+
+// cmdlineHasVerityArg reports whether cmdline contains at least one argument matching
+// verityArgPrefixes. Used to decide which existing addon file(s) refreshVerityArgsInExistingAddons
+// should update -- comparing removeVerityArgsFromCmdline's reconstructed output against the
+// original string isn't reliable for this, since GrubArgsToString's formatting can differ from the
+// original even when no verity argument was actually removed (e.g. whitespace normalization).
+func cmdlineHasVerityArg(cmdline string) bool {
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
+		return false
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		logger.Log.Errorf("Failed to parse command line args: %v", err)
+		return false
+	}
+
+	for _, arg := range args {
+		if arg.ValueHasVarExpansion {
+			continue
+		}
+
+		for _, prefix := range verityArgPrefixes {
+			if strings.HasPrefix(arg.Arg, prefix) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
 // This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
 func removeVerityArgsFromCmdline(cmdline string) string {
-	// List of verity-related argument prefixes that need to be removed
-	verityArgPrefixes := []string{
-		"rd.systemd.verity=",
-		"roothash=",
-		"usrhash=",
-		"systemd.verity_root_data=",
-		"systemd.verity_root_hash=",
-		"systemd.verity_root_options=",
-		"systemd.verity_usr_data=",
-		"systemd.verity_usr_hash=",
-		"systemd.verity_usr_options=",
-		"pre.verity.mount=",
-	}
-
 	tokens, err := grub.TokenizeConfig(cmdline)
 	if err != nil {
 		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
