@@ -21,7 +21,7 @@ func TestAclGetUkiAddonSpecs(t *testing.T) {
 			name:    "first-boot arg in the middle",
 			cmdline: "console=tty0 flatcar.first_boot=detected root=/dev/sda",
 			expectedSpecs: []UkiAddonSpec{
-				{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
+				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
 				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
 			},
 		},
@@ -29,7 +29,7 @@ func TestAclGetUkiAddonSpecs(t *testing.T) {
 			name:    "duplicated first-boot args (first, last, adjacent)",
 			cmdline: "flatcar.first_boot=detected console=tty0 flatcar.first_boot=detected flatcar.first_boot=detected",
 			expectedSpecs: []UkiAddonSpec{
-				{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0"},
+				{FileName: "oem.addon.efi", Cmdline: "console=tty0"},
 				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
 			},
 		},
@@ -37,14 +37,14 @@ func TestAclGetUkiAddonSpecs(t *testing.T) {
 			name:    "no first-boot arg (already-booted image)",
 			cmdline: "console=tty0 root=/dev/sda",
 			expectedSpecs: []UkiAddonSpec{
-				{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
+				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
 			},
 		},
 		{
 			name:    "extra whitespace collapsed",
 			cmdline: "console=ttyS0,115200n8   flatcar.first_boot=detected  flatcar.oem.id=azure",
 			expectedSpecs: []UkiAddonSpec{
-				{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=ttyS0,115200n8 flatcar.oem.id=azure"},
+				{FileName: "oem.addon.efi", Cmdline: "console=ttyS0,115200n8 flatcar.oem.id=azure"},
 				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
 			},
 		},
@@ -54,10 +54,26 @@ func TestAclGetUkiAddonSpecs(t *testing.T) {
 				"flatcar.first_boot=detected",
 			expectedSpecs: []UkiAddonSpec{
 				{
-					FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi",
+					FileName: "oem.addon.efi",
 					Cmdline:  "myflatcar.first_boot=detected flatcar.first_boot=1 flatcar.first_boot=detected2",
 				},
 				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
+			},
+		},
+		{
+			name:    "verity args split into their own addon",
+			cmdline: "console=tty0 systemd.verity_usr_data=PARTUUID=aaaa systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef root=/dev/sda flatcar.first_boot=detected",
+			expectedSpecs: []UkiAddonSpec{
+				{FileName: "oem.addon.efi", Cmdline: "console=tty0 root=/dev/sda"},
+				{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_data=PARTUUID=aaaa systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef"},
+				{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
+			},
+		},
+		{
+			name:    "verity args only, no oem args",
+			cmdline: "systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef",
+			expectedSpecs: []UkiAddonSpec{
+				{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_hash=PARTUUID=bbbb usrhash=deadbeef"},
 			},
 		},
 		{
@@ -124,10 +140,13 @@ func TestAclGetUkiAddonSpecsPreserving_NoExistingAddons(t *testing.T) {
 }
 
 // TestAclGetUkiAddonSpecsPreserving_PassesThroughUnmanagedAddons verifies that addon files ACL
-// doesn't manage (oem, verity, fips, kdump, ...) are preserved as their own files untouched,
-// instead of having their arguments folded into the persistent addon -- this is the core fix for
-// the ACL-T AB-update regression, where a stale verity.addon.efi's args got folded into the
-// persistent addon and then outlived Trident's per-slot verity.addon.efi swap.
+// doesn't manage (verity, fips, kdump, ...) are preserved as their own files untouched, instead of
+// having their arguments folded into a generated addon -- this is the core fix for the ACL-T
+// AB-update regression, where a stale verity.addon.efi's args got folded into a persistent
+// "vmlinuz-<kernel>.addon.efi" bundle and then outlived Trident's per-slot verity.addon.efi swap.
+// It also verifies that a legacy "vmlinuz-<kernel>.addon.efi" bundle left behind by an older Image
+// Customizer version self-heals: its content is folded back into oem.addon.efi and the legacy file
+// itself no longer appears in the output, matching a stock ACL image's native layout.
 func TestAclGetUkiAddonSpecsPreserving_PassesThroughUnmanagedAddons(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
 
@@ -148,17 +167,19 @@ func TestAclGetUkiAddonSpecsPreserving_PassesThroughUnmanagedAddons(t *testing.T
 	specs, err := aclGetUkiAddonSpecsPreserving(kernel, flattenedCmdline, existingAddons)
 	assert.NoError(t, err)
 
+	// "oem.addon.efi" (managed) absorbs the legacy "vmlinuz-<kernel>.addon.efi" bundle's content
+	// (consoleblank=0); "verity.addon.efi" (unmanaged) passes through untouched; no
+	// "vmlinuz-<kernel>.addon.efi" file remains.
 	assert.Equal(t, []UkiAddonSpec{
 		{FileName: "firstboot.addon.efi", Cmdline: "flatcar.first_boot=detected"},
-		{FileName: "oem.addon.efi", Cmdline: "flatcar.oem.id=azure console=ttyS0"},
+		{FileName: "oem.addon.efi", Cmdline: "mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw flatcar.oem.id=azure console=ttyS0 consoleblank=0"},
 		{FileName: "verity.addon.efi", Cmdline: "systemd.verity_usr_hash=PARTUUID=aaaa usrhash=deadbeef"},
-		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "consoleblank=0 mount.usr=/dev/mapper/usr root=LABEL=ROOT rootflags=rw"},
 	}, specs)
 }
 
 // TestAclGetUkiAddonSpecsPreserving_VeritySwapSurvives simulates the exact regression scenario:
 // Trident swaps verity.addon.efi to a new (volume B) value between two runs of Image Customizer
-// re-customization; the persistent addon it manages must not change as a result, and the new
+// re-customization; the oem addon it manages must not change as a result, and the new
 // verity.addon.efi content must be preserved verbatim rather than overridden.
 func TestAclGetUkiAddonSpecsPreserving_VeritySwapSurvives(t *testing.T) {
 	kernel := "vmlinuz-6.6.92.2-2.azl3"
@@ -177,9 +198,9 @@ func TestAclGetUkiAddonSpecsPreserving_VeritySwapSurvives(t *testing.T) {
 	specsB, err := aclGetUkiAddonSpecsPreserving(kernel, "unused", volumeBAddons)
 	assert.NoError(t, err)
 
-	// The persistent addon is identical in both cases -- verity content never leaked into it.
-	persistentA := mustFindAddonSpec(t, specsA, "vmlinuz-6.6.92.2-2.azl3.addon.efi")
-	persistentB := mustFindAddonSpec(t, specsB, "vmlinuz-6.6.92.2-2.azl3.addon.efi")
+	// The oem addon is identical in both cases -- verity content never leaked into it.
+	persistentA := mustFindAddonSpec(t, specsA, "oem.addon.efi")
+	persistentB := mustFindAddonSpec(t, specsB, "oem.addon.efi")
 	assert.Equal(t, persistentA, persistentB)
 
 	// The verity addon is passed through with its own (volume-specific) content, unmodified.
