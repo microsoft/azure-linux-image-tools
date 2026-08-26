@@ -128,7 +128,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 }
 
 func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
-	requestedSelinuxMode imagecustomizerapi.SELinuxMode, resolvedIso imagecustomizerapi.Iso,
+	resolvedIso imagecustomizerapi.Iso,
 	resolvedPxe imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
@@ -139,7 +139,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig,
+	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, liveosConfig,
 		rawImageFile, outputFormat, outputPath, distroHandler, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
@@ -182,7 +182,7 @@ func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initr
 	return false
 }
 
-func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
 	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
@@ -254,7 +254,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath,
 		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, requestedSelinuxMode)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -333,14 +333,9 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputArtifactsStore *IsoArtifactsStore,
 	outputFormat imagecustomizerapi.ImageFormatType, outputPath string, distroHandler DistroHandler,
 ) error {
-	// Note that in this ISO build flow, there is no os configuration, and hence
-	// no selinux configuration. So, we will set it to default (i.e. unspecified)
-	// and let any saved data override if present.
-	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
-
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath,
 		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, requestedSelinuxMode)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}

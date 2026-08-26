@@ -616,8 +616,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
-			requestedSELinuxMode := rc.SELinux.Mode
-			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
+			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, rc.Iso, rc.Pxe,
 				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler, toolsChroot)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
