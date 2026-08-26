@@ -83,22 +83,12 @@ func (p *PxeSavedConfigs) IsValid() error {
 	return nil
 }
 
-type OSSavedConfigs struct {
-	RequestedSELinuxMode imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
-
-	// Deprecated fields
-	DracutPackageInfo        any `yaml:"dracutPackage,omitempty"`
-	SELinuxPolicyPackageInfo any `yaml:"selinuxPolicyPackage,omitempty"`
-}
-
-func (i *OSSavedConfigs) IsValid() error {
-	return nil
-}
-
 type SavedConfigs struct {
 	LiveOS LiveOSSavedConfigs `yaml:"liveos"`
 	Pxe    PxeSavedConfigs    `yaml:"pxe"`
-	OS     OSSavedConfigs     `yaml:"os"`
+
+	// Deprecated fields
+	OS any `yaml:"os,omitempty"`
 }
 
 func (c *SavedConfigs) IsValid() (err error) {
@@ -110,11 +100,6 @@ func (c *SavedConfigs) IsValid() (err error) {
 	err = c.Pxe.IsValid()
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrIsoConfigInvalidPxeField, err)
-	}
-
-	err = c.OS.IsValid()
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrIsoConfigInvalidOsField, err)
 	}
 
 	return nil
@@ -156,7 +141,6 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 func updateSavedConfigs(savedConfigsFilePath string,
 	newKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
 	newBootstrapBaseUrl string, newBootstrapFileUrl string,
-	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode,
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
@@ -164,7 +148,6 @@ func updateSavedConfigs(savedConfigsFilePath string,
 	outputConfigs.LiveOS.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.bootstrapBaseUrl = newBootstrapBaseUrl
 	outputConfigs.Pxe.bootstrapFileUrl = newBootstrapFileUrl
-	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
 
 	inputConfigs, err := loadSavedConfigs(savedConfigsFilePath)
 	if err != nil {
@@ -205,10 +188,6 @@ func updateSavedConfigs(savedConfigsFilePath string,
 
 		if newBootstrapFileUrl != "" {
 			outputConfigs.Pxe.bootstrapBaseUrl = ""
-		}
-
-		if newRequestedSelinuxMode != imagecustomizerapi.SELinuxModeDefault {
-			outputConfigs.OS.RequestedSELinuxMode = inputConfigs.OS.RequestedSELinuxMode
 		}
 	}
 

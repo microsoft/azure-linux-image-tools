@@ -32,7 +32,6 @@ const (
 )
 
 type IsoInfoStore struct {
-	seLinuxMode    imagecustomizerapi.SELinuxMode
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType
 }
 
@@ -404,36 +403,6 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	return filesStore, nil
 }
 
-func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, distroHandler DistroHandler,
-) (infoStore *IsoInfoStore, err error) {
-	infoStore = &IsoInfoStore{}
-
-	chrootDir := imageRootDir
-	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
-	if chroot == nil {
-		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", chrootDir)
-	}
-	defer chroot.Close()
-
-	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", chrootDir, err)
-	}
-
-	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot, distroHandler)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine SELinux mode for (%s):\n%w", chrootDir, err)
-	}
-	infoStore.seLinuxMode = imageSELinuxMode
-
-	err = chroot.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return infoStore, nil
-}
-
 func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string,
 ) (filesStore *IsoFilesStore, distroHandler DistroHandler, err error) {
 	artifactsDir := filepath.Join(storeDir, "artifacts")
@@ -590,12 +559,6 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler)
-	if err != nil {
-		return nil, err
-	}
-	artifactStore.info = infoStore
-
 	return artifactStore, nil
 }
 
@@ -623,93 +586,4 @@ func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string,
 	artifactStore.info = infoStore
 
 	return artifactStore, distroHandler, nil
-}
-
-func fileExistsToString(filePath string) string {
-	exists, err := file.PathExists(filePath)
-	if err != nil {
-		return fmt.Sprintf("%s (failed to check file):%s", filePath, err.Error())
-	}
-	if exists {
-		return " e " + filePath
-	}
-	return "!e " + filePath
-}
-
-func dumpKernelBootFiles(kernelBootFiles *KernelBootFiles) {
-	if kernelBootFiles == nil {
-		logger.Log.Debugf("-- -- not defined")
-		return
-	}
-
-	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
-	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
-	for _, otherFile := range kernelBootFiles.otherFiles {
-		logger.Log.Debugf("-- -- otherFile             = %s", fileExistsToString(otherFile))
-	}
-}
-
-func dumpKdumpBootFiles(kdumpBootFiles *KdumpBootFiles) {
-	if kdumpBootFiles == nil {
-		logger.Log.Debugf("-- -- not defined")
-		return
-	}
-
-	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kdumpBootFiles.vmlinuzPath))
-	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kdumpBootFiles.initrdImagePath))
-}
-
-func dumpFilesStore(filesStore *IsoFilesStore) {
-	logger.Log.Debugf("Files Store")
-	if filesStore == nil {
-		logger.Log.Debugf("-- not defined")
-		return
-	}
-	logger.Log.Debugf("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
-	logger.Log.Debugf("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
-	logger.Log.Debugf("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
-	logger.Log.Debugf("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
-	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
-	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
-	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
-	logger.Log.Debugf("-- kernel file groups")
-	for key, value := range filesStore.kernelBootFiles {
-		logger.Log.Debugf("-- - version               = %s", key)
-		dumpKernelBootFiles(value)
-	}
-	logger.Log.Debugf("-- kdump file groups")
-	for key, value := range filesStore.kdumpBootFiles {
-		logger.Log.Debugf("-- - version               = %s", key)
-		dumpKdumpBootFiles(value)
-	}
-	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
-	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
-	logger.Log.Debugf("-- additionalFiles          =")
-	for key, value := range filesStore.additionalFiles {
-		logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
-	}
-}
-
-func dumpInfoStore(infoStore *IsoInfoStore) {
-	logger.Log.Debugf("Info Store")
-	if infoStore == nil {
-		logger.Log.Debugf("-- not defined")
-		return
-	}
-	if infoStore.kdumpBootFiles != nil {
-		logger.Log.Debugf("-- kdumpBootFiles       = %s", *infoStore.kdumpBootFiles)
-	} else {
-		logger.Log.Debugf("-- kdumpBootFiles       = not defined")
-	}
-	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
-}
-
-func dumpArtifactsStore(artifactStore *IsoArtifactsStore, title string) {
-	logger.Log.Debugf("Artifacts Store - %s", title)
-	if artifactStore == nil {
-		logger.Log.Debugf("-- not defined")
-		return
-	}
-	dumpFilesStore(artifactStore.files)
-	dumpInfoStore(artifactStore.info)
 }
