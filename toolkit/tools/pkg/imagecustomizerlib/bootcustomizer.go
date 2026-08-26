@@ -383,8 +383,9 @@ func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
 	for kernel, info := range kernelInfo {
 		updatedCmdline := strings.TrimSpace(info.Cmdline) + " " + args
 		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
+			Cmdline:        updatedCmdline,
+			Initramfs:      info.Initramfs,
+			ExistingAddons: info.ExistingAddons,
 		}
 	}
 
@@ -441,8 +442,9 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 
 		// Update kernel info
 		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
+			Cmdline:        updatedCmdline,
+			Initramfs:      info.Initramfs,
+			ExistingAddons: info.ExistingAddons,
 		}
 	}
 
