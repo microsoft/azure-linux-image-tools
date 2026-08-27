@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/invopop/jsonschema"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const (
