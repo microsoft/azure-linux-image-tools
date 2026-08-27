@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"

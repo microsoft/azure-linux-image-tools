@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/invopop/jsonschema"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // The file permissions to set on the file.
