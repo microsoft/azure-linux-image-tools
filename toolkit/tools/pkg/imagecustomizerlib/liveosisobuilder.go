@@ -128,7 +128,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 }
 
 func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
-	requestedSelinuxMode imagecustomizerapi.SELinuxMode, resolvedIso imagecustomizerapi.Iso,
+	resolvedIso imagecustomizerapi.Iso,
 	resolvedPxe imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
@@ -139,7 +139,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig,
+	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, liveosConfig,
 		rawImageFile, outputFormat, outputPath, distroHandler, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
@@ -182,7 +182,7 @@ func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initr
 	return false
 }
 
-func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
 	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string, distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (err error) {
@@ -246,7 +246,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	// Create the ISO artifacts store
 	storeFolder := filepath.Join(isoBuildDir, "from-iso-and-raw")
 	artifactsStore, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder,
-		distroHandler, toolsChroot)
+		distroHandler)
 	if err != nil {
 		return err
 	}
@@ -254,37 +254,13 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath,
 		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
-		artifactsStore.info.selinuxPolicyPackageInfo)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
 
-	// Figure out the selinux situation
-	// Note that by now, the user selinux config has been applied to the image,
-	// so checking only 'imageSELinuxMode' is sufficient to determine whether
-	// selinux is enabled or not for this image (regardless of the source of
-	// that configuration).
-	disableSELinux := false
-	if artifactsStore.info.seLinuxMode != imagecustomizerapi.SELinuxModeDisabled {
-		// SELinux is enabled (either in the base image, or requested by the user)
-		err = verifyNoLiveOsSelinuxBlockers(updatedSavedConfigs.OS.DracutPackageInfo, updatedSavedConfigs.OS.SELinuxPolicyPackageInfo)
-		if err != nil {
-			// We need to determine whether the source of enablment is user
-			// explicit configuration or the base image.
-			if updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDisabled &&
-				updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDefault {
-				return fmt.Errorf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%w", err)
-			} else {
-				logger.Log.Infof("SELinux disabled due to older dracut and selinux-policy package versions:\n%s", err)
-			}
-
-			disableSELinux = true
-		}
-	}
-
 	// Update grub.cfg
-	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType,
 		updatedSavedConfigs, getKernelVersions(artifactsStore.files), artifactsStore.files.isoGrubCfgPath,
 		artifactsStore.files.pxeGrubCfgPath, distroHandler)
 	if err != nil {
@@ -357,28 +333,15 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputArtifactsStore *IsoArtifactsStore,
 	outputFormat imagecustomizerapi.ImageFormatType, outputPath string, distroHandler DistroHandler,
 ) error {
-	// Note that in this ISO build flow, there is no os configuration, and hence
-	// no selinux configuration. So, we will set it to default (i.e. unspecified)
-	// and let any saved data override if present.
-	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
-
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath,
 		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode,
-		nil /*selinux policy pkg info*/)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
 
-	// SELinux cannot be enabled/disabled in this flow since, by definition,
-	// the config os.selinux is not present. As a result, we will just keep
-	// SELinux configuration unchanged.
-	// Setting disableSELinux to false tells updateGrubCfg to, well, not disable
-	// selinux and not enable it either.
-	disableSELinux := false
-
 	// Update grub.cfg
-	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType,
 		updatedSavedConfigs, getKernelVersions(inputArtifactsStore.files), inputArtifactsStore.files.isoGrubCfgPath,
 		inputArtifactsStore.files.pxeGrubCfgPath, distroHandler)
 	if err != nil {
