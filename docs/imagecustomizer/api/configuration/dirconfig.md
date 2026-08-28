@@ -69,3 +69,18 @@ os:
 ```
 
 Added in v0.3.
+
+## Symbolic links
+
+Symbolic links found inside the `source` directory are copied verbatim: each link is
+recreated in the target OS pointing at the same target path, and is **not** followed
+(dereferenced). The link is resolved at runtime against the target OS's own filesystem,
+so a link such as `foo -> /etc/hosts` points at the target OS's `/etc/hosts`, not the
+build host's. This also means dangling links and links to special files (for example
+`/dev/zero`) are copied safely as links rather than by reading their targets.
+
+The permission fields (`newDirPermissions`, `mergedDirPermissions`,
+`childFilePermissions`) are not applied to symbolic links themselves.
+
+Added in v1.8.
+
