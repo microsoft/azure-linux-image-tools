@@ -224,8 +224,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	// Output bootloader (e.g. GRUBX64.efi)
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemBootloader) {
-		subfiles := []string{bootConfig.espGrubBinaryPath, filepath.Join("/HvLoader.efi"), filepath.Join(espBootloaderDir, "/second.efi"),
-			"/Windows/System32/hvix64.exe", "/Windows/System32/hvax64.exe", "/lxhvloader.dll"}
+		subfiles := []string{bootConfig.espGrubBinaryPath, "/HvLoader.efi", filepath.Join(espBootloaderDir, "/second.efi"), "/lxhvloader.dll"}
 		for _, subfile := range subfiles {
 			subfileName := filepath.Base(subfile)
 
