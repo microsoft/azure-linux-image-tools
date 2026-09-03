@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 )
 
@@ -55,8 +56,8 @@ func (d *Disk) IsValid() error {
 		}
 	}
 
-	gptHeaderSize := DiskSize(roundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
-	gptFooterSize := DiskSize(roundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
+	gptHeaderSize := DiskSize(mathutils.RoundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
+	gptFooterSize := DiskSize(mathutils.RoundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
 
 	// Auto-fill the start value from the previous partition's end value.
 	for i := range d.Partitions {
@@ -162,27 +163,6 @@ func (d *Disk) IsValid() error {
 	}
 
 	return nil
-}
-
-func roundUp(size uint64, alignment uint64) uint64 {
-	div := size / alignment
-	mod := size % alignment
-	if mod == 0 {
-		return size
-	}
-	return (div + 1) * alignment
-}
-
-func roundDown(size uint64, alignment uint64) uint64 {
-	div := size / alignment
-	mod := size % alignment
-	if mod == 0 {
-		return size
-	}
-	if div == 0 {
-		return 0
-	}
-	return (div - 1) * alignment
 }
 
 func partGetEnd(p *Partition) (DiskSize, bool) {
