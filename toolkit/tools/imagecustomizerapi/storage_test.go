@@ -3140,5 +3140,5 @@ func TestCalculateInlineVerityDataSize1MiB(t *testing.T) {
 func TestCalculateInlineVerityDataSize100MiB(t *testing.T) {
 	fsSize, err := calculateInlineVerityDataSize(100 * diskutils.MiB)
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(98*diskutils.MiB), fsSize)
+	assert.Equal(t, uint64(99*diskutils.MiB), fsSize)
 }

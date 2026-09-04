@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 )
@@ -543,7 +544,7 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	}
 
 	dataSizeBytes := answer * uint64(dataBlockSize)
-	dataSizeBytes = roundDown(dataSizeBytes, DefaultPartitionAlignment)
+	dataSizeBytes = mathutils.RoundDown(dataSizeBytes, DefaultPartitionAlignment)
 	if dataSizeBytes == 0 {
 		return 0, fmt.Errorf("partition is too small for inline verity")
 	}
