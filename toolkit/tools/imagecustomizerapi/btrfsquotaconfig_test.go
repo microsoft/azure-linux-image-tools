@@ -6,6 +6,7 @@ package imagecustomizerapi
 import (
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,6 +30,28 @@ func TestBtrfsQuotaConfigIsValid_ExclusiveLimitZero_Fail(t *testing.T) {
 	assert.ErrorContains(t, err, "exclusiveLimit value (0) must be a positive non-zero number")
 }
 
+func TestBtrfsQuotaConfigIsValid_ReferencedLimitUnaligned_Fail(t *testing.T) {
+	referencedLimit := DiskSize(1 * diskutils.KiB)
+	q := BtrfsQuotaConfig{
+		ReferencedLimit: &referencedLimit,
+	}
+	err := q.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'referencedLimit' value:\n")
+	assert.ErrorContains(t, err, "size (1 KiB) must be a multiple of 1 MiB")
+}
+
+func TestBtrfsQuotaConfigIsValid_ExclusiveLimitUnaligned_Fail(t *testing.T) {
+	exclusiveLimit := DiskSize(1 * diskutils.KiB)
+	q := BtrfsQuotaConfig{
+		ExclusiveLimit: &exclusiveLimit,
+	}
+	err := q.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'exclusiveLimit' value:\n")
+	assert.ErrorContains(t, err, "size (1 KiB) must be a multiple of 1 MiB")
+}
+
 func TestBtrfsQuotaConfigIsValid_BothLimitsZero_Fail(t *testing.T) {
 	referencedLimit := DiskSize(0)
 	exclusiveLimit := DiskSize(0)
@@ -49,7 +72,7 @@ func TestBtrfsQuotaConfigIsValid_Empty_Pass(t *testing.T) {
 }
 
 func TestBtrfsQuotaConfigIsValid_ReferencedLimitPositive_Pass(t *testing.T) {
-	referencedLimit := DiskSize(1024)
+	referencedLimit := DiskSize(1 * diskutils.MiB)
 	q := BtrfsQuotaConfig{
 		ReferencedLimit: &referencedLimit,
 	}
@@ -58,7 +81,7 @@ func TestBtrfsQuotaConfigIsValid_ReferencedLimitPositive_Pass(t *testing.T) {
 }
 
 func TestBtrfsQuotaConfigIsValid_ExclusiveLimitPositive_Pass(t *testing.T) {
-	exclusiveLimit := DiskSize(1024)
+	exclusiveLimit := DiskSize(1 * diskutils.MiB)
 	q := BtrfsQuotaConfig{
 		ExclusiveLimit: &exclusiveLimit,
 	}
@@ -67,8 +90,8 @@ func TestBtrfsQuotaConfigIsValid_ExclusiveLimitPositive_Pass(t *testing.T) {
 }
 
 func TestBtrfsQuotaConfigIsValid_BothLimitsPositive_Pass(t *testing.T) {
-	referencedLimit := DiskSize(2048)
-	exclusiveLimit := DiskSize(1024)
+	referencedLimit := DiskSize(2 * diskutils.MiB)
+	exclusiveLimit := DiskSize(1 * diskutils.MiB)
 	q := BtrfsQuotaConfig{
 		ReferencedLimit: &referencedLimit,
 		ExclusiveLimit:  &exclusiveLimit,
