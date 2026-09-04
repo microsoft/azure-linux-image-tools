@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 )
 
@@ -134,10 +135,7 @@ func extractGptTableData(diskDevPath string, outDir string, basename string,
 	}
 
 	// Round up to sector boundary
-	sectorsToExtract := gptEndBytes / uint64(sectorSize)
-	if gptEndBytes%uint64(sectorSize) != 0 {
-		sectorsToExtract += 1
-	}
+	sectorsToExtract := mathutils.DivRoundUp(gptEndBytes, uint64(sectorSize))
 
 	rawFile := filepath.Join(outDir, basename+"_gpt.raw")
 	err = extractSectorsFromFile(srcFile, rawFile, sectorSize, 0, int64(sectorsToExtract))
