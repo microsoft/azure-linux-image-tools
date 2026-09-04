@@ -162,6 +162,59 @@ func TestCopyDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestCopyDirPreservesSymlinks verifies that symlinks inside a source directory
+// are recreated as symlinks in the destination rather than being dereferenced.
+// It covers relative, dangling, absolute, and directory symlinks.
+func TestCopyDirPreservesSymlinks(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	dst := filepath.Join(t.TempDir(), "dst")
+	assert.NoError(t, os.MkdirAll(src, 0755))
+
+	// A real file that the symlink points at.
+	assert.NoError(t, os.WriteFile(filepath.Join(src, "target.txt"), []byte("hello"), 0644))
+
+	// A relative symlink to that file.
+	assert.NoError(t, os.Symlink("target.txt", filepath.Join(src, "link.txt")))
+
+	// A dangling symlink (points at a path that only exists inside the image
+	// at runtime). Dereferencing this must not break the copy.
+	assert.NoError(t, os.Symlink("/does/not/exist/on/host", filepath.Join(src, "dangling.txt")))
+
+	// An absolute symlink. Its target string must be preserved verbatim.
+	absTarget := filepath.Join(src, "target.txt")
+	assert.NoError(t, os.Symlink(absTarget, filepath.Join(src, "abs.txt")))
+
+	// A symlink to a directory. It must be recreated as a symlink, not followed
+	// and copied as a directory tree.
+	assert.NoError(t, os.MkdirAll(filepath.Join(src, "realdir"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(src, "realdir", "inner.txt"), []byte("inner"), 0644))
+	assert.NoError(t, os.Symlink("realdir", filepath.Join(src, "dirlink")))
+
+	newDirPermissions := fs.FileMode(0755)
+	childFilePermissions := fs.FileMode(0755)
+	err := CopyDir(src, dst, newDirPermissions, childFilePermissions, nil)
+	if !assert.NoError(t, err) { // fails today: dangling symlink makes CopyDir error out
+		return
+	}
+
+	// Helper: assert a copied entry is a symlink pointing at the expected target.
+	assertSymlink := func(name, wantTarget string) {
+		info, err := os.Lstat(filepath.Join(dst, name))
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.True(t, info.Mode()&os.ModeSymlink != 0, "%s should be a symlink, not a dereferenced entry", name)
+		gotTarget, err := os.Readlink(filepath.Join(dst, name))
+		assert.NoError(t, err)
+		assert.Equal(t, wantTarget, gotTarget)
+	}
+
+	assertSymlink("link.txt", "target.txt")
+	assertSymlink("dangling.txt", "/does/not/exist/on/host")
+	assertSymlink("abs.txt", absTarget)
+	assertSymlink("dirlink", "realdir")
+}
+
 func createTestFiles(filename string, outputDir string) error {
 	// Test data
 	testData := []byte{0x01, 0x02, 0x03, 0x04, 0x05}

@@ -272,28 +272,28 @@ func verifyAddDirs(t *testing.T, baseImageInfo testBaseImageInfo, buildDir strin
 	verifyFileContentsSame(t, animalsFileOrigPath, animalsFileNewPath)
 }
 
-func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
+func TestCustomizeImageAdditionalDirsSymlinkPreserved(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsSymlinkPreserved")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Make a directory that contains an infinite file.
-	// Specifically, a file that symlinks to /dev/zero, which is a virtual file that contains
-	// infinite bytes of 0. This should cause the copy operation to run out of free space on
-	// the disk.
+	// Make a source directory containing a symlink to /dev/zero. Historically this
+	// dereferenced the link and tried to copy infinite bytes, failing with "no space
+	// left on device". After Bug 22991 the symlink must be preserved verbatim: a tiny
+	// operation that succeeds and leaves a symlink pointing at /dev/zero in the image.
 	srcDirPath := filepath.Join(testTmpDir, "a")
-	infiniteFilePath := filepath.Join(srcDirPath, "zero")
+	symlinkPath := filepath.Join(srcDirPath, "zero")
 
 	err := os.MkdirAll(srcDirPath, os.ModePerm)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = os.Symlink("/dev/zero", infiniteFilePath)
+	err = os.Symlink("/dev/zero", symlinkPath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -312,9 +312,27 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 	// Customize image.
 	err = basicCustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
-	assert.ErrorContains(t, err, "failed to copy directory")
-	assert.ErrorContains(t, err, "failed to copy file")
-	assert.ErrorContains(t, err, "no space left on device")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Connect to the customized image and verify the symlink was preserved (not followed).
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	zeroPath := filepath.Join(imageConnection.Chroot().RootDir(), "/a/zero")
+	info, err := os.Lstat(zeroPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.True(t, info.Mode()&os.ModeSymlink != 0, "/a/zero should be a symlink, not a regular file")
+
+	target, err := os.Readlink(zeroPath)
+	assert.NoError(t, err)
+	assert.Equal(t, "/dev/zero", target)
 }
 
 func verifyFileContentsSame(t *testing.T, origPath string, newPath string) {
