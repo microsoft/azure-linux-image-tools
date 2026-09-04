@@ -1,10 +1,10 @@
 package mathutils
 
-type Integer interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+type UnsignedInteger interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
 }
 
-func RoundUp[I Integer](size I, alignment I) I {
+func RoundUp[I UnsignedInteger](size I, alignment I) I {
 	div := size / alignment
 	mod := size % alignment
 	if mod == 0 {
@@ -13,7 +13,7 @@ func RoundUp[I Integer](size I, alignment I) I {
 	return (div + 1) * alignment
 }
 
-func RoundDown[I Integer](size I, alignment I) I {
+func RoundDown[I UnsignedInteger](size I, alignment I) I {
 	div := size / alignment
 	mod := size % alignment
 	if mod == 0 {
@@ -22,7 +22,7 @@ func RoundDown[I Integer](size I, alignment I) I {
 	return div * alignment
 }
 
-func DivRoundUp[I Integer](numerator I, denominator I) I {
+func DivRoundUp[I UnsignedInteger](numerator I, denominator I) I {
 	sizeInSectors := numerator / denominator
 	rem := numerator % denominator
 	if rem != 0 {

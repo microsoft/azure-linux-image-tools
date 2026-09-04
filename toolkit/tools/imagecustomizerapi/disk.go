@@ -56,8 +56,8 @@ func (d *Disk) IsValid() error {
 		}
 	}
 
-	gptHeaderSize := DiskSize(mathutils.RoundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
-	gptFooterSize := DiskSize(mathutils.RoundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
+	gptHeaderSize := DiskSize(mathutils.RoundUp(uint64(GptHeaderSectorNum*DefaultSectorSize), DefaultPartitionAlignment))
+	gptFooterSize := DiskSize(mathutils.RoundUp(uint64(GptFooterSectorNum*DefaultSectorSize), DefaultPartitionAlignment))
 
 	// Auto-fill the start value from the previous partition's end value.
 	for i := range d.Partitions {
