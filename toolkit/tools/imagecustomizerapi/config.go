@@ -107,7 +107,7 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
-	if c.CustomizePartitions() && !hasResetBootLoader {
+	if c.Storage.CustomizePartitions() && !hasResetBootLoader {
 		return fmt.Errorf("'os.bootloader.resetType' must be specified if 'storage.disks' is specified")
 	}
 
@@ -176,11 +176,12 @@ func (c *Config) IsValid() (err error) {
 			PreviewFeatureBtrfs)
 	}
 
-	return nil
-}
+	if c.Storage.ResizeDisk != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureResizeDisk) {
+		return fmt.Errorf("the '%s' preview feature must be enabled to use .storage.resizeDisk",
+			PreviewFeatureResizeDisk)
+	}
 
-func (c *Config) CustomizePartitions() bool {
-	return c.Storage.CustomizePartitions()
+	return nil
 }
 
 func (c *Config) validateUkiModifyMode() error {

@@ -158,7 +158,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.CustomizeOSPartitions = rc.Storage.CustomizePartitions() ||
+	rc.CustomizeOSPartitions = rc.Storage.CustomizeStorage() ||
 		slices.ContainsFunc(rc.ConfigChain, func(configWithBase *ConfigWithBasePath) bool {
 			return configWithBase.Config.OS != nil ||
 				len(configWithBase.Config.Scripts.PostCustomization) > 0 ||
@@ -288,7 +288,8 @@ func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
 			len(storage.Disks) > 0 ||
 			len(storage.FileSystems) > 0 ||
 			len(storage.Verity) > 0 ||
-			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault ||
+			storage.ResizeDisk != nil {
 
 			foundStorage = storage
 			foundStorageCount += 1

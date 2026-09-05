@@ -51,6 +51,9 @@ const (
 	// PreviewFeatureToolsDir enables support for specifying a tools directory.
 	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
 
+	// PreviewFeatureResizeDisk enables support for specifying a tools directory.
+	PreviewFeatureResizeDisk PreviewFeature = "resize-disk"
+
 	// PreviewFeatureRemovePackageManager enables support for the '.os.packages.removePackageManager' API.
 	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
 )
@@ -61,7 +64,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureRemovePackageManager:
+		PreviewFeatureRemovePackageManager, PreviewFeatureResizeDisk:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

@@ -258,10 +258,6 @@ func TestCustomizeImagePackagesUpdateAfterInstall(t *testing.T) {
 func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		t.Skip("Skipping Ubuntu since test fails due to disk space contraints")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateAfterInstall_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
@@ -332,10 +328,6 @@ func TestCustomizeImagePackagesUpdateExisting(t *testing.T) {
 
 func testCustomizeImagePackagesUpdateExisting(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		t.Skip("Skipping Ubuntu since test fails due to disk space contraints")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateExisting_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
@@ -916,10 +908,6 @@ func TestCustomizeImagePackagesInstallOnline(t *testing.T) {
 
 func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		t.Skip("Skipping Ubuntu since test fails due to disk space contraints")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesInstallOnline_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)

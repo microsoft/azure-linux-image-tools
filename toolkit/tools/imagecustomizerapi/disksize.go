@@ -76,22 +76,7 @@ func parseAndSetDiskSize(stringValue string, s *DiskSize) error {
 }
 
 func (s DiskSize) HumanReadable() string {
-	switch {
-	case s%diskutils.TiB == 0:
-		return fmt.Sprintf("%d TiB", s/diskutils.TiB)
-
-	case s%diskutils.GiB == 0:
-		return fmt.Sprintf("%d GiB", s/diskutils.GiB)
-
-	case s%diskutils.MiB == 0:
-		return fmt.Sprintf("%d MiB", s/diskutils.MiB)
-
-	case s%diskutils.KiB == 0:
-		return fmt.Sprintf("%d KiB", s/diskutils.KiB)
-
-	default:
-		return fmt.Sprintf("%d bytes", s)
-	}
+	return diskutils.HumanReadable(s)
 }
 
 func parseDiskSize(diskSizeString string) (DiskSize, error) {

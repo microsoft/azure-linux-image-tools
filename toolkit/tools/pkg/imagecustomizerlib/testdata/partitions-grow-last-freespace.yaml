@@ -5,12 +5,4 @@ storage:
   resizeDisk:
     partitions:
     - ref: last
-      freeSpace: 1G
-
-os:
-  packages:
-    install:
-    - unzip
-
-    update:
-    - unzip
+      freeSpace: 50G
