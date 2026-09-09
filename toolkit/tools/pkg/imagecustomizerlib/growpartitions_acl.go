@@ -160,8 +160,18 @@ func growAclStandardPartitions(ctx context.Context, acl *imagecustomizerapi.Acl,
 	}
 
 	// Recreate the ESP vfat at the larger size, preserving volume id, label, and files.
+	// cloneAclPartitionContents deliberately skipped the ESP, so the new ESP partition is empty; the
+	// files and vfat identity are read from the base (old) ESP, which is still attached at this point.
 	if espRecreated {
-		err = recreateAclEspFilesystem(newLoopback.DevicePath(), newPartitions)
+		oldEsp, ok := partitionsByLabel(partitions)[aclPartLabelEsp]
+		if !ok {
+			return fmt.Errorf("%w: base ESP partition not found", ErrAclGrowFilesystem)
+		}
+		newEsp, ok := partitionsByLabel(newPartitions)[aclPartLabelEsp]
+		if !ok {
+			return fmt.Errorf("%w: new ESP partition not found", ErrAclGrowFilesystem)
+		}
+		err = recreateAclEspFilesystem(oldEsp.Path, newEsp.Path)
 		if err != nil {
 			return err
 		}
@@ -503,13 +513,9 @@ func partitionsByLabel(partitions []diskutils.PartitionInfo) map[string]diskutil
 
 // recreateAclEspFilesystem recreates the ESP vfat filesystem at the enlarged partition size,
 // preserving its volume id, label, and files. FAT cannot be grown in place without fatresize
-// (not a toolkit dependency), so the ESP is copied out, reformatted, and copied back in.
-func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.PartitionInfo) error {
-	espPart, ok := partitionsByLabel(newPartitions)[aclPartLabelEsp]
-	if !ok {
-		return fmt.Errorf("%w: ESP partition not found on new disk", ErrAclGrowFilesystem)
-	}
-
+// (not a toolkit dependency), so the files and identity are read from the base (old) ESP, the new
+// (larger, empty) ESP partition is formatted fresh, and the files are copied back in.
+func recreateAclEspFilesystem(oldEspPath string, newEspPath string) error {
 	tmpDir, err := os.MkdirTemp("", "acl-esp-")
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrAclGrowFilesystem, err)
@@ -519,14 +525,14 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 	stageDir := filepath.Join(tmpDir, "stage")
 	mountDir := filepath.Join(tmpDir, "mnt")
 
-	// Read the current volume id and label so the reformatted ESP keeps the same identity.
-	volumeId, label, err := readVfatIdentity(espPart.Path)
+	// Read the base ESP's volume id and label so the reformatted ESP keeps the same identity.
+	volumeId, label, err := readVfatIdentity(oldEspPath)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrAclGrowFilesystem, err)
 	}
 
-	// Copy the existing ESP files out.
-	espMount, err := safemount.NewMount(espPart.Path, mountDir, "vfat", 0, "", true)
+	// Copy the existing files out of the base (old) ESP.
+	espMount, err := safemount.NewMount(oldEspPath, mountDir, "vfat", 0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w: failed to mount existing ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
@@ -545,7 +551,7 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 		return fmt.Errorf("%w:\n%w", ErrAclGrowFilesystem, err)
 	}
 
-	// Reformat the (larger) ESP, preserving volume id and label.
+	// Reformat the new (larger) ESP, preserving volume id and label.
 	mkfsArgs := []string{"-F", "32"}
 	if volumeId != "" {
 		mkfsArgs = append(mkfsArgs, "-i", volumeId)
@@ -553,7 +559,7 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 	if label != "" {
 		mkfsArgs = append(mkfsArgs, "-n", label)
 	}
-	mkfsArgs = append(mkfsArgs, espPart.Path)
+	mkfsArgs = append(mkfsArgs, newEspPath)
 	err = shell.NewExecBuilder("mkfs.vfat", mkfsArgs...).
 		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
 		ErrorStderrLines(1).
@@ -562,8 +568,8 @@ func recreateAclEspFilesystem(diskDevPath string, newPartitions []diskutils.Part
 		return fmt.Errorf("%w: mkfs.vfat failed on ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
 
-	// Copy the files back in.
-	espMount, err = safemount.NewMount(espPart.Path, mountDir, "vfat", 0, "", false)
+	// Copy the files back in to the new ESP.
+	espMount, err = safemount.NewMount(newEspPath, mountDir, "vfat", 0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w: failed to remount ESP:\n%w", ErrAclGrowFilesystem, err)
 	}
