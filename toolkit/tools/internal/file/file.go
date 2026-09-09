@@ -133,12 +133,21 @@ func CopyDir(src, dst string, newDirPermissions, childFilePermissions fs.FileMod
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 
-		if entry.IsDir() {
+		switch {
+		case entry.Type()&os.ModeSymlink != 0:
+			// If it's a symlink, recreate it verbatim (no-dereference). We must not
+			// follow the link (which would copy the target's contents or fail on a
+			// dangling link) and must not chmod it. The link resolves inside the image
+			// at runtime, against the image's own filesystem.
+			if err := NewFileCopyBuilder(srcPath, dstPath).SetNoDereference().Run(); err != nil {
+				return fmt.Errorf("failed to copy symlink (%s) to (%s):\n%w", srcPath, dstPath, err)
+			}
+		case entry.IsDir():
 			// If it's a directory, recursively copy it
 			if err := CopyDir(srcPath, dstPath, newDirPermissions, childFilePermissions, mergedDirPermissions); err != nil {
 				return err
 			}
-		} else {
+		default:
 			// If it's a file, copy it and set file permissions
 			if err := NewFileCopyBuilder(srcPath, dstPath).SetFileMode(childFilePermissions).Run(); err != nil {
 				return fmt.Errorf("failed to copy file (%s) to (%s):\n%w", srcPath, dstPath, err)

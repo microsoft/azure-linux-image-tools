@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -206,9 +208,23 @@ func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigLis
 				return fmt.Errorf("error computing relative path for %s:\n%w", path, err)
 			}
 
-			hash, err := generateSHA256(path)
-			if err != nil {
-				return err
+			var hash string
+			if d.Type()&os.ModeSymlink != 0 {
+				// Symlinks are preserved verbatim in the image, so hash the link
+				// target string instead of following the link. Following it would
+				// fail on a dangling link and read an unbounded amount from a
+				// special file (e.g. a link to /dev/zero).
+				target, err := os.Readlink(path)
+				if err != nil {
+					return fmt.Errorf("error reading symlink %s:\n%w", path, err)
+				}
+				sum := sha256.Sum256([]byte(target))
+				hash = hex.EncodeToString(sum[:])
+			} else {
+				hash, err = generateSHA256(path)
+				if err != nil {
+					return err
+				}
 			}
 
 			hashes[relPath] = hash

@@ -1,6 +1,8 @@
 package imagecustomizerlib
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -155,4 +157,39 @@ func verifyFileHash(t *testing.T, path string, foundHash string) {
 	expectedHash, err := file.GenerateSHA256(fullPath)
 	assert.NoError(t, err, "error generating SHA256 hash for file %s", path)
 	assert.Equal(t, foundHash, expectedHash, "SHA256 hash for file %s should match", path)
+}
+
+// TestPopulateAdditionalDirsSymlink verifies Bug 22991: history hashing must not
+// follow symlinks. It records the SHA256 of the link *target string* so that a
+// dangling link (or a link to a special file like /dev/zero) does not error out
+// or read unbounded data.
+func TestPopulateAdditionalDirsSymlink(t *testing.T) {
+	baseConfigPath := t.TempDir()
+	srcDir := filepath.Join(baseConfigPath, "src")
+	assert.NoError(t, os.MkdirAll(srcDir, 0o755))
+
+	assert.NoError(t, os.WriteFile(filepath.Join(srcDir, "target.txt"), []byte("hello"), 0o644))
+	assert.NoError(t, os.Symlink("target.txt", filepath.Join(srcDir, "link.txt")))
+	assert.NoError(t, os.Symlink("/does/not/exist/on/host", filepath.Join(srcDir, "dangling.txt")))
+
+	dirs := imagecustomizerapi.DirConfigList{{Source: "src", Destination: "/"}}
+	err := populateAdditionalDirs(dirs, baseConfigPath)
+	assert.NoError(t, err) // previously failed on the dangling symlink
+
+	hashes := dirs[0].SHA256HashMap
+	assert.Len(t, hashes, 3)
+
+	// Regular file: hash of its contents.
+	fileHash, err := file.GenerateSHA256(filepath.Join(srcDir, "target.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, fileHash, hashes["target.txt"])
+
+	// Symlinks: hash of the target string, not the dereferenced contents.
+	assert.Equal(t, sha256HexOfString("target.txt"), hashes["link.txt"])
+	assert.Equal(t, sha256HexOfString("/does/not/exist/on/host"), hashes["dangling.txt"])
+}
+
+func sha256HexOfString(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
