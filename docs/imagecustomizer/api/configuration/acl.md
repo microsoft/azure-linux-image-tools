@@ -80,6 +80,14 @@ match on the presence of the old id) do not activate.
 When set, all existing `flatcar.oem.id=*` and `coreos.oem.id=*` tokens are removed from the kernel
 command line and `flatcar.oem.id=<value>` is set exactly once.
 
+This works under both [`uki.mode: create`](./uki.md) and `uki.mode: modify`. Under `modify`, IC only
+rebuilds its own cmdline addon, but the OEM id is cleared from the other addons on the ESP too:
+systemd-stub concatenates the main UKI's command line with every addon's, so an old
+`flatcar.oem.id` left in a sibling addon would still activate OEM-specific units. An addon that sets
+nothing but the OEM id is removed; one that sets other arguments is rebuilt without the OEM id.
+Rebuilt addons are unsigned and must be re-signed. If the OEM id is baked into the main UKI's own
+command line, `modify` cannot rewrite it and the build fails — use `uki.mode: create` for that image.
+
 Must be lowercase alphanumeric (e.g. `metal`, `azure`, `qemu`, `gce`).
 
 Added in v1.6.
