@@ -511,29 +511,41 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 // unit (e.g. the azure metadata/hostname agent) activates. Only the modern flatcar spelling is
 // written (ignition checks flatcar.oem.id first, then coreos.oem.id). Idempotent.
 func applyAclOemId(cmdline string, oemId string) string {
-	tokens, err := grub.TokenizeConfig(cmdline)
+	filteredArgs, _, err := stripAclOemIdArgs(cmdline)
 	if err != nil {
-		logger.Log.Errorf("Failed to tokenize cmdline while applying ACL oemId: %v", err)
+		logger.Log.Errorf("Failed to parse cmdline while applying ACL oemId: %v", err)
 		return cmdline
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		logger.Log.Errorf("Failed to parse cmdline args while applying ACL oemId: %v", err)
-		return cmdline
-	}
-
-	filteredArgs := []string{}
-	for _, arg := range args {
-		if strings.HasPrefix(arg.Arg, "flatcar.oem.id=") || strings.HasPrefix(arg.Arg, "coreos.oem.id=") {
-			continue
-		}
-		filteredArgs = append(filteredArgs, arg.Arg)
 	}
 
 	filteredArgs = append(filteredArgs, fmt.Sprintf("flatcar.oem.id=%s", oemId))
 
 	return GrubArgsToString(filteredArgs)
+}
+
+// stripAclOemIdArgs removes every flatcar.oem.id=* and coreos.oem.id=* token from cmdline, and
+// reports whether any was present.
+func stripAclOemIdArgs(cmdline string) ([]string, bool, error) {
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to tokenize kernel command line:\n%w", err)
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to parse kernel command-line args:\n%w", err)
+	}
+
+	found := false
+	filteredArgs := []string{}
+	for _, arg := range args {
+		if strings.HasPrefix(arg.Arg, "flatcar.oem.id=") || strings.HasPrefix(arg.Arg, "coreos.oem.id=") {
+			found = true
+			continue
+		}
+		filteredArgs = append(filteredArgs, arg.Arg)
+	}
+
+	return filteredArgs, found, nil
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
@@ -836,6 +848,18 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	// Rebuild the addon with modified cmdline
 	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFullPath := filepath.Join(addonDirPath, ukiAddonFileName(kernelName))
+
+	if rc.Acl != nil && rc.Acl.OemId != "" {
+		// The IC-managed addon is seeded from itself only (extractAndSaveUkiCmdline), so the base's
+		// OEM id may live in a sibling addon that IC never reads. Clear those first, then set the
+		// requested id here, so exactly one OEM id token survives across all addons.
+		err = aclClearOemIdOutsideIcAddon(ukiFilePath, ukiAddonFileName(kernelName), stubPath, rc.BuildDirAbs)
+		if err != nil {
+			return err
+		}
+
+		modifiedCmdline = applyAclOemId(modifiedCmdline, rc.Acl.OemId)
+	}
 
 	err = os.MkdirAll(addonDirPath, os.ModePerm)
 	if err != nil {

@@ -5,9 +5,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 var (
@@ -15,6 +19,8 @@ var (
 		"failed to split kernel command line into ACL UKI addons")
 	ErrAclUkiAddonEmptyPersistentCmdline = NewImageCustomizerError("AclUkiAddon:EmptyPersistentCmdline",
 		"kernel command line has no persistent arguments")
+	ErrAclOemIdInMainUki = NewImageCustomizerError("AclOemId:InMainUki",
+		"main UKI's own command line sets the OEM id, which 'uki: mode: modify' cannot rewrite")
 )
 
 const (
@@ -87,4 +93,97 @@ func aclStripFirstBootArg(cmdline string) (string, bool, error) {
 	}
 
 	return GrubArgsToString(persistentArgs), hasFirstBootArg, nil
+}
+
+// aclClearOemIdOutsideIcAddon removes stale OEM id tokens from everything on the ESP that
+// contributes to a UKI's kernel command line except the IC-managed addon, which the caller rewrites
+// itself.
+//
+// Under 'uki: mode: modify' IC only rewrites <kernel>.addon.efi, but ACL's base ESP also ships
+// other addons (e.g. an oem addon). systemd-stub concatenates the main UKI's .cmdline with every
+// addon's, so appending the new id is not sufficient: a stale flatcar.oem.id=<base> token left in a
+// sibling addon still satisfies presence-based ConditionKernelCommandLine matches (the azure
+// metadata/hostname agent), which is the exact failure acl.oemId exists to fix. Last-occurrence-wins
+// only settles the platform id, not those Condition matches.
+//
+// A sibling addon that carries nothing but OEM id tokens is deleted; otherwise it is rebuilt without
+// them. The main UKI is signed and deliberately preserved in modify mode, so an OEM id there is a
+// hard error rather than something to silently ignore.
+func aclClearOemIdOutsideIcAddon(ukiFilePath string, icAddonFileName string, stubPath string,
+	buildDir string,
+) error {
+	mainCmdline, err := extractCmdlineFromSinglePE(ukiFilePath, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to read command line from UKI (%s):\n%w", filepath.Base(ukiFilePath), err)
+	}
+
+	_, mainHasOemId, err := stripAclOemIdArgs(mainCmdline)
+	if err != nil {
+		return fmt.Errorf("failed to parse command line of UKI (%s):\n%w", filepath.Base(ukiFilePath), err)
+	}
+
+	if mainHasOemId {
+		return fmt.Errorf("%w (uki='%s'); use 'uki: mode: create' to set 'acl.oemId' on this image",
+			ErrAclOemIdInMainUki, filepath.Base(ukiFilePath))
+	}
+
+	ukiFileName := filepath.Base(ukiFilePath)
+	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
+
+	entries, err := os.ReadDir(addonDirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to read UKI addon directory (%s):\n%w", addonDirPath, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".addon.efi") || entry.Name() == icAddonFileName {
+			continue
+		}
+
+		addonPath := filepath.Join(addonDirPath, entry.Name())
+
+		addonCmdline, err := extractCmdlineFromSinglePE(addonPath, buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to read command line from UKI addon (%s):\n%w", entry.Name(), err)
+		}
+
+		remainingArgs, hasOemId, err := stripAclOemIdArgs(addonCmdline)
+		if err != nil {
+			return fmt.Errorf("failed to parse command line of UKI addon (%s):\n%w", entry.Name(), err)
+		}
+
+		if !hasOemId {
+			continue
+		}
+
+		if len(remainingArgs) == 0 {
+			logger.Log.Infof("Removing UKI addon (%s): it only set the OEM id, which 'acl.oemId' replaces",
+				entry.Name())
+			err = os.Remove(addonPath)
+			if err != nil {
+				return fmt.Errorf("failed to remove UKI addon (%s):\n%w", entry.Name(), err)
+			}
+			continue
+		}
+
+		logger.Log.Infof("Rebuilding UKI addon (%s) without its OEM id, which 'acl.oemId' replaces",
+			entry.Name())
+
+		ukifyCmd := []string{
+			"build",
+			fmt.Sprintf("--cmdline=%s", GrubArgsToString(remainingArgs)),
+			fmt.Sprintf("--stub=%s", stubPath),
+			fmt.Sprintf("--output=%s", addonPath),
+		}
+
+		err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
+		if err != nil {
+			return fmt.Errorf("failed to rebuild UKI addon (%s) without its OEM id:\n%w", entry.Name(), err)
+		}
+	}
+
+	return nil
 }
