@@ -620,7 +620,7 @@ func TestUpdateLiveOSBLSEntriesFullOS(t *testing.T) {
 	savedConfigs := &SavedConfigs{}
 	savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine = []string{"rd.info"}
 
-	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeFullOS, false /*disableSELinux*/, savedConfigs)
+	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeFullOS, savedConfigs)
 	assert.NoError(t, err)
 
 	got, err := os.ReadFile(entryPath)
@@ -645,7 +645,7 @@ func TestUpdateLiveOSBLSEntriesBootstrap(t *testing.T) {
 	savedConfigs := &SavedConfigs{}
 	savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine = []string{"rd.shell"}
 
-	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeBootstrap, true /*disableSELinux*/, savedConfigs)
+	err := updateLiveOSBLSEntries(bootDir, imagecustomizerapi.InitramfsImageTypeBootstrap, savedConfigs)
 	assert.NoError(t, err)
 
 	got, err := os.ReadFile(entryPath)
@@ -659,8 +659,6 @@ func TestUpdateLiveOSBLSEntriesBootstrap(t *testing.T) {
 	assert.Contains(t, gotStr, "rd.live.image")
 	assert.Contains(t, gotStr, "rd.live.dir="+liveOSDir)
 	assert.Contains(t, gotStr, "rd.live.squashimg="+liveOSImage)
-	// SELinux is disabled.
-	assert.Contains(t, gotStr, "selinux=0")
 	// The saved extra command line is appended.
 	assert.Regexp(t, `(?m)^options .* rd\.shell$`, gotStr)
 }

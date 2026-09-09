@@ -80,11 +80,6 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 
 	// If bootstrap is requested, create the bootstrapped image
 	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
-		if err != nil {
-			return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
-		}
-
 		isoImageName, err := getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl)
 		if err != nil {
 			return err
