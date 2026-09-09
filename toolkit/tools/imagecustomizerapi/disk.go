@@ -44,6 +44,10 @@ func (d *Disk) IsValid() error {
 	}
 
 	if d.MaxSize != nil {
+		if err := d.MaxSize.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'maxSize' value:\n%w", err)
+		}
+
 		if *d.MaxSize <= 0 {
 			return fmt.Errorf("a disk's maxSize value (%d) must be a positive non-zero number", *d.MaxSize)
 		}
