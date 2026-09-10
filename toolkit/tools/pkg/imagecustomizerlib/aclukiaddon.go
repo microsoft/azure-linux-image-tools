@@ -181,22 +181,17 @@ func aclClearOemIdOutsideIcAddon(ukiFilePath string, icAddonFileName string, stu
 // aclReadOemIdArgs reads a PE image's kernel command line and splits out its OEM id tokens,
 // returning the remaining args and whether any OEM id was present.
 //
-// A PE with no .cmdline section contributes nothing to the kernel command line, so it is reported as
-// carrying no OEM id rather than as an error: ACL's main UKI keeps its command line entirely in
-// addons, and ukify omits the section altogether when the command line is empty.
+// A PE with no .cmdline section contributes nothing to the kernel command line, so it carries no
+// OEM id: ACL's main UKI keeps its command line entirely in addons, and ukify omits the section
+// altogether when the command line is empty.
 func aclReadOemIdArgs(pePath string, buildDir string) ([]string, bool, error) {
-	hasCmdline, err := peHasSection(pePath, ".cmdline")
-	if err != nil {
-		return nil, false, err
-	}
-
-	if !hasCmdline {
-		return nil, false, nil
-	}
-
-	cmdline, err := extractCmdlineFromSinglePE(pePath, buildDir)
+	cmdline, err := extractCmdlineFromSinglePEIfPresent(pePath, buildDir)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to read kernel command line:\n%w", err)
+	}
+
+	if cmdline == "" {
+		return nil, false, nil
 	}
 
 	return stripAclOemIdArgs(cmdline)
