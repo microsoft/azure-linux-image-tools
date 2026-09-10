@@ -178,3 +178,65 @@ func TestAclClearOemIdOutsideIcAddonNoAddonDir(t *testing.T) {
 	err := aclClearOemIdOutsideIcAddon(ukiPath, ukiAddonFileName("vmlinuz-test"), stubPath, buildDir)
 	assert.NoError(t, err)
 }
+
+// ukify omits the .cmdline section entirely when the command line is empty, which is how ACL's main
+// UKI can appear: it keeps its whole command line in addons. A PE with no .cmdline section
+// contributes nothing, so it must be tolerated rather than treated as an unreadable file.
+func TestAclClearOemIdOutsideIcAddonNoCmdlineSection(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	ukiPath := filepath.Join(espDir, "vmlinuz-test.efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	hasCmdline, err := peHasSection(ukiPath, ".cmdline")
+	require.NoError(t, err)
+	require.False(t, hasCmdline, "expected ukify to omit .cmdline for an empty command line")
+
+	sectionlessAddonPath := filepath.Join(addonDir, "sectionless.addon.efi")
+	buildTestUkiPe(t, stubPath, sectionlessAddonPath, "")
+
+	err = aclClearOemIdOutsideIcAddon(ukiPath, ukiAddonFileName("vmlinuz-test"), stubPath, buildDir)
+	require.NoError(t, err)
+
+	_, err = os.Stat(sectionlessAddonPath)
+	assert.NoError(t, err, "an addon with no .cmdline section should be left alone")
+}
+
+// Mirrors the ACL-T base layout reported by acl-iso: an empty main UKI, the OEM id in the
+// IC-managed kernel addon, and a firstboot addon holding only flatcar.first_boot=detected.
+func TestAclClearOemIdOutsideIcAddonAclBaseLayout(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	kernel := "vmlinuz-6.6.150.1-1.azl3"
+	ukiPath := filepath.Join(espDir, kernel+".efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	icAddonName := ukiAddonFileName(kernel)
+	icAddonPath := filepath.Join(addonDir, icAddonName)
+	firstBootAddonPath := filepath.Join(addonDir, aclFirstBootAddonName)
+
+	buildTestUkiPe(t, stubPath, icAddonPath, "root=LABEL=ROOT flatcar.oem.id=azure console=tty1")
+	buildTestUkiPe(t, stubPath, firstBootAddonPath, aclFirstBootArg)
+
+	err := aclClearOemIdOutsideIcAddon(ukiPath, icAddonName, stubPath, buildDir)
+	require.NoError(t, err)
+
+	// The first-boot addon carries no OEM id, so it must survive untouched.
+	firstBootCmdline, err := extractCmdlineFromSinglePE(firstBootAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, aclFirstBootArg, firstBootCmdline)
+
+	// The OEM id lives in the IC-managed addon, which the caller rewrites via applyAclOemId.
+	icCmdline, err := extractCmdlineFromSinglePE(icAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, "root=LABEL=ROOT flatcar.oem.id=azure console=tty1", icCmdline)
+	assert.Equal(t, "root=LABEL=ROOT console=tty1 flatcar.oem.id=metal", applyAclOemId(icCmdline, "metal"))
+}
