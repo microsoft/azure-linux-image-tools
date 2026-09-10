@@ -180,8 +180,8 @@ func TestAclClearOemIdOutsideIcAddonNoAddonDir(t *testing.T) {
 }
 
 // ukify omits the .cmdline section entirely when the command line is empty, which is how ACL's main
-// UKI can appear: it keeps its whole command line in addons. A PE with no .cmdline section
-// contributes nothing, so it must be tolerated rather than treated as an unreadable file.
+// UKI appears: it keeps its whole command line in addons. Such a PE contributes nothing to the
+// kernel command line and must not be mistaken for one that sets an OEM id.
 func TestAclClearOemIdOutsideIcAddonNoCmdlineSection(t *testing.T) {
 	stubPath := aclOemIdTestStubPath(t)
 
@@ -239,4 +239,32 @@ func TestAclClearOemIdOutsideIcAddonAclBaseLayout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "root=LABEL=ROOT flatcar.oem.id=azure console=tty1", icCmdline)
 	assert.Equal(t, "root=LABEL=ROOT console=tty1 flatcar.oem.id=metal", applyAclOemId(icCmdline, "metal"))
+}
+
+// A UKI that keeps its whole command line in addons has no .cmdline section of its own, which is
+// how ACL's base ships. Create mode reads the base UKI's command line before rebuilding it, so the
+// absent section must resolve to "contributes nothing" and the addons must still be concatenated.
+func TestExtractCmdlineFromUkiWithObjcopySectionlessMainUki(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	kernel := "vmlinuz-test"
+	ukiPath := filepath.Join(buildDir, "esp", kernel+".efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	hasCmdline, err := peHasSection(ukiPath, ".cmdline")
+	require.NoError(t, err)
+	require.False(t, hasCmdline)
+
+	buildTestUkiPe(t, stubPath, filepath.Join(addonDir, ukiAddonFileName(kernel)),
+		"root=LABEL=ROOT flatcar.oem.id=azure")
+	buildTestUkiPe(t, stubPath, filepath.Join(addonDir, aclFirstBootAddonName), aclFirstBootArg)
+
+	cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, buildDir)
+	require.NoError(t, err)
+
+	// Addons are concatenated in lexicographic order, mirroring systemd-boot.
+	assert.Equal(t, "flatcar.first_boot=detected root=LABEL=ROOT flatcar.oem.id=azure", cmdline)
 }

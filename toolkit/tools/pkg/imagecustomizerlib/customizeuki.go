@@ -1342,8 +1342,13 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 }
 
 // peHasSection reports whether a PE image (a UKI or a UKI addon) contains the named section.
-// ukify omits the .cmdline section entirely when the command line is empty, and objcopy treats a
-// missing section as an error, so callers that tolerate an absent command line must check first.
+//
+// ukify omits the .cmdline section entirely when the command line is empty. objcopy --dump-section
+// does not fail on a missing section: it prints a diagnostic, exits 0, and simply never writes the
+// output file. So an absent section is indistinguishable from an empty command line -- and from
+// objcopy silently failing for some other reason. Checking the section explicitly makes that
+// distinction, and lets a genuinely unreadable image surface as an error instead of as an empty
+// command line.
 func peHasSection(path string, sectionName string) (bool, error) {
 	peFile, err := pe.Open(path)
 	if err != nil {

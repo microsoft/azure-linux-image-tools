@@ -1081,8 +1081,8 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 // extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
 // It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
 func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
-	// Extract cmdline from main UKI (may be empty if using addon architecture)
-	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+	// Extract cmdline from main UKI (may be absent if using addon architecture)
+	mainUkiCmdline, err := extractCmdlineFromSinglePEIfPresent(ukiFile, buildDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
 	}
@@ -1108,7 +1108,7 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 		// Extract cmdline from each addon in sorted order
 		for _, addonFile := range addonFiles {
 			addonFilePath := filepath.Join(addonDirPath, addonFile)
-			addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+			addonCmdline, err := extractCmdlineFromSinglePEIfPresent(addonFilePath, buildDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 			}
@@ -1131,6 +1131,28 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 	}
 
 	return strings.Join(cmdlines, " "), nil
+}
+
+// extractCmdlineFromSinglePEIfPresent returns the kernel command line held by a PE image, or an
+// empty string when the image has no .cmdline section at all.
+//
+// ukify omits the .cmdline section entirely when the command line is empty, as ACL's main UKI does:
+// it keeps its whole command line in addons. objcopy already yields an empty string for that case
+// (it exits 0 without writing the output file), so this is not a behavior change for a well-formed
+// image. What it adds is the distinction between "no section" and "the image could not be read":
+// the plain objcopy path reports both as an empty command line, which would silently produce a UKI
+// built from a command line IC never actually managed to read.
+func extractCmdlineFromSinglePEIfPresent(originalPath, buildDir string) (string, error) {
+	hasCmdline, err := peHasSection(originalPath, ".cmdline")
+	if err != nil {
+		return "", err
+	}
+
+	if !hasCmdline {
+		return "", nil
+	}
+
+	return extractCmdlineFromSinglePE(originalPath, buildDir)
 }
 
 // extractCmdlineFromSinglePE extracts the .cmdline section from a single PE file (UKI or addon).
