@@ -112,14 +112,9 @@ func aclStripFirstBootArg(cmdline string) (string, bool, error) {
 func aclClearOemIdOutsideIcAddon(ukiFilePath string, icAddonFileName string, stubPath string,
 	buildDir string,
 ) error {
-	mainCmdline, err := extractCmdlineFromSinglePE(ukiFilePath, buildDir)
+	_, mainHasOemId, err := aclReadOemIdArgs(ukiFilePath, buildDir)
 	if err != nil {
-		return fmt.Errorf("failed to read command line from UKI (%s):\n%w", filepath.Base(ukiFilePath), err)
-	}
-
-	_, mainHasOemId, err := stripAclOemIdArgs(mainCmdline)
-	if err != nil {
-		return fmt.Errorf("failed to parse command line of UKI (%s):\n%w", filepath.Base(ukiFilePath), err)
+		return fmt.Errorf("failed to inspect command line of UKI (%s):\n%w", filepath.Base(ukiFilePath), err)
 	}
 
 	if mainHasOemId {
@@ -145,14 +140,9 @@ func aclClearOemIdOutsideIcAddon(ukiFilePath string, icAddonFileName string, stu
 
 		addonPath := filepath.Join(addonDirPath, entry.Name())
 
-		addonCmdline, err := extractCmdlineFromSinglePE(addonPath, buildDir)
+		remainingArgs, hasOemId, err := aclReadOemIdArgs(addonPath, buildDir)
 		if err != nil {
-			return fmt.Errorf("failed to read command line from UKI addon (%s):\n%w", entry.Name(), err)
-		}
-
-		remainingArgs, hasOemId, err := stripAclOemIdArgs(addonCmdline)
-		if err != nil {
-			return fmt.Errorf("failed to parse command line of UKI addon (%s):\n%w", entry.Name(), err)
+			return fmt.Errorf("failed to inspect command line of UKI addon (%s):\n%w", entry.Name(), err)
 		}
 
 		if !hasOemId {
@@ -186,4 +176,28 @@ func aclClearOemIdOutsideIcAddon(ukiFilePath string, icAddonFileName string, stu
 	}
 
 	return nil
+}
+
+// aclReadOemIdArgs reads a PE image's kernel command line and splits out its OEM id tokens,
+// returning the remaining args and whether any OEM id was present.
+//
+// A PE with no .cmdline section contributes nothing to the kernel command line, so it is reported as
+// carrying no OEM id rather than as an error: ACL's main UKI keeps its command line entirely in
+// addons, and ukify omits the section altogether when the command line is empty.
+func aclReadOemIdArgs(pePath string, buildDir string) ([]string, bool, error) {
+	hasCmdline, err := peHasSection(pePath, ".cmdline")
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !hasCmdline {
+		return nil, false, nil
+	}
+
+	cmdline, err := extractCmdlineFromSinglePE(pePath, buildDir)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read kernel command line:\n%w", err)
+	}
+
+	return stripAclOemIdArgs(cmdline)
 }

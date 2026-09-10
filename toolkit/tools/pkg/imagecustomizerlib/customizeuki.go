@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"debug/pe"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1338,6 +1339,25 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
+}
+
+// peHasSection reports whether a PE image (a UKI or a UKI addon) contains the named section.
+// ukify omits the .cmdline section entirely when the command line is empty, and objcopy treats a
+// missing section as an error, so callers that tolerate an absent command line must check first.
+func peHasSection(path string, sectionName string) (bool, error) {
+	peFile, err := pe.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("failed to open PE image (%s):\n%w", path, err)
+	}
+	defer peFile.Close()
+
+	for _, section := range peFile.Sections {
+		if section.Name == sectionName {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {
