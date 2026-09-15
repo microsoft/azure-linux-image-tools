@@ -999,7 +999,7 @@ func requestKernelRereadPartitionTable(diskDevPath string) error {
 
 	waitTime := 125 * time.Millisecond
 	retries := 10
-	for i := 0; ; i = 1 {
+	for i := 0; ; i++ {
 		_, _, errno := unix.Syscall(unix.SYS_IOCTL, diskFile.Fd(), unix.BLKRRPART, 0)
 		switch {
 		case errno == unix.EBUSY && i < retries:
