@@ -1,6 +1,6 @@
 module github.com/microsoft/azure-linux-image-tools
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.16.1
@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 	gonum.org/v1/gonum v0.17.0
 	gopkg.in/ini.v1 v1.67.3
 	oras.land/oras-go/v2 v2.6.2

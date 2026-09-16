@@ -16,7 +16,7 @@ on:
         type: string
 
 env:
-  EXPECTED_GO_VERSION: "1.25.0"
+  EXPECTED_GO_VERSION: "1.26.0"
 
 jobs:
   tests-osmodifier:

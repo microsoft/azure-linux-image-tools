@@ -19,7 +19,7 @@ on:
         value: ${{ jobs.build.outputs.isLatestRelease }}
 
 env:
-  EXPECTED_GO_VERSION: "1.25.0"
+  EXPECTED_GO_VERSION: "1.26.0"
 
 jobs:
   build:
