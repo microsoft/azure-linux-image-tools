@@ -132,8 +132,6 @@ func parseDiskSize(diskSizeString string) (DiskSize, error) {
 // such that it matches the input format.
 func (s DiskSize) String() string {
 	switch {
-	case s == 0:
-		return fmt.Sprintf("%d", s)
 	case s%diskutils.TiB == 0:
 		return fmt.Sprintf("%dT", s/diskutils.TiB)
 	case s%diskutils.GiB == 0:
