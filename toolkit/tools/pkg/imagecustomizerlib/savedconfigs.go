@@ -20,7 +20,6 @@ var (
 	ErrIsoConfigBootstrapUrl             = NewImageCustomizerError("IsoConfig:BootstrapUrl", "cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl'")
 	ErrIsoConfigInvalidIsoField          = NewImageCustomizerError("IsoConfig:InvalidIsoField", "invalid 'iso' field")
 	ErrIsoConfigInvalidPxeField          = NewImageCustomizerError("IsoConfig:InvalidPxeField", "invalid 'pxe' field")
-	ErrIsoConfigInvalidOsField           = NewImageCustomizerError("IsoConfig:InvalidOsField", "invalid 'os' field")
 	ErrIsoConfigDirectoryCreate          = NewImageCustomizerError("IsoConfig:DirectoryCreate", "failed to create directory")
 	ErrIsoConfigFilePersist              = NewImageCustomizerError("IsoConfig:FilePersist", "failed to persist saved configs file")
 	ErrIsoConfigFileExists               = NewImageCustomizerError("IsoConfig:FileExists", "failed to check if file exists")

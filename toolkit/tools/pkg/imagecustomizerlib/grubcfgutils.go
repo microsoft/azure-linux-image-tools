@@ -748,21 +748,6 @@ func selinuxModeToArgsWithPermissiveFlag(selinuxMode imagecustomizerapi.SELinuxM
 	return args, nil
 }
 
-// Update the SELinux kernel command-line args.
-func updateSELinuxCommandLineHelperAll(grub2Config string, selinuxMode imagecustomizerapi.SELinuxMode) (string, error) {
-	newSELinuxArgs, err := selinuxModeToArgs(selinuxMode)
-	if err != nil {
-		return "", err
-	}
-
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, selinuxArgNames, newSELinuxArgs)
-	if err != nil {
-		return "", err
-	}
-
-	return grub2Config, nil
-}
-
 // Finds a set command that sets the variable with the provided name and then change the value that is set.
 func replaceSetCommandValue(grub2Config string, varName string, newValue string) (string, error) {
 	quotedNewValue := grub.QuoteString(newValue)
