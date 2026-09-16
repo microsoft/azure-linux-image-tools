@@ -168,9 +168,15 @@ Supported options:
 
   Added in v1.6.
 
+- `package-manifest`: Enables support for the
+  ([os.packages.manifest](./packages.md#manifest-packagemanifest)) and
+  ([output.packageManifest](./output.md#packagemanifest-outputpackagemanifest)) APIs.
+
+  Added in v1.7.
+
 ## output [[output](./output.md)]
 
-Specifies the configuration for the output image and artifacts.
+Specifies the configuration for the output image, artifacts, and package manifest.
 
 Added in v0.13.
 

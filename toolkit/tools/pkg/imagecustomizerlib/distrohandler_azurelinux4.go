@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -35,6 +36,8 @@ const (
 	systemdBootUnsignedPackageAzl4 = "systemd-boot-unsigned"
 
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
+
+	purlNamespaceAzureLinux4 = purlNamespaceAzureLinux
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
@@ -91,6 +94,14 @@ func (d *azureLinux4DistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
+func (d *azureLinux4DistroHandler) GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions {
+	return spdxmanifest.BuildOptions{
+		Name:        string(d.targetOs.Distro),
+		VersionInfo: d.targetOs.PackageManifestVersionInfo,
+		Created:     created,
+	}
+}
+
 func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	switch d.targetOs.VersionId {
 	case "4.0":
@@ -120,6 +131,10 @@ func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) e
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
+	if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
+		return ErrUnsupportedPackageManifestCreate
+	}
+
 	return nil
 }
 
@@ -134,7 +149,7 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 
 func (d *azureLinux4DistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]string, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -159,6 +174,12 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *azureLinux4DistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]spdxmanifest.Package, error) {
+	return nil, ErrUnsupportedPackageManifestCreate
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

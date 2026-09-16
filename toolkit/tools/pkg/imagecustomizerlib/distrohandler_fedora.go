@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +43,8 @@ const (
 	grubPcModulesPackageFedora = "grub2-pc-modules"
 
 	osEspGrubDirFedora = osEspDir + "/EFI/fedora"
+
+	purlNamespaceFedora = string(targetos.Fedora)
 )
 
 var (
@@ -127,6 +130,14 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
+func (d *fedoraDistroHandler) GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions {
+	return spdxmanifest.BuildOptions{
+		Name:        string(d.targetOs.Distro),
+		VersionInfo: d.targetOs.PackageManifestVersionInfo,
+		Created:     created,
+	}
+}
+
 func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
 		return ErrPreviewDistroVersionFeatureRequired
@@ -157,6 +168,10 @@ func (d *fedoraDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
+	if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
+		return ErrUnsupportedPackageManifestCreate
+	}
+
 	return nil
 }
 
@@ -173,7 +188,7 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 
 func (d *fedoraDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]string, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -198,6 +213,12 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *fedoraDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]spdxmanifest.Package, error) {
+	return nil, ErrUnsupportedPackageManifestCreate
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

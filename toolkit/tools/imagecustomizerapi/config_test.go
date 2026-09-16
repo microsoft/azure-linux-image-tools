@@ -896,3 +896,83 @@ func TestConfigIsValidMissingRemovePackageManagerPreviewFeature(t *testing.T) {
 	err := config.IsValid()
 	assert.ErrorContains(t, err, "the 'remove-package-manager' preview feature must be enabled to use 'os.packages.removePackageManager'")
 }
+
+func TestConfigIsValidMissingPackageManifestPreviewFeature(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{},
+		OS: &OS{
+			Packages: Packages{
+				Manifest: &PackageManifest{Mode: PackageManifestModeNone},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "the 'package-manifest' preview feature must be enabled to use 'os.packages.manifest'")
+}
+
+func TestConfigIsValidMissingOutputPackageManifestPreviewFeature(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{},
+		Output: Output{
+			PackageManifest: &OutputPackageManifest{Path: "./out/package-manifest.spdx.json"},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "the 'package-manifest' preview feature must be enabled to use 'output.packageManifest'")
+}
+
+func TestConfigIsValidPackageManifestMode(t *testing.T) {
+	tests := []struct {
+		name          string
+		manifest      *PackageManifest
+		expectedError string
+	}{
+		{
+			name:          "empty mode",
+			manifest:      &PackageManifest{},
+			expectedError: "invalid package manifest mode value ()",
+		},
+		{
+			name:          "unknown mode",
+			manifest:      &PackageManifest{Mode: PackageManifestMode("refresh")},
+			expectedError: "invalid package manifest mode value (refresh)",
+		},
+		{
+			name: "nil manifest",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := &Config{
+				PreviewFeatures: []PreviewFeature{PreviewFeaturePackageManifest},
+				OS: &OS{
+					Packages: Packages{
+						Manifest: test.manifest,
+					},
+				},
+			}
+
+			err := config.IsValid()
+			if test.expectedError != "" {
+				assert.ErrorContains(t, err, test.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfigIsValidEmptyOutputPackageManifestPath(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{PreviewFeaturePackageManifest},
+		Output: Output{
+			PackageManifest: &OutputPackageManifest{},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "'path' must be specified and non-empty")
+}

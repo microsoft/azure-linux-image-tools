@@ -22,6 +22,10 @@ Package names can be specified in the following formats:
 Note: Package names like to `parted-3.4-2` will not work. You must include the distro
 tag. For example, `parted-3.4-2.cm2` will work. (`cm2` means CBL-Mariner 2.0.)
 
+## Azure Container Linux
+
+Packages are managed using `tdnf`, in the same formats as Azure Linux.
+
 ## Ubuntu
 
 Packages are managed using `apt-get`.
@@ -214,15 +218,56 @@ Note: If this API is used when the
 is either `iso`, `pxe-dir`, `pxe-tar`, `cosi`, or `baremetal-image`, then the build will
 fail. This is planned to be fixed in a future release.
 
+If this value is set to `true`, then
+[os.packages.manifest.mode](./packageManifest.md#mode-string) must also be specified.
+
 Example:
 
 ```yaml
 previewFeatures:
 - remove-package-manager
+- package-manifest
 
 os:
   packages:
     removePackageManager: true
+    manifest:
+      mode: create
 ```
 
 Added in v1.6.
+
+## manifest [[packageManifest](./packageManifest.md)]
+
+Required when [removePackageManager](#removepackagemanager-bool) is `true`,
+[output.packageManifest](./output.md#packagemanifest-outputpackagemanifest) or
+[--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path)
+is specified, or the base image contains a file at `/usr/share/os-manifests/package-manifest.spdx.json`.
+Optional otherwise.
+
+Requiring it in these three cases keeps the configuration from silently inferring
+important security state. In all three cases, it is recommended to set
+[os.packages.manifest.mode](./packageManifest.md#mode-string) to `create`.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `package-manifest` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+Used to manage the customized image's package manifest.
+
+Example:
+
+```yaml
+previewFeatures:
+- package-manifest
+
+os:
+  packages:
+    install:
+    - vim
+    manifest:
+      mode: create
+```
+
+Added in v1.7.

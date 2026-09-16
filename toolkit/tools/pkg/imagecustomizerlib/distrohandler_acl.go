@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -29,6 +30,8 @@ type aclDistroHandler struct {
 	targetOs       targetos.TargetOs
 	packageManager rpmPackageManagerHandler
 }
+
+const purlNamespaceAzureContainerLinux = string(targetos.AzureContainerLinux)
 
 func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
 	logger.Log.Debugf("Distro handler: ACL (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
@@ -41,6 +44,14 @@ func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
 
 func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
+}
+
+func (d *aclDistroHandler) GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions {
+	return spdxmanifest.BuildOptions{
+		Name:        string(d.targetOs.Distro),
+		VersionInfo: d.targetOs.PackageManifestVersionInfo,
+		Created:     created,
+	}
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
@@ -107,7 +118,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 
 func (d *aclDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]string, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -129,6 +140,12 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	packageName string,
 ) (*PackageVersionInformation, error) {
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
+}
+
+func (d *aclDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, toolsChroot, purlNamespaceAzureLinux)
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,

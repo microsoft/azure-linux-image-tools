@@ -1219,6 +1219,202 @@ func TestResolveRemovePackageManagerOverride(t *testing.T) {
 	assert.Equal(t, false, result)
 }
 
+func TestResolvePackageManifestOutputPath(t *testing.T) {
+	configChain := []*ConfigWithBasePath{
+		{
+			Config: &imagecustomizerapi.Config{
+				Output: imagecustomizerapi.Output{
+					PackageManifest: &imagecustomizerapi.OutputPackageManifest{Path: "./base.spdx.json"},
+				},
+			},
+			BaseConfigPath: "/base",
+		},
+		{
+			Config: &imagecustomizerapi.Config{
+				Output: imagecustomizerapi.Output{
+					PackageManifest: &imagecustomizerapi.OutputPackageManifest{Path: "./current.spdx.json"},
+				},
+			},
+			BaseConfigPath: "/current",
+		},
+	}
+
+	tests := []struct {
+		name        string
+		configChain []*ConfigWithBasePath
+		cliValue    string
+		expected    string
+	}{
+		{
+			name:        "config wins over its base",
+			configChain: configChain,
+			expected:    "/current/current.spdx.json",
+		},
+		{
+			name:        "command line wins over the config",
+			configChain: configChain,
+			cliValue:    "/out/cli.spdx.json",
+			expected:    "/out/cli.spdx.json",
+		},
+		{
+			name:        "command line alone",
+			configChain: []*ConfigWithBasePath{{Config: &imagecustomizerapi.Config{}, BaseConfigPath: "/current"}},
+			cliValue:    "/out/cli.spdx.json",
+			expected:    "/out/cli.spdx.json",
+		},
+		{
+			name:        "neither",
+			configChain: []*ConfigWithBasePath{{Config: &imagecustomizerapi.Config{}, BaseConfigPath: "/current"}},
+			expected:    "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := resolveOutputPackageManifestFile(test.configChain, test.cliValue)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestValidatePackageManifestMode(t *testing.T) {
+	tests := []struct {
+		name                 string
+		configChain          []*ConfigWithBasePath
+		outputPath           string
+		removePackageManager bool
+		expected             imagecustomizerapi.PackageManifestMode
+		expectedErr          error
+	}{
+		{
+			name: "mode needed with output",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{Manifest: &imagecustomizerapi.PackageManifest{}},
+				}}},
+			},
+			outputPath:  "/out/package-manifest.spdx.json",
+			expectedErr: ErrPackageManifestOutputModeRequired,
+		},
+		{
+			name: "mode can't be none with output",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeNone},
+					},
+				}}},
+			},
+			outputPath:  "/out/package-manifest.spdx.json",
+			expected:    imagecustomizerapi.PackageManifestModeNone,
+			expectedErr: ErrPackageManifestOutputWithModeNone,
+		},
+		{
+			name: "mode can be none without output",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeNone},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{}},
+			},
+			expected: imagecustomizerapi.PackageManifestModeNone,
+		},
+		{
+			name: "mode is inherited",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeCreate},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{Manifest: &imagecustomizerapi.PackageManifest{}},
+				}}},
+				{Config: &imagecustomizerapi.Config{}},
+			},
+			outputPath: "/out/manifest.json",
+			expected:   imagecustomizerapi.PackageManifestModeCreate,
+		},
+		{
+			name: "good child mode overrides bad base",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeNone},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModePassthrough},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{}},
+			},
+			outputPath: "/out/manifest.json",
+			expected:   imagecustomizerapi.PackageManifestModePassthrough,
+		},
+		{
+			name: "good child mode overrides bad base",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeCreate},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeNone},
+					},
+				}}},
+				{Config: &imagecustomizerapi.Config{}},
+			},
+			outputPath:  "/out/manifest.json",
+			expected:    imagecustomizerapi.PackageManifestModeNone,
+			expectedErr: ErrPackageManifestOutputWithModeNone,
+		},
+		{
+			name: "mode required with pm removal",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{}}},
+			},
+			removePackageManager: true,
+			expectedErr:          ErrPackageManifestRemovalModeRequired,
+		},
+		{
+			name: "mode can be none with pm removal",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
+					Packages: imagecustomizerapi.Packages{
+						Manifest: &imagecustomizerapi.PackageManifest{Mode: imagecustomizerapi.PackageManifestModeNone},
+					},
+				}}},
+			},
+			removePackageManager: true,
+			expected:             imagecustomizerapi.PackageManifestModeNone,
+		},
+		{
+			name: "no mode needed without pm removal or output",
+			configChain: []*ConfigWithBasePath{
+				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{}}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mode, err := validatePackageManifestMode(test.configChain, test.outputPath, test.removePackageManager)
+			assert.Equal(t, test.expected, mode)
+			if test.expectedErr != nil {
+				assert.ErrorIs(t, err, test.expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestCustomizeImageRemovePackageManagerBadOutputFormat(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 

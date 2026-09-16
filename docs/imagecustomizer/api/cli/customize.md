@@ -166,6 +166,30 @@ If not specified, SELinux policy extraction is disabled.
 
 Added in v1.1.
 
+## --output-package-manifest-file=FILE-PATH
+
+Optional.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `package-manifest` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
+The path to write the image's package manifest to. It is copied from
+`/usr/share/os-manifests/package-manifest.spdx.json` after
+[os.packages.manifest.mode](../configuration/packageManifest.md#mode-string) has been
+applied.
+
+If specified, [os.packages.manifest.mode](../configuration/packageManifest.md#mode-string)
+is required. It cannot be `none`, which leaves no manifest to copy.
+If the base image has no package manifest, the mode must be `create`.
+
+If both [output.packageManifest.path](../configuration/outputPackageManifest.md#path-string)
+and `--output-package-manifest-file` are specified, then the value of
+`--output-package-manifest-file` is used.
+
+Added in v1.7.
+
 ## --config-file=FILE-PATH
 
 Required.

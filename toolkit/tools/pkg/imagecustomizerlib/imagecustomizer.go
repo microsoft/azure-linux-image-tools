@@ -54,6 +54,7 @@ var (
 	ErrCustomizeOutputArtifacts = NewImageCustomizerError("Customizer:OutputArtifacts", "failed to output artifacts")
 	ErrCustomizeDownloadImage   = NewImageCustomizerError("Customizer:DownloadImage", "failed to download image")
 	ErrOutputSelinuxPolicy      = NewImageCustomizerError("Customizer:OutputSelinuxPolicy", "failed to output SELinux policy")
+	ErrOutputPackageManifest    = NewImageCustomizerError("Customizer:OutputPackageManifest", "failed to output package manifest")
 
 	// Image conversion errors
 	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
@@ -275,6 +276,14 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 			im.distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
+		}
+	}
+
+	if rc.OutputPackageManifestPath != "" {
+		err = outputPackageManifest(ctx, rc.OutputPackageManifestPath, rc.BuildDirAbs, rc.RawImageFile,
+			im.partitionsLayout, im.distroHandler)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrOutputPackageManifest, err)
 		}
 	}
 
@@ -921,6 +930,11 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		return nil, err
 	}
 	defer existingImageConnection.Close()
+
+	err = validateBaseImagePackageManifest(rc, existingImageConnection.Chroot().RootDir())
+	if err != nil {
+		return nil, err
+	}
 
 	err = distroHandler.ValidateConfig(rc)
 	if err != nil {

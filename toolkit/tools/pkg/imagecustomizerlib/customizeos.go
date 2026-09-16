@@ -235,11 +235,10 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	if rc.RemovePackageManager {
-		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
-		}
+	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot, buildTime,
+		rc.PackageManifestMode, rc.RemovePackageManager)
+	if err != nil {
+		return err
 	}
 
 	err = restoreResolvConf(ctx, resolvConf, imageChroot)

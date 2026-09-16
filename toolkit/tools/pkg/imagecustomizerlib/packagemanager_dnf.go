@@ -40,7 +40,7 @@ func (pm *dnfPackageManager) configureSnapshotTime(packageManagerChroot *safechr
 
 func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]string, error) {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
@@ -65,11 +65,12 @@ func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechro
 		}
 	}
 
-	return shell.NewExecBuilder(packageManagerDNF, args...).
+	err := shell.NewExecBuilder(packageManagerDNF, args...).
 		LogLevel(logrus.DebugLevel, shell.LogDisabledLevel).
 		StderrCallback(stderrCallback).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
+	return nil, err
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
@@ -80,13 +81,8 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 	// pointing dnf's logdir at a fixed, predictable path inside the chroot. `rpm` is guaranteed to be present in any
 	// chroot that has dnf5 installed because dnf5 takes a hard dependency on rpm.
 	args := []string{"-q", "--", packageName}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image rpm.
-		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
-		chroot = toolsChroot
-	}
+	args = append(getRpmRootArgs(toolsChroot), args...)
+	chroot := getRpmChroot(imageChroot, toolsChroot)
 
 	err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
@@ -115,13 +111,8 @@ func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroo
 	// already expects from `tdnf info` (Name/Version/Release labels), so we share the parser.
 	args := []string{"-q", "--queryformat",
 		"Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n", "--", packageName}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image rpm.
-		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
-		chroot = toolsChroot
-	}
+	args = append(getRpmRootArgs(toolsChroot), args...)
+	chroot := getRpmChroot(imageChroot, toolsChroot)
 
 	packageInfo, _, err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).

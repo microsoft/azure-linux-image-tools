@@ -465,6 +465,9 @@
         },
         "selinuxPolicyPath": {
           "type": "string"
+        },
+        "packageManifest": {
+          "$ref": "#/$defs/OutputPackageManifest"
         }
       },
       "additionalProperties": false,
@@ -480,6 +483,15 @@
         },
         "cosi": {
           "$ref": "#/$defs/CosiConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OutputPackageManifest": {
+      "properties": {
+        "path": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -518,6 +530,15 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "PackageManifest": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Packages": {
       "properties": {
         "updateExistingPackages": {
@@ -546,6 +567,9 @@
         },
         "removePackageManager": {
           "type": "boolean"
+        },
+        "manifest": {
+          "$ref": "#/$defs/PackageManifest"
         }
       },
       "additionalProperties": false,

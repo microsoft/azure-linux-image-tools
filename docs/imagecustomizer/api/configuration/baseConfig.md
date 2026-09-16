@@ -29,9 +29,11 @@ Customizer multiple times instead of using the `baseConfigs` API.
 - `.output.image.cosi.compression.level`
 - `.output.image.format`
 - `.output.artifacts.path`
+- `.output.packageManifest.path`
 - `.os.hostname`
 - `.os.imageHistory`
 - `.os.packages.removePackageManager`
+- `.os.packages.manifest.mode`
 - `.os.selinux`
 - `.os.uki`
 - `.iso.initramfsType`

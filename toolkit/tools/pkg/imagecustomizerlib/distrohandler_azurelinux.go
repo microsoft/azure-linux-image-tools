@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -34,6 +35,8 @@ const (
 	grubEfiNoPrefixPackageAzl3 = "grub2-efi-binary-noprefix"
 	grubInstallPackageAzl3     = "grub2"
 	grubModulesPackageAzl3     = "grub2-pc"
+
+	purlNamespaceAzureLinux = string(targetos.AzureLinux)
 )
 
 var (
@@ -64,6 +67,14 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
+func (d *azureLinuxDistroHandler) GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions {
+	return spdxmanifest.BuildOptions{
+		Name:        string(d.targetOs.Distro),
+		VersionInfo: d.targetOs.PackageManifestVersionInfo,
+		Created:     created,
+	}
+}
+
 func (d *azureLinuxDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	switch d.targetOs.VersionId {
 	case "2.0", "3.0":
@@ -91,7 +102,7 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 
 func (d *azureLinuxDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
+) ([]string, error) {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -117,6 +128,12 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+}
+
+func (d *azureLinuxDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+	toolsChroot *safechroot.Chroot,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, toolsChroot, purlNamespaceAzureLinux)
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

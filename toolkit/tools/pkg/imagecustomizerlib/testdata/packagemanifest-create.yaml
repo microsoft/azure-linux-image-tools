@@ -1,0 +1,8 @@
+previewFeatures:
+  - package-manifest
+os:
+  packages:
+    install:
+      - tree-0:1.8.0-2.azl3
+    manifest:
+      mode: create

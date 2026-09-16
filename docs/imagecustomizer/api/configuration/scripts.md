@@ -39,12 +39,22 @@ In particular, these scripts run after:
 
 2. The temporary `/etc/resolv.conf` file has been deleted,
 
+3. The package manager has been removed (if specified)
+
+4. The `/usr/share/os-manifests/package-manifest.spdx.json` package manifest has
+   been created (if specified)
+
 but before the conversion to the requested output type.
 (See, [Operation ordering](./configuration.md#operation-ordering) for details.)
 
 Most scripts should be added to [postCustomization](#postcustomization-script).
 Only add scripts to [finalizeCustomization](#finalizecustomization-script) if you want
-to customize the `/etc/resolv.conf` file or you want manually set SELinux file labels.
+to customize the `/etc/resolv.conf` or `/usr/share/os-manifests/package-manifest.spdx.json` files,
+or manually set SELinux file labels.
+
+Package management operations in particular must never be used in a finalize script,
+since by that time the package manager may have been removed, and any package
+changes made at that stage are not reflected automatically in the package manifest.
 
 These scripts are run under a chroot of the customized OS.
 

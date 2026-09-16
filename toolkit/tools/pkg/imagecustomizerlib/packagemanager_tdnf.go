@@ -43,10 +43,8 @@ const (
 )
 
 var (
-	tdnfOpLines = []string{
-		"Installing/Updating: ",
-		"Removing: ",
-	}
+	tdnfOpRemoveLine  = "Removing: "
+	tdnfOpInstallLine = "Installing/Updating: "
 
 	tdnfSummaryLines = []string{
 		"Installing:",
@@ -74,13 +72,11 @@ func (pm *tdnfPackageManager) configureSnapshotTime(packageManagerChroot *safech
 	return cleanup, nil
 }
 
+// executeCommand runs TDNF and returns the NEVRAs of removed packages, captured from its "Removing: " output.
 func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) error {
-	pmChroot := imageChroot
-	if toolsChroot != nil {
-		pmChroot = toolsChroot
-	}
+) ([]string, error) {
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
 	fullArgs := []string{"-v"}
 
@@ -93,13 +89,22 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 	lastDownloadPackageSeen := ""
 	inSummary := false
 	seenTransactionErrorMessage := false
+	removedPackages := []string{}
 
 	stdoutCallback := func(line string) {
+		pkg, isRemoveOp := strings.CutPrefix(line, tdnfOpRemoveLine)
+
 		if !seenTransactionErrorMessage {
 			seenTransactionErrorMessage = tdnfTransactionErrorRegex.MatchString(line)
 		}
 
 		switch {
+		case isRemoveOp || strings.HasPrefix(line, tdnfOpInstallLine):
+			if isRemoveOp {
+				removedPackages = append(removedPackages, strings.TrimSpace(pkg))
+			}
+			logger.Log.Debug(line)
+
 		case seenTransactionErrorMessage:
 			logger.Log.Warn(line)
 
@@ -112,9 +117,6 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 
 		case slices.Contains(tdnfSummaryLines, line):
 			inSummary = true
-			logger.Log.Debug(line)
-
-		case slices.ContainsFunc(tdnfOpLines, func(opPrefix string) bool { return strings.HasPrefix(line, opPrefix) }):
 			logger.Log.Debug(line)
 
 		default:
@@ -131,32 +133,29 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 		}
 	}
 
-	return shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
+	err := shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
 		StdoutCallback(stdoutCallback).
 		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	return removedPackages, nil
 }
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
 	args := []string{"info", packageName, "--repo", "@system"}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL).
-		args = append([]string{
-			"--releasever=" + pm.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-		chroot = toolsChroot
-	}
+	args = append(args, getRpmInstallRootArgs(pm, toolsChroot)...)
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
-	err := shell.NewExecBuilder("tdnf", args...).
+	err := shell.NewExecBuilder(packageManagerTDNF, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
+		Chroot(pmChroot.ChrootDir()).
 		Execute()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -176,20 +175,12 @@ func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chro
 	packageName string,
 ) (*PackageVersionInformation, error) {
 	args := []string{"info", packageName, "--repo", "@system"}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL).
-		args = append([]string{
-			"--releasever=" + pm.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-		chroot = toolsChroot
-	}
+	args = append(args, getRpmInstallRootArgs(pm, toolsChroot)...)
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
 	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
+		Chroot(pmChroot.ChrootDir()).
 		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information via tdnf:\n%w", packageName, err)
