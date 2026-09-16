@@ -161,7 +161,8 @@ func (d *azureLinuxDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, b
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *azureLinuxDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+func (d *azureLinuxDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string, baseAddons map[string]string,
+) ([]UkiAddonSpec, error) {
 	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 

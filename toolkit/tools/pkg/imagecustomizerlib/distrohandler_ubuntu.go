@@ -204,7 +204,8 @@ func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string, baseAddons map[string]string,
+) ([]UkiAddonSpec, error) {
 	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 

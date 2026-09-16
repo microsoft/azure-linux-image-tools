@@ -250,7 +250,8 @@ func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *fedoraDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+func (d *fedoraDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string, baseAddons map[string]string,
+) ([]UkiAddonSpec, error) {
 	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 

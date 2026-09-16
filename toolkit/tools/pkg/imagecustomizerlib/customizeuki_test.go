@@ -1303,3 +1303,93 @@ func TestDefaultGetUkiAddonSpecs(t *testing.T) {
 		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 rw"},
 	}, specs)
 }
+
+func TestMergeUkiCmdlineParts(t *testing.T) {
+	tests := []struct {
+		name          string
+		mainCmdline   string
+		addonCmdlines map[string]string
+		expected      string
+		expectError   bool
+	}{
+		{
+			name:        "main UKI first, then addons in file-name order",
+			mainCmdline: "root=/dev/sda",
+			addonCmdlines: map[string]string{
+				"oem.addon.efi":       "flatcar.oem.id=azure",
+				"firstboot.addon.efi": "flatcar.first_boot=detected",
+			},
+			expected: "root=/dev/sda flatcar.first_boot=detected flatcar.oem.id=azure",
+		},
+		{
+			name:          "no main UKI cmdline",
+			addonCmdlines: map[string]string{"vmlinuz-1.addon.efi": "rd.info"},
+			expected:      "rd.info",
+		},
+		{
+			name:          "empty addon skipped",
+			mainCmdline:   "root=/dev/sda",
+			addonCmdlines: map[string]string{"empty.addon.efi": ""},
+			expected:      "root=/dev/sda",
+		},
+		{
+			name:          "no cmdline anywhere",
+			addonCmdlines: map[string]string{"empty.addon.efi": ""},
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmdline, err := mergeUkiCmdlineParts(tt.mainCmdline, tt.addonCmdlines)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, cmdline)
+			}
+		})
+	}
+}
+
+func TestGetFallbackUkiAddons(t *testing.T) {
+	tests := []struct {
+		name         string
+		existingUkis map[string]UkiKernelInfo
+		expected     map[string]string
+		expectError  bool
+	}{
+		{
+			name: "shared addons",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {Addons: map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"}},
+				"vmlinuz-2": {Addons: map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"}},
+			},
+			expected: map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
+		},
+		{
+			name:         "no existing UKIs",
+			existingUkis: map[string]UkiKernelInfo{},
+		},
+		{
+			name: "divergent addons",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {Addons: map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"}},
+				"vmlinuz-2": {Addons: map[string]string{"oem.addon.efi": "flatcar.oem.id=qemu"}},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addons, err := getFallbackUkiAddons(tt.existingUkis)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, addons)
+			}
+		})
+	}
+}

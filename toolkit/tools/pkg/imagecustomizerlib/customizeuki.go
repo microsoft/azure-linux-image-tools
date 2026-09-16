@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -59,6 +60,8 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 type UkiKernelInfo struct {
 	Cmdline   string `json:"cmdline"`
 	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
+	// Optional: the base image's addon cmdlines keyed by addon file name, so distros can keep the addons they ship.
+	Addons map[string]string `json:"addons,omitempty"`
 }
 
 // UkiAddonSpec describes one cmdline addon file to write for a UKI in create mode.
@@ -256,14 +259,31 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 ) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
-	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
-		return fmt.Errorf("failed to extract base kernel command-line from UKIs:\n%w", err)
+		return fmt.Errorf("failed to get UKI files:\n%w", err)
 	}
 
-	kernelInfo := make(map[string]UkiKernelInfo, len(kernelToArgs))
-	for kernel, cmdline := range kernelToArgs {
-		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline}
+	// Save the merged command line (main UKI + addons, the way systemd-boot builds it) and each addon's own command
+	// line, so that distros can keep the addons the base image ships when the UKIs are rebuilt.
+	kernelInfo := make(map[string]UkiKernelInfo, len(ukiFiles))
+	for _, ukiFile := range ukiFiles {
+		kernel, err := getKernelNameFromUki(ukiFile)
+		if err != nil {
+			return fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
+		}
+
+		mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract base kernel command-line from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		cmdline, err := mergeUkiCmdlineParts(mainUkiCmdline, addonCmdlines)
+		if err != nil {
+			return fmt.Errorf("failed to extract base kernel command-line from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline, Addons: addonCmdlines}
 	}
 
 	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
@@ -403,11 +423,14 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	logger.Log.Debugf("UKI cmdline resolution: kernels with a grub-derived cmdline = %v", grubKernelToArgs)
 
 	var fallbackArgs string
+	var fallbackAddons map[string]string
 	for kernel, initramfs := range kernelToInitramfs {
 		var cmdline string
+		var addons map[string]string
 		var cmdlineSource string
-		if existingCmdline, ok := existingUkiCmdlines[kernel]; ok {
-			cmdline = existingCmdline
+		if existingInfo, ok := existingUkiKernelInfo[kernel]; ok {
+			cmdline = existingInfo.Cmdline
+			addons = existingInfo.Addons
 			cmdlineSource = "existing UKIs"
 		} else if args, ok := grubKernelToArgs[kernel]; ok {
 			cmdline = args
@@ -419,8 +442,16 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 					return fmt.Errorf("no command line arguments found for kernel (%s) and cannot determine fallback "+
 						"command line:\n%w", kernel, err)
 				}
+
+				// The kernel inherits the base addons along with the command line.
+				fallbackAddons, err = getFallbackUkiAddons(existingUkiKernelInfo)
+				if err != nil {
+					return fmt.Errorf("no command line arguments found for kernel (%s) and cannot determine fallback "+
+						"addons:\n%w", kernel, err)
+				}
 			}
 			cmdline = fallbackArgs
+			addons = fallbackAddons
 			cmdlineSource = "fallback"
 			logger.Log.Infof("No command line arguments found for kernel (%s): using fallback command line", kernel)
 		}
@@ -430,6 +461,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
 			Initramfs: initramfs,
+			Addons:    addons,
 		}
 	}
 
@@ -484,6 +516,26 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 			strings.Join(cmdlines, " | "))
 	}
 	return cmdlines[0], nil
+}
+
+// getFallbackUkiAddons returns the base addon cmdlines that a kernel with no UKI of its own should inherit: the addons
+// the image's existing UKIs share. Like getFallbackKernelArgs, it refuses to guess when the kernels disagree.
+func getFallbackUkiAddons(existingUkiKernelInfo map[string]UkiKernelInfo) (map[string]string, error) {
+	var fallbackAddons map[string]string
+	found := false
+	for _, info := range existingUkiKernelInfo {
+		if !found {
+			fallbackAddons = info.Addons
+			found = true
+			continue
+		}
+
+		if !maps.Equal(fallbackAddons, info.Addons) {
+			return nil, fmt.Errorf("cannot pick fallback addons: kernels have divergent addons")
+		}
+	}
+
+	return fallbackAddons, nil
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
@@ -820,8 +872,8 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	}
 
 	for kernel, info := range kernelInfo {
-		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
-			systemBootPartitionTmpDir, distroHandler,
+		err := buildUki(kernel, info.Initramfs, info.Cmdline, info.Addons, osSubreleaseFullPath, stubPath, addonStubPath,
+			rc.BuildDirAbs, systemBootPartitionTmpDir, distroHandler,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
@@ -940,9 +992,9 @@ func grubKernelArgsToStringMap(kernelToArgs map[string][]grubConfigLinuxArg) map
 	return kernelToArgsString
 }
 
-func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFullPath string,
-	stubPath string, addonStubPath string, buildDir string, systemBootPartitionTmpDir string,
-	distroHandler DistroHandler,
+func buildUki(kernel string, initramfs string, kernelArgs string, baseAddons map[string]string,
+	osSubreleaseFullPath string, stubPath string, addonStubPath string, buildDir string,
+	systemBootPartitionTmpDir string, distroHandler DistroHandler,
 ) error {
 	kernelVersion, err := getKernelVersion(kernel)
 	if err != nil {
@@ -956,7 +1008,7 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 	}
 
 	// Build UKI cmdline addons
-	addonSpecs, err := distroHandler.GetUkiAddonSpecs(kernel, kernelArgs)
+	addonSpecs, err := distroHandler.GetUkiAddonSpecs(kernel, kernelArgs, baseAddons)
 	if err != nil {
 		return fmt.Errorf("failed to get UKI addon specs:\n%w", err)
 	}
