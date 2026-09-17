@@ -1,6 +1,8 @@
 package imagecustomizerlib
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -155,4 +157,60 @@ func verifyFileHash(t *testing.T, path string, foundHash string) {
 	expectedHash, err := file.GenerateSHA256(fullPath)
 	assert.NoError(t, err, "error generating SHA256 hash for file %s", path)
 	assert.Equal(t, foundHash, expectedHash, "SHA256 hash for file %s should match", path)
+}
+
+func TestPopulateAdditionalDirsSymlinkCopyContents(t *testing.T) {
+	baseConfigPath := t.TempDir()
+	srcDir := filepath.Join(baseConfigPath, "src")
+	assert.NoError(t, os.MkdirAll(srcDir, 0o755))
+
+	targetContents := []byte("hello")
+	assert.NoError(t, os.WriteFile(filepath.Join(srcDir, "target.txt"), targetContents, 0o644))
+	assert.NoError(t, os.Symlink("target.txt", filepath.Join(srcDir, "link.txt")))
+
+	dirs := imagecustomizerapi.DirConfigList{{Source: "src", Destination: "/"}}
+	err := populateAdditionalDirs(dirs, baseConfigPath)
+	assert.NoError(t, err)
+
+	fileHash, err := file.GenerateSHA256(filepath.Join(srcDir, "target.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, fileHash, dirs[0].SHA256HashMap["target.txt"])
+	assert.Equal(t, fileHash, dirs[0].SHA256HashMap["link.txt"])
+}
+
+// TestPopulateAdditionalDirsSymlinkPreserveSymlinks verifies that image history
+// hashes the target string for symlinks that are preserved in the image.
+func TestPopulateAdditionalDirsSymlinkPreserveSymlinks(t *testing.T) {
+	baseConfigPath := t.TempDir()
+	srcDir := filepath.Join(baseConfigPath, "src")
+	assert.NoError(t, os.MkdirAll(srcDir, 0o755))
+
+	assert.NoError(t, os.WriteFile(filepath.Join(srcDir, "target.txt"), []byte("hello"), 0o644))
+	assert.NoError(t, os.Symlink("target.txt", filepath.Join(srcDir, "link.txt")))
+	assert.NoError(t, os.Symlink("/does/not/exist/on/host", filepath.Join(srcDir, "dangling.txt")))
+
+	dirs := imagecustomizerapi.DirConfigList{{
+		Source:      "src",
+		Destination: "/",
+		SymlinkMode: imagecustomizerapi.SymlinkModePreserve,
+	}}
+	err := populateAdditionalDirs(dirs, baseConfigPath)
+	assert.NoError(t, err)
+
+	hashes := dirs[0].SHA256HashMap
+	assert.Len(t, hashes, 3)
+
+	// Regular file: hash of its contents.
+	fileHash, err := file.GenerateSHA256(filepath.Join(srcDir, "target.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, fileHash, hashes["target.txt"])
+
+	// Symlinks: tagged hash of the target string, not the dereferenced contents.
+	assert.Equal(t, symlinkHashPrefix+sha256HexOfString("target.txt"), hashes["link.txt"])
+	assert.Equal(t, symlinkHashPrefix+sha256HexOfString("/does/not/exist/on/host"), hashes["dangling.txt"])
+}
+
+func sha256HexOfString(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }

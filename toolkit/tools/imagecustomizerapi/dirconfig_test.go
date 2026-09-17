@@ -41,6 +41,24 @@ func TestDirConfigListIsValidValidItemWithPermissions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDirConfigListIsValidValidSymlinkMode(t *testing.T) {
+	for _, symlinkMode := range []SymlinkMode{
+		SymlinkModeUnspecified,
+		SymlinkModeDereference,
+		SymlinkModePreserve,
+	} {
+		list := DirConfigList{
+			{
+				Source:      "a",
+				Destination: "/a",
+				SymlinkMode: symlinkMode,
+			},
+		}
+		err := list.IsValid()
+		assert.NoError(t, err)
+	}
+}
+
 func TestDirConfigListIsValidEmptySource(t *testing.T) {
 	list := DirConfigList{
 		DirConfig{
@@ -105,4 +123,18 @@ func TestDirConfigListIsValidInvalidChildFilePermissions(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid value at index 0")
 	assert.ErrorContains(t, err, "invalid childFilePermissions value")
 	assert.ErrorContains(t, err, "0o1000 contains non-permission bits")
+}
+
+func TestDirConfigListIsValidInvalidSymlinkMode(t *testing.T) {
+	list := DirConfigList{
+		{
+			Source:      "a",
+			Destination: "/a",
+			SymlinkMode: SymlinkMode("invalid"),
+		},
+	}
+	err := list.IsValid()
+	assert.ErrorContains(t, err, "invalid value at index 0")
+	assert.ErrorContains(t, err, "invalid symlinkMode value")
+	assert.ErrorContains(t, err, "must be one of ['', 'dereference', 'preserve']")
 }

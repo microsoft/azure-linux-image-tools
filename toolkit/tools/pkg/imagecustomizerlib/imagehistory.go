@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -186,6 +188,11 @@ func modifyConfig(configCopy *imagecustomizerapi.Config, baseConfigPath string) 
 	return nil
 }
 
+// symlinkHashPrefix tags a preserved symlink's image-history value. A regular file's
+// value is always a bare sha256 hex string, so tagging the symlink value guarantees it
+// can never collide with a regular file, whatever the file's contents.
+const symlinkHashPrefix = "symlink:"
+
 func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigList, baseConfigPath string) error {
 	for i := range configAdditionalDirs {
 		hashes := make(map[string]string)
@@ -206,9 +213,22 @@ func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigLis
 				return fmt.Errorf("error computing relative path for %s:\n%w", path, err)
 			}
 
-			hash, err := generateSHA256(path)
-			if err != nil {
-				return err
+			var hash string
+			if configAdditionalDirs[i].SymlinkMode == imagecustomizerapi.SymlinkModePreserve &&
+				d.Type()&os.ModeSymlink != 0 {
+				// The image contains the link itself in this mode, so hash its target string
+				// and tag the value so it can't collide with a regular file's content hash.
+				target, err := os.Readlink(path)
+				if err != nil {
+					return fmt.Errorf("error reading symlink %s:\n%w", path, err)
+				}
+				sum := sha256.Sum256([]byte(target))
+				hash = symlinkHashPrefix + hex.EncodeToString(sum[:])
+			} else {
+				hash, err = generateSHA256(path)
+				if err != nil {
+					return err
+				}
 			}
 
 			hashes[relPath] = hash

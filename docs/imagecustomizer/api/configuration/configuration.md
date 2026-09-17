@@ -225,6 +225,7 @@ os:
       - [newDirPermissions](./dirconfig.md#newdirpermissions-string)
       - [mergedDirPermissions](./dirconfig.md#mergeddirpermissions-string)
       - [childFilePermissions](./dirconfig.md#childfilepermissions-string)
+      - [symlinkMode](./dirconfig.md#symlinkmode-string)
     - [groups](./os.md#groups-group) ([group type](./group.md))
       - [name](./group.md#name-string)
       - [gid](./group.md#gid-int)
