@@ -50,7 +50,7 @@ Supported values:
 The permission fields (`newDirPermissions`, `mergedDirPermissions`, and
 `childFilePermissions`) are not applied to symbolic links when using `preserve`.
 
-Added in v1.8.
+Added in v1.7.
 
 ## newDirPermissions [string]
 
