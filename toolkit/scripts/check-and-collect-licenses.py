@@ -22,6 +22,7 @@ OUTPUT_DIR = Path(REPO_ROOT) / "toolkit" / "out"
 LICENSE_SCAN_OUTPUT = OUTPUT_DIR / "LICENSES-SCAN.json"
 LICENSES_DIR = OUTPUT_DIR / "LICENSES"
 TOOLS_DIR = Path(REPO_ROOT) / "toolkit" / "tools"
+LICENSE_CHOICES_JSON = SCRIPT_DIR / "license-choices.json"
 
 def download_trivy():
     TRIVY_VERSION = "0.69.2"
@@ -74,6 +75,10 @@ def download_trivy():
 
 def run_trivy_scan():
     print("Running Trivy license scan...")
+
+    with open(LICENSE_CHOICES_JSON) as policy_file:
+        license_choices = json.load(policy_file)
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     with open(LICENSE_SCAN_OUTPUT, "w") as out_file:
@@ -88,10 +93,23 @@ def run_trivy_scan():
         data = json.load(f)
 
     findings = []
-    for result in data.get("Results", []):
+    results = data.get("Results", [])
+    for result in results:
         for license_entry in result.get("Licenses", []):
-            if license_entry.get("Severity") in ("HIGH", "CRITICAL"):
-                findings.append(f"- {license_entry.get('PkgName')} [{license_entry.get('Category')}]")
+            if license_entry.get("Severity") not in ("HIGH", "CRITICAL"):
+                continue
+
+            package_name = license_entry.get('PkgName')
+            license_name = license_entry.get('Name')
+
+            match = find_license_choice(results, result.get("Target"), package_name, license_name, license_choices)
+            if match:
+                package_id, choice = match
+                print(f"Using {choice['selected']} for {package_id} ({choice['source']})")
+                continue
+
+            category = license_entry.get('Category')
+            findings.append(f"- {package_name}: {license_name} [{category}]")
 
     if findings:
         print("❌ Found HIGH or CRITICAL severity license classification:")

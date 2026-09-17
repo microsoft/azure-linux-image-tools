@@ -15,10 +15,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/purl"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
+	"github.com/package-url/packageurl-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -377,20 +377,24 @@ func newManifestPackageFromRpmPackage(rpmPackage rpmdb.PackageInfo, namespace st
 		return spdxmanifest.Package{}, err
 	}
 
-	evr := rpmPackage.Version + "-" + rpmPackage.Release
+	vr := rpmPackage.Version + "-" + rpmPackage.Release
+
+	evr := vr
+	qualifiers := packageurl.Qualifiers{{Key: "arch", Value: rpmPackage.Arch}}
 	if rpmPackage.Epoch != nil {
-		evr = strconv.Itoa(*rpmPackage.Epoch) + ":" + evr
+		epoch := strconv.Itoa(*rpmPackage.Epoch)
+		evr = epoch + ":" + evr
+		qualifiers = append(qualifiers, packageurl.Qualifier{Key: "epoch", Value: epoch})
 	}
 
-	purl := purl.RpmPackageURL(namespace, rpmPackage.Name, rpmPackage.Epoch, rpmPackage.Version, rpmPackage.Release,
-		rpmPackage.Arch)
+	purl := packageurl.NewPackageURL(packageurl.TypeRPM, namespace, rpmPackage.Name, vr, qualifiers, "")
 
 	return spdxmanifest.Package{
 		ID:      fmt.Sprintf("%s-%s.%s", rpmPackage.Name, evr, rpmPackage.Arch),
 		Name:    rpmPackage.Name,
 		Version: evr,
 		Vendor:  strings.TrimSpace(rpmPackage.Vendor),
-		Purl:    purl,
+		Purl:    purl.ToString(),
 	}, nil
 }
 

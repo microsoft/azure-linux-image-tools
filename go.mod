@@ -15,6 +15,7 @@ require (
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/opencontainers/image-spec v1.1.1
+	github.com/package-url/packageurl-go v0.1.7
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spdx/tools-golang v0.5.7
 	github.com/stretchr/testify v1.12.1

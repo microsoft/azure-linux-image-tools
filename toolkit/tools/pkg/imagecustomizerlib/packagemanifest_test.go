@@ -302,6 +302,72 @@ func verifyRpmManifestPackages(t *testing.T, packages []*spdx.Package) []string 
 	return nevras
 }
 
+func TestNewManifestPackageFromRpmPackagePurl(testContext *testing.T) {
+	epoch := 2
+	zeroEpoch := 0
+	testCases := []struct {
+		name        string
+		namespace   string
+		packageName string
+		epoch       *int
+		expected    string
+	}{
+		{
+			name:        "plain",
+			namespace:   "azurelinux",
+			packageName: "example",
+			expected:    "pkg:rpm/azurelinux/example@1.0-3?arch=x86_64",
+		},
+		{
+			name:        "epoch",
+			namespace:   "azurelinux",
+			packageName: "example",
+			epoch:       &epoch,
+			expected:    "pkg:rpm/azurelinux/example@1.0-3?arch=x86_64&epoch=2",
+		},
+		{
+			name:        "zero epoch",
+			namespace:   "azurelinux",
+			packageName: "example",
+			epoch:       &zeroEpoch,
+			expected:    "pkg:rpm/azurelinux/example@1.0-3?arch=x86_64&epoch=0",
+		},
+		{
+			name:        "spaces",
+			namespace:   "vendor name",
+			packageName: "package name",
+			expected:    "pkg:rpm/vendor%20name/package%20name@1.0-3?arch=x86_64",
+		},
+		{
+			name:        "reserved characters",
+			namespace:   "vendor+name",
+			packageName: "package@name",
+			expected:    "pkg:rpm/vendor%2Bname/package%40name@1.0-3?arch=x86_64",
+		},
+		{
+			name:        "colons",
+			namespace:   "vendor:name",
+			packageName: "package:name",
+			expected:    "pkg:rpm/vendor:name/package:name@1.0-3?arch=x86_64",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testContext.Run(testCase.name, func(testContext *testing.T) {
+			packageInfo := rpmdb.PackageInfo{
+				Name:    testCase.packageName,
+				Epoch:   testCase.epoch,
+				Version: "1.0",
+				Release: "3",
+				Arch:    "x86_64",
+			}
+			manifestPackage, err := newManifestPackageFromRpmPackage(packageInfo, testCase.namespace)
+			require.NoError(testContext, err)
+			assert.Equal(testContext, testCase.expected, manifestPackage.Purl)
+		})
+	}
+}
+
 func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 	packages := goldenPackages(t)
 	assert.Len(t, packages, 22)
