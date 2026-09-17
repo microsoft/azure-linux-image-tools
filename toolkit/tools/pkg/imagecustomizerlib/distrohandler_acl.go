@@ -46,14 +46,6 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
-func (d *aclDistroHandler) GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata {
-	return spdxmanifest.BuildMetadata{
-		Name:        string(d.targetOs.Distro),
-		VersionInfo: d.targetOs.PackageManifestVersionInfo,
-		Created:     created,
-	}
-}
-
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
 		return ErrPreviewDistroVersionFeatureRequired
@@ -142,7 +134,7 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
-func (d *aclDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+func (d *aclDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
 ) ([]spdxmanifest.Package, error) {
 	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl3, purlNamespaceAzureLinux)
 }

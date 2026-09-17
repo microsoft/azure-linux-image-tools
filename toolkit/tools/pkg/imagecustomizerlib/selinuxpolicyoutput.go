@@ -12,11 +12,11 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"go.opentelemetry.io/otel"
 )
 
 var (
-	ErrSelinuxPolicyImageConnection = NewImageCustomizerError("SelinuxPolicy:ImageConnection", "failed to connect to image for SELinux policy extraction")
 	ErrSelinuxPolicyDirNotFound     = NewImageCustomizerError("SelinuxPolicy:DirNotFound", "SELinux policy directory cannot be read")
 	ErrSelinuxPolicyDirCopy         = NewImageCustomizerError("SelinuxPolicy:DirCopy", "failed to copy SELinux policy directory")
 	ErrSelinuxPolicyOutputDirCreate = NewImageCustomizerError("SelinuxPolicy:OutputDirCreate", "failed to create output directory for SELinux policy")
@@ -48,9 +48,7 @@ func readSelinuxType(chrootDir string) (string, error) {
 	return selinuxType, nil
 }
 
-func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string,
-	partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
-) error {
+func outputSelinuxPolicy(ctx context.Context, imageChroot safechroot.ChrootInterface, outputDir string) error {
 	logger.Log.Infof("Extracting SELinux policy from image")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "output_selinux_policy")
@@ -61,18 +59,6 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrSelinuxPolicyOutputDirCreate, outputDir, err)
 	}
 
-	// Connect to the image with read-only mounts.
-	// Use connectToExistingImage which automatically mounts all partitions based on fstab.
-	imageMountPoint := filepath.Join(buildDir, "selinux-extract")
-
-	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, imageMountPoint,
-		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout, distroHandler)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrSelinuxPolicyImageConnection, err)
-	}
-	defer imageConnection.Close()
-
-	imageChroot := imageConnection.Chroot()
 	chrootDir := imageChroot.RootDir()
 
 	// Read SELINUXTYPE from /etc/selinux/config
@@ -99,11 +85,6 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 	if err != nil {
 		return fmt.Errorf("%w (src='%s', dest='%s'):\n%w",
 			ErrSelinuxPolicyDirCopy, selinuxPolicyFullPath, destPath, err)
-	}
-
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to cleanly close image connection:\n%w", err)
 	}
 
 	logger.Log.Infof("Successfully extracted SELinux policy to %s", outputDir)

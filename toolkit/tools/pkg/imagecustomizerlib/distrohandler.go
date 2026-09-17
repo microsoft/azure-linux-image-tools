@@ -39,7 +39,6 @@ var (
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
-	GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata
 
 	// Validates the image config for a distro.
 	// This is primarily intended to be used to block unsupported features.
@@ -70,8 +69,8 @@ type DistroHandler interface {
 	// toolsChroot has the same semantics as in IsPackageInstalled.
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
 
-	// ListInstalledPackages returns installed package IDs and metadata for manifest generation.
-	ListInstalledPackages(imageChroot safechroot.ChrootInterface) ([]spdxmanifest.Package, error)
+	// ListInstalledPackagesForSpdx returns installed package IDs and metadata for SPDX package manifest generation.
+	ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface) ([]spdxmanifest.Package, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

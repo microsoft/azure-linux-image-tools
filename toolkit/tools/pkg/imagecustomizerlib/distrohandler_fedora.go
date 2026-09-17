@@ -131,14 +131,6 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
-func (d *fedoraDistroHandler) GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata {
-	return spdxmanifest.BuildMetadata{
-		Name:        string(d.targetOs.Distro),
-		VersionInfo: d.targetOs.PackageManifestVersionInfo,
-		Created:     created,
-	}
-}
-
 func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
 		return ErrPreviewDistroVersionFeatureRequired
@@ -212,7 +204,7 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
-func (d *fedoraDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+func (d *fedoraDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
 ) ([]spdxmanifest.Package, error) {
 	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathFedora, purlNamespaceFedora)
 }

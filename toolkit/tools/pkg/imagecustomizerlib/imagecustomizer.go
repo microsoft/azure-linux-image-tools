@@ -271,20 +271,9 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		}
 	}
 
-	if rc.OutputSelinuxPolicyPath != "" {
-		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile, im.partitionsLayout,
-			im.distroHandler)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
-		}
-	}
-
-	if rc.OutputPackageManifestPath != "" {
-		err = outputPackageManifest(ctx, rc.OutputPackageManifestPath, rc.BuildDirAbs, rc.RawImageFile,
-			im.partitionsLayout, im.distroHandler)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrOutputPackageManifest, err)
-		}
+	err = outputImageFiles(ctx, rc, im.distroHandler, im.partitionsLayout)
+	if err != nil {
+		return err
 	}
 
 	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts, toolsChroot)
@@ -297,6 +286,43 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func outputImageFiles(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHandler,
+	partitionsLayout []fstabEntryPartNum,
+) error {
+	if rc.OutputSelinuxPolicyPath == "" && rc.OutputPackageManifestPath == "" {
+		return nil
+	}
+
+	imageMountPoint := filepath.Join(rc.BuildDirAbs, "output-extract")
+	imageConnection, _, err := reconnectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint,
+		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout, distroHandler)
+	if err != nil {
+		return fmt.Errorf("failed to connect to image for file extraction:\n%w", err)
+	}
+	defer imageConnection.Close()
+
+	imageChroot := imageConnection.Chroot()
+	if rc.OutputSelinuxPolicyPath != "" {
+		err = outputSelinuxPolicy(ctx, imageChroot, rc.OutputSelinuxPolicyPath)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
+		}
+	}
+	if rc.OutputPackageManifestPath != "" {
+		err = outputPackageManifest(ctx, imageChroot, rc.OutputPackageManifestPath)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrOutputPackageManifest, err)
+		}
+	}
+
+	err = imageConnection.CleanClose()
+	if err != nil {
+		return fmt.Errorf("failed to cleanly close image connection:\n%w", err)
 	}
 
 	return nil

@@ -10,10 +10,12 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -21,20 +23,19 @@ import (
 const packageManifestPath = "usr/share/os-manifests/package-manifest.spdx.json"
 
 var (
-	ErrPackageManifestRead                = NewImageCustomizerError("Packages:PackageManifestRead", "failed to read the package manifest")
-	ErrPackageManifestModeRequired        = NewImageCustomizerError("Packages:PackageManifestModeRequired", "'os.packages.manifest.mode' must be specified because the base image carries a package manifest")
-	ErrPackageManifestCreateRequired      = NewImageCustomizerError("Packages:PackageManifestCreateRequired", "'os.packages.manifest.mode' must be 'create' when exporting a package manifest that is absent from the base image")
-	ErrPackageManifestUnknownMode         = NewImageCustomizerError("Packages:PackageManifestUnknownMode", "unknown package manifest mode")
-	ErrPackageManifestDelete              = NewImageCustomizerError("Packages:PackageManifestDelete", "failed to delete the package manifest")
-	ErrPackageManifestList                = NewImageCustomizerError("Packages:PackageManifestList", "failed to list the image's installed packages")
-	ErrPackageManifestNoInstalledPackages = NewImageCustomizerError("Packages:PackageManifestNoInstalledPackages", "the image reported no installed packages")
-	ErrPackageManifestVersion             = NewImageCustomizerError("Packages:PackageManifestVersion", "failed to read the image version for the package manifest")
-	ErrPackageManifestBuild               = NewImageCustomizerError("Packages:PackageManifestBuild", "failed to build the package manifest")
-	ErrPackageManifestCreateDirectory     = NewImageCustomizerError("Packages:PackageManifestCreateDirectory", "failed to create the package manifest directory")
-	ErrPackageManifestWrite               = NewImageCustomizerError("Packages:PackageManifestWrite", "failed to write the package manifest")
-	ErrPackageManifestOutputMissing       = NewImageCustomizerError("Packages:PackageManifestOutputMissing", "no package manifest to write output path")
-	ErrPackageManifestOutputWrite         = NewImageCustomizerError("Packages:PackageManifestOutputWrite", "failed to write the package manifest to output path")
-	ErrPackageManifestImageConnection     = NewImageCustomizerError("Packages:PackageManifestImageConnection", "failed to connect to the image to read the package manifest")
+	ErrPackageManifestRead                = NewImageCustomizerError("PackageManifest:Read", "failed to read the package manifest")
+	ErrPackageManifestModeRequired        = NewImageCustomizerError("PackageManifest:ModeRequired", "'os.packages.manifest.mode' must be specified because the base image carries a package manifest")
+	ErrPackageManifestCreateRequired      = NewImageCustomizerError("PackageManifest:CreateRequired", "'os.packages.manifest.mode' must be 'create' when exporting a package manifest that is absent from the base image")
+	ErrPackageManifestUnknownMode         = NewImageCustomizerError("PackageManifest:UnknownMode", "unknown package manifest mode")
+	ErrPackageManifestDelete              = NewImageCustomizerError("PackageManifest:Delete", "failed to delete the package manifest")
+	ErrPackageManifestList                = NewImageCustomizerError("PackageManifest:List", "failed to list the image's installed packages")
+	ErrPackageManifestNoInstalledPackages = NewImageCustomizerError("PackageManifest:NoInstalledPackages", "the image reported no installed packages")
+	ErrPackageManifestVersion             = NewImageCustomizerError("PackageManifest:Version", "failed to read the image version for the package manifest")
+	ErrPackageManifestBuild               = NewImageCustomizerError("PackageManifest:Build", "failed to build the package manifest")
+	ErrPackageManifestCreateDirectory     = NewImageCustomizerError("PackageManifest:CreateDirectory", "failed to create the package manifest directory")
+	ErrPackageManifestWrite               = NewImageCustomizerError("PackageManifest:Write", "failed to write the package manifest")
+	ErrPackageManifestOutputMissing       = NewImageCustomizerError("PackageManifest:OutputMissing", "no package manifest to write output path")
+	ErrPackageManifestOutputWrite         = NewImageCustomizerError("PackageManifest:OutputWrite", "failed to write the package manifest to output path")
 )
 
 func validateBaseImagePackageManifest(rc *ResolvedConfig, rootDir string) error {
@@ -86,7 +87,7 @@ func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, 
 
 	switch packageManifestMode {
 	case imagecustomizerapi.PackageManifestModePassthrough:
-		logger.Log.Infof("Skipping package manifest changes (mode='%s')", packageManifestMode)
+		logger.Log.Info("Skipping package manifest changes")
 
 	case imagecustomizerapi.PackageManifestModeNone:
 		exists, err := file.PathExists(manifestPath)
@@ -95,25 +96,25 @@ func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, 
 		}
 
 		if exists {
-			logger.Log.Infof("Deleting package manifest (mode='%s')", packageManifestMode)
+			logger.Log.Info("Deleting package manifest")
 			err = os.Remove(manifestPath)
 			if err != nil {
 				return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestDelete, manifestPath, err)
 			}
 		} else {
-			logger.Log.Infof("Package manifest does not exist, nothing to delete (mode='%s')", packageManifestMode)
+			logger.Log.Info("Package manifest does not exist, nothing to delete")
 		}
 
 	case imagecustomizerapi.PackageManifestModeCreate:
-		logger.Log.Infof("Writing package manifest (mode='%s')", packageManifestMode)
-		packages, err := distroHandler.ListInstalledPackages(imageChroot)
+		logger.Log.Info("Writing package manifest")
+		packages, err := distroHandler.ListInstalledPackagesForSpdx(imageChroot)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrPackageManifestList, err)
 		}
 		if len(packages) == 0 {
 			return ErrPackageManifestNoInstalledPackages
 		}
-		err = createPackageManifest(ctx, distroHandler, buildTime, manifestPath, packages)
+		err = createPackageManifest(ctx, distroHandler, imageChroot, buildTime, manifestPath, packages)
 		if err != nil {
 			return err
 		}
@@ -125,17 +126,22 @@ func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, 
 	return nil
 }
 
-func createPackageManifest(ctx context.Context, distroHandler DistroHandler, buildTime string, manifestPath string,
-	packages []spdxmanifest.Package,
+func createPackageManifest(ctx context.Context, distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	buildTime string, manifestPath string, packages []spdxmanifest.Package,
 ) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_package_manifest")
 	defer span.End()
 
 	span.SetAttributes(attribute.Int("package_count", len(packages)))
 
-	metadata := distroHandler.GetPackageManifestBuildMetadata(buildTime)
-	if metadata.VersionInfo == "" {
-		return ErrPackageManifestVersion
+	versionInfo, err := readPackageManifestVersion(imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrPackageManifestVersion, err)
+	}
+	metadata := spdxmanifest.BuildMetadata{
+		Name:        string(distroHandler.GetTargetOs().Distro),
+		VersionInfo: versionInfo,
+		Created:     buildTime,
 	}
 	metadata.ToolVersion = ToolVersion
 	if metadata.ToolVersion == "" {
@@ -160,24 +166,36 @@ func createPackageManifest(ctx context.Context, distroHandler DistroHandler, bui
 	return nil
 }
 
-func outputPackageManifest(ctx context.Context, outputPath string, buildDir string, buildImage string,
-	partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
-) error {
+func readPackageManifestVersion(imageChroot safechroot.ChrootInterface) (string, error) {
+	for _, candidate := range targetos.OsReleaseFileCandidates {
+		fields, err := envfile.ParseEnvFile(filepath.Join(imageChroot.RootDir(), candidate))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+
+		versionInfo := fields["VERSION"]
+		if versionInfo == "" {
+			return "", fmt.Errorf("os-release VERSION is empty (path='%s')", candidate)
+		}
+		if buildID := fields["BUILD_ID"]; buildID != "" {
+			versionInfo += "+" + buildID
+		}
+		return versionInfo, nil
+	}
+
+	return "", fmt.Errorf("no os-release file found:\n%w", os.ErrNotExist)
+}
+
+func outputPackageManifest(ctx context.Context, imageChroot safechroot.ChrootInterface, outputPath string) error {
 	logger.Log.Infof("Extracting package manifest from image")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "output_package_manifest")
 	defer span.End()
 
-	imageMountPoint := filepath.Join(buildDir, "package-manifest-extract")
-
-	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, imageMountPoint,
-		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout, distroHandler)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrPackageManifestImageConnection, err)
-	}
-	defer imageConnection.Close()
-
-	manifestPath := filepath.Join(imageConnection.Chroot().RootDir(), packageManifestPath)
+	manifestPath := filepath.Join(imageChroot.RootDir(), packageManifestPath)
 
 	exists, err := file.PathExists(manifestPath)
 	if err != nil {
@@ -191,11 +209,6 @@ func outputPackageManifest(ctx context.Context, outputPath string, buildDir stri
 	err = file.Copy(manifestPath, outputPath)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestOutputWrite, outputPath, err)
-	}
-
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to cleanly close image connection:\n%w", err)
 	}
 
 	logger.Log.Infof("Successfully extracted package manifest to %s", outputPath)

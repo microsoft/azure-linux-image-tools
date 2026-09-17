@@ -2,7 +2,6 @@ package imagecustomizerlib
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,27 +15,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
-	"github.com/sirupsen/logrus"
+	spdx "github.com/spdx/tools-golang/spdx/v2/v2_2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type packageManifestTestPackage struct {
-	SPDXID           string `json:"SPDXID"`
-	Name             string `json:"name"`
-	VersionInfo      string `json:"versionInfo"`
-	Supplier         string `json:"supplier"`
-	DownloadLocation string `json:"downloadLocation"`
-	FilesAnalyzed    bool   `json:"filesAnalyzed"`
-	LicenseConcluded string `json:"licenseConcluded"`
-	LicenseDeclared  string `json:"licenseDeclared"`
-	CopyrightText    string `json:"copyrightText"`
-	ExternalRefs     []struct {
-		ReferenceCategory string `json:"referenceCategory"`
-		ReferenceType     string `json:"referenceType"`
-		ReferenceLocator  string `json:"referenceLocator"`
-	} `json:"externalRefs"`
-}
 
 func TestPackageManifestCreate(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
@@ -86,9 +68,7 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	messages := logSubHook.ConsumeMessages()
 	require.NotEmpty(t, messages)
 	for _, message := range messages {
-		if message.Level == logrus.WarnLevel {
-			assert.NotContains(t, message.Message, "Duplicate installed package ID")
-		}
+		assert.NotContains(t, message.Message, "Duplicate installed package ID")
 	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
@@ -101,7 +81,7 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 		expectedPackages,
 		nil, /* expectedAbsentNames */
 	)
-	actualNevras := verifyRpmManifestPackages(t, baseImageInfo.Distro, manifestPackages)
+	actualNevras := verifyRpmManifestPackages(t, manifestPackages)
 
 	rpmQueryOutput, _, err := shell.
 		NewExecBuilder("rpm", "-qa", "--queryformat", `%|ARCH?{%{NEVRA}\n}:{}|`).
@@ -161,9 +141,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 	messages := logSubHook.ConsumeMessages()
 	require.NotEmpty(t, messages)
 	for _, message := range messages {
-		if message.Level == logrus.WarnLevel {
-			assert.NotContains(t, message.Message, "Duplicate installed package ID")
-		}
+		assert.NotContains(t, message.Message, "Duplicate installed package ID")
 	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
@@ -176,7 +154,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 		expectedPackages,
 		[]string{"rpm", "tdnf", "dnf5"}, /* expectedAbsentNames */
 	)
-	verifyRpmManifestPackages(t, baseImageInfo.Distro, manifestPackages)
+	verifyRpmManifestPackages(t, manifestPackages)
 
 	outBytes, err := os.ReadFile(outManifestFilePath)
 	assert.NoError(t, err)
@@ -229,7 +207,7 @@ func chrootWithManifest(t *testing.T, manifest string) *safechroot.Chroot {
 
 func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPackages map[string]string,
 	expectedAbsentNames []string,
-) ([]byte, []packageManifestTestPackage) {
+) ([]byte, []*spdx.Package) {
 	t.Helper()
 
 	manifestBytes, err := os.ReadFile(filepath.Join(rootDir, packageManifestPath))
@@ -247,52 +225,47 @@ func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPa
 		expectedVersion += "+" + buildID
 	}
 
-	var document struct {
-		Name              string `json:"name"`
-		DocumentNamespace string `json:"documentNamespace"`
-		CreationInfo      struct {
-			Created  string   `json:"created"`
-			Creators []string `json:"creators"`
-		} `json:"creationInfo"`
-		Packages []packageManifestTestPackage `json:"packages"`
-	}
+	var document spdx.Document
 	require.NoError(t, json.Unmarshal(manifestBytes, &document))
 
-	assert.Equal(t, name, document.Name)
+	assert.Equal(t, name, document.DocumentName)
 	assert.NotEmpty(t, document.DocumentNamespace)
-	assert.Equal(t, len(document.CreationInfo.Creators), 1)
+	require.NotNil(t, document.CreationInfo)
+	assert.Len(t, document.CreationInfo.Creators, 1)
 	_, err = time.Parse(time.RFC3339, document.CreationInfo.Created)
 	assert.NoError(t, err)
 
 	rootCount := 0
 	packageNames := []string{}
-	manifestPackages := []packageManifestTestPackage{}
+	manifestPackages := []*spdx.Package{}
 	for _, manifestPackage := range document.Packages {
-		if manifestPackage.SPDXID == "SPDXRef-DocumentRoot" {
+		if manifestPackage.PackageSPDXIdentifier == "DocumentRoot" {
 			rootCount++
-			assert.Equal(t, name, manifestPackage.Name)
-			assert.Equal(t, "NOASSERTION", manifestPackage.Supplier)
-			assert.Equal(t, expectedVersion, manifestPackage.VersionInfo)
+			assert.Equal(t, name, manifestPackage.PackageName)
+			require.NotNil(t, manifestPackage.PackageSupplier)
+			assert.Equal(t, "NOASSERTION", manifestPackage.PackageSupplier.Supplier)
+			assert.Equal(t, expectedVersion, manifestPackage.PackageVersion)
 			continue
 		}
 
-		packageNames = append(packageNames, manifestPackage.Name)
-		if expectedVersion := expectedPackages[manifestPackage.Name]; expectedVersion != "" {
-			assert.Equal(t, expectedVersion, manifestPackage.VersionInfo, manifestPackage.Name)
+		packageNames = append(packageNames, manifestPackage.PackageName)
+		if expectedVersion := expectedPackages[manifestPackage.PackageName]; expectedVersion != "" {
+			assert.Equal(t, expectedVersion, manifestPackage.PackageVersion, manifestPackage.PackageName)
 		}
 
-		if !assert.Len(t, manifestPackage.ExternalRefs, 1, manifestPackage.Name) {
+		if !assert.Len(t, manifestPackage.PackageExternalReferences, 1, manifestPackage.PackageName) {
 			continue
 		}
-		assert.Equal(t, "PACKAGE_MANAGER", manifestPackage.ExternalRefs[0].ReferenceCategory, manifestPackage.Name)
-		assert.Equal(t, "purl", manifestPackage.ExternalRefs[0].ReferenceType, manifestPackage.Name)
+		externalReference := manifestPackage.PackageExternalReferences[0]
+		assert.Equal(t, "PACKAGE_MANAGER", externalReference.Category, manifestPackage.PackageName)
+		assert.Equal(t, "purl", externalReference.RefType, manifestPackage.PackageName)
 
-		packageURL, err := url.Parse(manifestPackage.ExternalRefs[0].ReferenceLocator)
-		if !assert.NoError(t, err, manifestPackage.Name) {
+		packageURL, err := url.Parse(externalReference.Locator)
+		if !assert.NoError(t, err, manifestPackage.PackageName) {
 			continue
 		}
-		assert.Equal(t, "pkg", packageURL.Scheme, manifestPackage.Name)
-		assert.NotEmpty(t, packageURL.Opaque, manifestPackage.Name)
+		assert.Equal(t, "pkg", packageURL.Scheme, manifestPackage.PackageName)
+		assert.NotEmpty(t, packageURL.Opaque, manifestPackage.PackageName)
 		manifestPackages = append(manifestPackages, manifestPackage)
 	}
 
@@ -307,32 +280,21 @@ func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPa
 	return manifestBytes, manifestPackages
 }
 
-func verifyRpmManifestPackages(t *testing.T, namespace string, packages []packageManifestTestPackage) []string {
+func verifyRpmManifestPackages(t *testing.T, packages []*spdx.Package) []string {
 	t.Helper()
 	nevras := []string{}
 	for _, pkg := range packages {
-		packageURL, err := url.Parse(pkg.ExternalRefs[0].ReferenceLocator)
-		require.NoError(t, err, pkg.Name)
+		require.Len(t, pkg.PackageExternalReferences, 1, pkg.PackageName)
+		packageURL, err := url.Parse(pkg.PackageExternalReferences[0].Locator)
+		require.NoError(t, err, pkg.PackageName)
 
 		qualifiers, err := url.ParseQuery(packageURL.RawQuery)
-		if !assert.NoError(t, err, pkg.Name) {
+		if !assert.NoError(t, err, pkg.PackageName) {
 			continue
 		}
-		assert.NotEmpty(t, qualifiers.Get("arch"), pkg.Name)
+		assert.NotEmpty(t, qualifiers.Get("arch"), pkg.PackageName)
 
-		packageIdentity, err := url.PathUnescape(packageURL.Opaque)
-		assert.NoError(t, err, pkg.Name)
-
-		version := pkg.VersionInfo
-		epoch := ""
-		if parsedEpoch, parsedVersion, found := strings.Cut(version, ":"); found {
-			epoch, version = parsedEpoch, parsedVersion
-		}
-
-		assert.Equal(t, fmt.Sprintf("rpm/%s/%s@%s", namespace, pkg.Name, version), packageIdentity)
-		assert.Equal(t, epoch, qualifiers.Get("epoch"), pkg.Name)
-
-		nevra := pkg.Name + "-" + pkg.VersionInfo + "." + qualifiers.Get("arch")
+		nevra := pkg.PackageName + "-" + pkg.PackageVersion + "." + qualifiers.Get("arch")
 		assert.NotContains(t, nevras, nevra, "duplicate package")
 		nevras = append(nevras, nevra)
 	}
@@ -359,6 +321,11 @@ func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 	expected := map[string]any{}
 	require.NoError(t, json.Unmarshal(expectedManifest, &expected))
 	assert.Equal(t, expected, actual)
+
+	var document spdx.Document
+	require.NoError(t, json.Unmarshal(manifest, &document))
+	require.Len(t, document.Packages, len(packages)+1)
+	assert.Len(t, verifyRpmManifestPackages(t, document.Packages[1:]), len(packages))
 
 	// Check that this PURL contains a literal '&' in the serialized JSON. Unmarshaling treats
 	// '&' and '\u0026' identically, so the decoded comparison above cannot check this formatting.

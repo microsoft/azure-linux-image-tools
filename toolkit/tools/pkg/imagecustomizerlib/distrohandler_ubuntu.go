@@ -68,14 +68,6 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
-func (d *ubuntuDistroHandler) GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata {
-	return spdxmanifest.BuildMetadata{
-		Name:        string(d.targetOs.Distro),
-		VersionInfo: d.targetOs.PackageManifestVersionInfo,
-		Created:     created,
-	}
-}
-
 func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
 		return ErrPreviewDistroVersionFeatureRequired
@@ -170,7 +162,7 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootDeb(imageChroot)
 }
 
-func (d *ubuntuDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+func (d *ubuntuDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
 ) ([]spdxmanifest.Package, error) {
 	return nil, ErrUnsupportedPackageManifestCreate
 }

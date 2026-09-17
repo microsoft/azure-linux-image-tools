@@ -362,7 +362,7 @@ func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabas
 		}
 
 		if _, found := installedIds[manifestPackage.ID]; found {
-			logger.Log.Warnf("Duplicate installed package ID (id='%s')", manifestPackage.ID)
+			logger.Log.Infof("Duplicate installed package ID (id='%s')", manifestPackage.ID)
 		}
 		installedIds[manifestPackage.ID] = struct{}{}
 		installedPackages = append(installedPackages, manifestPackage)

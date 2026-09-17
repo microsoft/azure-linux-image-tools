@@ -14,7 +14,11 @@ Added in v0.3.
 
 ## postCustomization [[script](./script.md)[]]
 
-Scripts to run after all the in-built customization steps have run.
+Scripts to run after the main in-built customization steps, before package-manager
+removal and package manifest creation.
+
+Package changes made by these scripts are included when
+[os.packages.manifest.mode](./packageManifest.md#mode-string) is `create`.
 
 These scripts are run under a chroot of the customized OS.
 
@@ -42,7 +46,8 @@ In particular, these scripts run after:
 3. The package manager has been removed (if specified)
 
 4. The package manifest at `/usr/share/os-manifests/package-manifest.spdx.json` has
-   been created (if specified)
+  been created, preserved, or removed according to
+  [os.packages.manifest.mode](./packageManifest.md#mode-string), if specified
 
 but before the conversion to the requested output type.
 (See, [Operation ordering](./configuration.md#operation-ordering) for details.)

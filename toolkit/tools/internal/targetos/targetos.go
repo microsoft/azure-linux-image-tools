@@ -30,11 +30,6 @@ type TargetOs struct {
 	// Version is the parsed version of VersionId, which can be used for version comparisons.
 	// Value is nil if VersionId is not a valid version string.
 	Version version.Version
-
-	// PackageManifestVersionInfo is the versionInfo of the root package of the SPDX 2.2 package manifest,
-	// composed from os-release VERSION with "+BUILD_ID" appended when BUILD_ID is set.
-	// It is empty if VERSION is not set.
-	PackageManifestVersionInfo string
 }
 
 var (
@@ -173,11 +168,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 	distroId := fields["ID"]
 	versionId := fields["VERSION_ID"]
 
-	packageManifestVersionInfo := fields["VERSION"]
-	if packageManifestVersionInfo != "" && fields["BUILD_ID"] != "" {
-		packageManifestVersionInfo += "+" + fields["BUILD_ID"]
-	}
-
 	version, _ := version.ParseBasicVersion(versionId)
 
 	switch distroId {
@@ -186,8 +176,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 			Distro:    AzureLinux,
 			VersionId: versionId,
 			Version:   version,
-
-			PackageManifestVersionInfo: packageManifestVersionInfo,
 		}, nil
 
 	case "azurelinux":
@@ -201,8 +189,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 				Distro:    AzureContainerLinux,
 				VersionId: versionId,
 				Version:   version,
-
-				PackageManifestVersionInfo: packageManifestVersionInfo,
 			}, nil
 
 		default:
@@ -211,8 +197,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 				Distro:    AzureLinux,
 				VersionId: versionId,
 				Version:   version,
-
-				PackageManifestVersionInfo: packageManifestVersionInfo,
 			}, nil
 		}
 
@@ -221,8 +205,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 			Distro:    Fedora,
 			VersionId: versionId,
 			Version:   version,
-
-			PackageManifestVersionInfo: packageManifestVersionInfo,
 		}, nil
 
 	case "ubuntu":
@@ -230,8 +212,6 @@ func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, erro
 			Distro:    Ubuntu,
 			VersionId: versionId,
 			Version:   version,
-
-			PackageManifestVersionInfo: packageManifestVersionInfo,
 		}, nil
 
 	default:

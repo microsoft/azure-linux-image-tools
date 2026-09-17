@@ -20,6 +20,8 @@ func RpmPackageURL(namespace string, name string, epoch *int, version string, re
 }
 
 func purlEncode(componentData string) string {
-	// QueryEscape encodes spaces as '+', but PURL components require '%20'.
-	return strings.ReplaceAll(url.QueryEscape(componentData), "+", "%20")
+	// PUL component data must encode '+' and '@', but PathEscape leaves them unescaped, so it can't be used.
+	// QueryEscape encodes both, but uses '+' for spaces and '%3A' for colons,
+	// but  PURL needs the reverse encoding: '%20' for spaces and a literal ':' for colons (ECMA-427, section 5.4).
+	return strings.ReplaceAll(strings.ReplaceAll(url.QueryEscape(componentData), "+", "%20"), "%3A", ":")
 }

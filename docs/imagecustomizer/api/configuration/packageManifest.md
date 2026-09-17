@@ -50,23 +50,10 @@ Supported values:
 
 - `none`: Remove the manifest if the base image has one.
 
-### Generated manifest
-
-Under `create`, the manifest is rebuilt using the current build timestamp,
-even if the package set is unchanged.
-
-The document `name` is the distribution's identifier.
-Its `documentNamespace` is deterministic for the document `name`, the root package's
-`versionInfo`, and the installed package NEVRAs sorted in ascending order.
-
-The root package's `name` is the distribution's identifier, its `supplier` is
-always `NOASSERTION`, and its `versionInfo` is the base image's `VERSION`, with
-`+<BUILD_ID>` appended if `BUILD_ID` is specified. These values are captured during
-target OS detection from `/etc/os-release`, falling back to `/usr/lib/os-release`
-if it is absent.
-
-Each package's `supplier` is `Organization: <RPM vendor>` or
-`NOASSERTION` if the RPM has no vendor specified.
+There is no default mode. If the base image has a manifest, removing the
+package manager is requested, or a manifest output path is specified,
+an explicit mode is required. Otherwise, `os.packages.manifest` may be omitted,
+in which case Image Customizer will not do anything.
 
 Example:
 

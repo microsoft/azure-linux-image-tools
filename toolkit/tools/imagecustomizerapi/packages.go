@@ -3,6 +3,8 @@
 
 package imagecustomizerapi
 
+import "fmt"
+
 type Packages struct {
 	UpdateExistingPackages bool                `yaml:"updateExistingPackages" json:"updateExistingPackages,omitempty"`
 	InstallLists           []string            `yaml:"installLists" json:"-"`
@@ -14,4 +16,18 @@ type Packages struct {
 	SnapshotTime           PackageSnapshotTime `yaml:"snapshotTime" json:"snapshotTime,omitempty"`
 	RemovePackageManager   *bool               `yaml:"removePackageManager" json:"removePackageManager,omitempty"`
 	Manifest               *PackageManifest    `yaml:"manifest" json:"manifest,omitempty"`
+}
+
+func (packages *Packages) IsValid() error {
+	if err := packages.SnapshotTime.IsValid(); err != nil {
+		return fmt.Errorf("invalid package snapshot time:\n%w", err)
+	}
+
+	if packages.Manifest != nil {
+		if err := packages.Manifest.IsValid(); err != nil {
+			return fmt.Errorf("invalid package manifest:\n%w", err)
+		}
+	}
+
+	return nil
 }

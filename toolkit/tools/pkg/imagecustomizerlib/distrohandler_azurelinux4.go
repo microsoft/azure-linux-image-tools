@@ -95,14 +95,6 @@ func (d *azureLinux4DistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
-func (d *azureLinux4DistroHandler) GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata {
-	return spdxmanifest.BuildMetadata{
-		Name:        string(d.targetOs.Distro),
-		VersionInfo: d.targetOs.PackageManifestVersionInfo,
-		Created:     created,
-	}
-}
-
 func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	switch d.targetOs.VersionId {
 	case "4.0":
@@ -173,7 +165,7 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
-func (d *azureLinux4DistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
+func (d *azureLinux4DistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
 ) ([]spdxmanifest.Package, error) {
 	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl4, purlNamespaceAzureLinux)
 }

@@ -1181,16 +1181,14 @@ func validatePackageManifestMode(configChain []*ConfigWithBasePath, outputPackag
 		return packageManifestMode, ErrPackageManifestRemovalModeRequired
 	}
 
-	if outputPackageManifestPath == "" {
-		return packageManifestMode, nil
-	}
+	if outputPackageManifestPath != "" {
+		switch packageManifestMode {
+		case imagecustomizerapi.PackageManifestModeUnspecified:
+			return packageManifestMode, ErrPackageManifestOutputModeRequired
 
-	switch packageManifestMode {
-	case imagecustomizerapi.PackageManifestModeUnspecified:
-		return packageManifestMode, ErrPackageManifestOutputModeRequired
-
-	case imagecustomizerapi.PackageManifestModeNone:
-		return packageManifestMode, ErrPackageManifestOutputWithModeNone
+		case imagecustomizerapi.PackageManifestModeNone:
+			return packageManifestMode, ErrPackageManifestOutputWithModeNone
+		}
 	}
 
 	return packageManifestMode, nil

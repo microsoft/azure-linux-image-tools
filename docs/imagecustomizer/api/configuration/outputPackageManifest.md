@@ -15,6 +15,10 @@ Specifies the configuration for the package manifest output file.
 Example:
 
 ```yaml
+os:
+  packages:
+    manifest:
+      mode: create
 output:
   packageManifest:
     path: ./out/package-manifest.spdx.json
