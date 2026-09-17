@@ -74,11 +74,6 @@ func newRpmPackage(name string, epoch string, version string, release string, ar
 			ErrInvalidName, version, release)
 	}
 
-	// rpm tag 1003: "An absent epoch is equal to epoch value 0".
-	if epoch == "0" {
-		epoch = ""
-	}
-
 	if version == "" {
 		return RpmPackage{}, fmt.Errorf("%w, expected a non-empty version (name='%s')", ErrInvalidVersion, name)
 	}
