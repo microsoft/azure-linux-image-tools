@@ -233,6 +233,16 @@ func TestCopyDirPreservesSymlinks(t *testing.T) {
 	assertSymlink("dangling.txt", "/does/not/exist/on/host")
 	assertSymlink("abs.txt", absTarget)
 	assertSymlink("dirlink", "realdir")
+
+	// Re-running the copy into the same destination must overwrite the existing
+	// entries (symlinks included) rather than failing with EEXIST.
+	err = CopyDirWithOptions(src, dst, newDirPermissions, childFilePermissions, nil,
+		CopyDirOptions{NoDereference: true})
+	if !assert.NoError(t, err) {
+		return
+	}
+	assertSymlink("link.txt", "target.txt")
+	assertSymlink("dangling.txt", "/does/not/exist/on/host")
 }
 
 func createTestFiles(filename string, outputDir string) error {

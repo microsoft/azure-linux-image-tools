@@ -171,7 +171,7 @@ Supported options:
 - `preserve-symlinks`: Enables the
   ([os.additionalDirs[].symlinkMode: preserve](./dirconfig.md#symlinkmode-string)) API.
 
-  Added in v1.8.
+  Added in v1.7.
 
 ## output [[output](./output.md)]
 
