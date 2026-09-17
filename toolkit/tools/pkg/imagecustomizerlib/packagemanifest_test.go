@@ -207,6 +207,17 @@ func TestSubtractPackages(t *testing.T) {
 	}
 }
 
+func TestSubtractPackagesExplicitZeroEpoch(t *testing.T) {
+	packageID := "rpm-0:4.18.2-2.azl3.x86_64"
+	packages, err := parseRpmPackageList(packageID + "\tMicrosoft Corporation\n")
+	require.NoError(t, err)
+	require.Len(t, packages, 1)
+	installed := []spdxmanifest.Package{newManifestPackageFromRpmPackage(packages[0], "azurelinux")}
+	remaining, err := subtractPackages(installed, []string{packageID})
+	require.NoError(t, err)
+	assert.Empty(t, remaining)
+}
+
 func chrootWithManifest(t *testing.T, manifest string) *safechroot.Chroot {
 	t.Helper()
 	rootDir := t.TempDir()
@@ -358,8 +369,9 @@ func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 
 	actual := map[string]any{}
 	require.NoError(t, json.Unmarshal(manifest, &actual))
+	expectedManifest := goldenManifest(t)
 	expected := map[string]any{}
-	require.NoError(t, json.Unmarshal(goldenManifest(t), &expected))
+	require.NoError(t, json.Unmarshal(expectedManifest, &expected))
 	assert.Equal(t, expected, actual)
 
 	// Check that this PURL contains a literal '&' in the serialized JSON. Unmarshaling treats
