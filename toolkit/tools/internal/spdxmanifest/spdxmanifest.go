@@ -6,33 +6,35 @@ package spdxmanifest
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	spdxjson "github.com/spdx/tools-golang/json"
+	spdxcommon "github.com/spdx/tools-golang/spdx/v2/common"
+	spdx "github.com/spdx/tools-golang/spdx/v2/v2_2"
+	spdxreader "github.com/spdx/tools-golang/spdx/v2/v2_2/rdf/reader"
 )
 
 const (
-	spdxVersion = "SPDX-2.2"
-	dataLicense = "CC0-1.0"
-	documentID  = "SPDXRef-DOCUMENT"
-	rootID      = "SPDXRef-DocumentRoot"
+	// documentID is the required SPDX document identifier.
+	documentID = "DOCUMENT"
 
-	// Annex F registers purl under the PACKAGE-MANAGER category.
-	referenceCategory = "PACKAGE-MANAGER"
+	// rootID identifies the root package representing the OS image.
+	rootID = "DocumentRoot"
+
+	// Annex F registers purl under the PACKAGE_MANAGER category.
+	referenceCategory = "PACKAGE_MANAGER"
 	referenceType     = "purl"
 
-	describesRelationship = "DESCRIBES"
-	containsRelationship  = "CONTAINS"
-
 	// Stands in for a field whose value the document creator has not determined.
-	NoAssertion = "NOASSERTION"
+	noAssertion = string(spdxreader.NOASSERTION)
 
 	// Vendorless packages use NOASSERTION, so NTIA conformance is not guaranteed.
-	supplierOrganizationPrefix = "Organization: "
+	supplierOrganization = "Organization"
 
 	// The namespace need not resolve. It only has to be a unique URI for the document.
 	documentNamespaceBase = "https://azurelinux.microsoft.com/spdxdocs"
@@ -68,93 +70,94 @@ func Build(options BuildOptions, packages []Package) ([]byte, error) {
 		return strings.Compare(first.ID, second.ID)
 	})
 
-	spdxPackages := []any{
-		map[string]any{
-			"SPDXID":           rootID,
-			"name":             options.Name,
-			"versionInfo":      options.VersionInfo,
-			"supplier":         NoAssertion,
-			"downloadLocation": NoAssertion,
-			"filesAnalyzed":    false,
-			"licenseConcluded": NoAssertion,
-			"licenseDeclared":  NoAssertion,
-			"copyrightText":    NoAssertion,
+	spdxPackages := []*spdx.Package{
+		{
+			PackageSPDXIdentifier:   rootID,
+			PackageName:             options.Name,
+			PackageVersion:          options.VersionInfo,
+			PackageSupplier:         &spdxcommon.Supplier{Supplier: noAssertion},
+			PackageDownloadLocation: noAssertion,
+			FilesAnalyzed:           false,
+			PackageLicenseConcluded: noAssertion,
+			PackageLicenseDeclared:  noAssertion,
+			PackageCopyrightText:    noAssertion,
 		},
 	}
 
-	spdxRelationships := []any{
-		map[string]any{
-			"spdxElementId":      documentID,
-			"relatedSpdxElement": rootID,
-			"relationshipType":   describesRelationship,
+	spdxRelationships := []*spdx.Relationship{
+		{
+			RefA:         spdxcommon.DocElementID{ElementRefID: documentID},
+			RefB:         spdxcommon.DocElementID{ElementRefID: rootID},
+			Relationship: spdxcommon.TypeRelationshipDescribe,
 		},
 	}
 
 	for index, pkg := range sortedPackages {
-		spdxID := fmt.Sprintf("SPDXRef-Package-%d-%s", index, nonSpdxID.ReplaceAllString(pkg.Name, "-"))
+		pkgId := spdxcommon.ElementID(fmt.Sprintf("Package-%d-%s", index, nonSpdxID.ReplaceAllString(pkg.Name, "-")))
 
-		spdxPackages = append(spdxPackages, map[string]any{
-			"SPDXID":           spdxID,
-			"name":             pkg.Name,
-			"versionInfo":      pkg.Version,
-			"supplier":         packageSupplier(pkg),
-			"downloadLocation": NoAssertion,
-			"filesAnalyzed":    false,
-			"licenseConcluded": NoAssertion,
-			"licenseDeclared":  NoAssertion,
-			"copyrightText":    NoAssertion,
-			"externalRefs": []any{
-				map[string]any{
-					"referenceCategory": referenceCategory,
-					"referenceType":     referenceType,
-					"referenceLocator":  pkg.Purl,
+		spdxPackages = append(spdxPackages, &spdx.Package{
+			PackageSPDXIdentifier:   pkgId,
+			PackageName:             pkg.Name,
+			PackageVersion:          pkg.Version,
+			PackageSupplier:         packageSupplier(pkg),
+			PackageDownloadLocation: noAssertion,
+			FilesAnalyzed:           false,
+			PackageLicenseConcluded: noAssertion,
+			PackageLicenseDeclared:  noAssertion,
+			PackageCopyrightText:    noAssertion,
+			PackageExternalReferences: []*spdx.PackageExternalReference{
+				{
+					Category: referenceCategory,
+					RefType:  referenceType,
+					Locator:  pkg.Purl,
 				},
 			},
 		})
 
-		spdxRelationships = append(spdxRelationships, map[string]any{
-			"spdxElementId":      rootID,
-			"relatedSpdxElement": spdxID,
-			"relationshipType":   containsRelationship,
+		spdxRelationships = append(spdxRelationships, &spdx.Relationship{
+			RefA:         spdxcommon.DocElementID{ElementRefID: rootID},
+			RefB:         spdxcommon.DocElementID{ElementRefID: pkgId},
+			Relationship: spdxcommon.TypeRelationshipContains,
 		})
 	}
 
-	spdxDocument := map[string]any{
-		"spdxVersion":       spdxVersion,
-		"SPDXID":            documentID,
-		"name":              options.Name,
-		"documentNamespace": documentNamespace(options.Name, options.VersionInfo, sortedPackages),
-		"documentDescribes": []any{rootID},
-		"dataLicense":       dataLicense,
-		"creationInfo": map[string]any{
-			"created":  options.Created,
-			"creators": []any{"Tool: imagecustomizer-" + options.ToolVersion},
+	spdxDocument := spdx.Document{
+		SPDXVersion:       spdx.Version,
+		SPDXIdentifier:    documentID,
+		DocumentName:      options.Name,
+		DocumentNamespace: documentNamespace(options.Name, options.VersionInfo, sortedPackages),
+		DataLicense:       spdx.DataLicense,
+		CreationInfo: &spdx.CreationInfo{
+			Created:  options.Created,
+			Creators: []spdxcommon.Creator{{CreatorType: "Tool", Creator: "imagecustomizer-" + options.ToolVersion}},
 		},
-		"packages":      spdxPackages,
-		"relationships": spdxRelationships,
+		Packages:      spdxPackages,
+		Relationships: spdxRelationships,
 	}
 
 	buffer := &bytes.Buffer{}
-	encoder := json.NewEncoder(buffer)
 
 	// Package URLs carry '&' between qualifiers, which the default HTML escaping would mangle into \u0026.
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-
-	err := encoder.Encode(spdxDocument)
+	err := spdxjson.Write(spdxDocument, buffer, spdxjson.Indent("  "), spdxjson.EscapeHTML(false))
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode package manifest:\n%w", err)
+		return nil, fmt.Errorf("failed to write package manifest:\n%w", err)
 	}
 
 	return buffer.Bytes(), nil
 }
 
-func packageSupplier(packageInfo Package) string {
-	if packageInfo.Vendor == "" {
-		return NoAssertion
+func packageSupplier(pkg Package) *spdxcommon.Supplier {
+	if pkg.Vendor == noAssertion {
+		logger.Log.Warnf("Clearing vendor (%s) for package (%s): Reserved SPDX keyword and cannot be used",
+			pkg.Vendor, pkg.Name)
+		pkg.Vendor = ""
 	}
 
-	return supplierOrganizationPrefix + packageInfo.Vendor
+	if pkg.Vendor == "" {
+		return &spdxcommon.Supplier{Supplier: noAssertion}
+	}
+
+	return &spdxcommon.Supplier{SupplierType: supplierOrganization, Supplier: pkg.Vendor}
 }
 
 // documentNamespace uses UUID version 5 (SHA-1) with the name, version, and ordered package IDs as its seed.

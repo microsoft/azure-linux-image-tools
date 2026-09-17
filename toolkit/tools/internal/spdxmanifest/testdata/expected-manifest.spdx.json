@@ -7,9 +7,6 @@
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentDescribes": [
-    "SPDXRef-DocumentRoot"
-  ],
   "documentNamespace": "https://azurelinux.microsoft.com/spdxdocs/azurecontainerlinux-aa795c73-97d7-57e3-8910-e6dea02de352",
   "name": "azurecontainerlinux",
   "packages": [
@@ -30,7 +27,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/azurelinux-release@3.0-49.azl3?arch=noarch",
           "referenceType": "purl"
         }
@@ -48,7 +45,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/bash@5.2.15-3.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -66,7 +63,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/ca-certificates-shared@3.0.0-15.azl3?arch=noarch",
           "referenceType": "purl"
         }
@@ -84,7 +81,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/coreutils@9.4-7.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -102,7 +99,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/device-mapper-event-libs@2.03.23-1.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -120,7 +117,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/e2fsprogs-libs@1.47.0-2.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -138,7 +135,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/elfutils-default-yama-scope@0.189-6.azl3?arch=noarch",
           "referenceType": "purl"
         }
@@ -156,7 +153,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/filesystem@1.1-21.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -174,7 +171,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/glibc@2.38-20.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -192,7 +189,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/iscsi-initiator-utils-iscsiuio@2.1.9-1.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -210,7 +207,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/kernel@6.6.145.2-1.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -228,7 +225,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/libstdc%2B%2B@13.2.0-7.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -246,7 +243,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/lshw@B.02.20-1.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -264,7 +261,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/openssl-libs@3.3.7-4.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -282,7 +279,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/python3-libs@3.12.9-6.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -300,7 +297,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/sed@4.9-2.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -318,7 +315,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/shadow-utils-subid@4.14.3-2.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -336,7 +333,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/systemd@255-33.azl3?arch=x86_64",
           "referenceType": "purl"
         }
@@ -354,7 +351,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/systemd-rpm-macros@255-33.azl3?arch=noarch",
           "referenceType": "purl"
         }
@@ -372,7 +369,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/tzdata@2025c-2.azl3?arch=noarch",
           "referenceType": "purl"
         }
@@ -390,7 +387,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/zlib@1.3.1-1.azl3?arch=aarch64",
           "referenceType": "purl"
         }
@@ -408,7 +405,7 @@
       "downloadLocation": "NOASSERTION",
       "externalRefs": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceCategory": "PACKAGE_MANAGER",
           "referenceLocator": "pkg:rpm/azurelinux/zlib@1.3.1-1.azl3?arch=x86_64&epoch=1",
           "referenceType": "purl"
         }
