@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 
+	rpmdb "github.com/anchore/go-rpmdb/pkg"
+	_ "github.com/glebarez/go-sqlite"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -16,128 +21,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/sirupsen/logrus"
 )
-
-const (
-	// The ARCH guard excludes gpg-pubkey entries, which are signing keys rather than installed packages.
-	rpmQueryFormat = `%|ARCH?{%{NEVRA}\t%{VENDOR}\n}:{}|`
-
-	// rpmTagNone is what rpm's query format prints for a tag the package does not carry.
-	rpmTagNone = "(none)"
-
-	rpmQueryColumns = 2
-)
-
-var (
-	ErrInvalidName            = errors.New("invalid RPM package name")
-	ErrInvalidVersion         = errors.New("invalid RPM package version")
-	ErrInvalidRelease         = errors.New("invalid RPM package release")
-	ErrInvalidArch            = errors.New("invalid RPM package architecture")
-	ErrNevraArchSeparator     = errors.New("missing architecture separator in RPM NEVRA")
-	ErrNevraReleaseSeparator  = errors.New("missing release separator in RPM NEVRA")
-	ErrNevraVersionSeparator  = errors.New("missing version separator in RPM NEVRA")
-	ErrInvalidRpmQueryColumns = errors.New("expected '<nevra>\\t<vendor>'")
-)
-
-// RpmPackage is an installed RPM, identified by its name, epoch, version, release and architecture.
-// Vendor is not identifying information, but is included in the RPM query output.
-type RpmPackage struct {
-	Name    string
-	Epoch   string
-	Version string
-	Release string
-	Arch    string
-	Vendor  string
-}
-
-// Evr renders the package's "[epoch:]version-release".
-func (packageInfo RpmPackage) Evr() string {
-	if packageInfo.Epoch == "" {
-		return packageInfo.Version + "-" + packageInfo.Release
-	}
-
-	return packageInfo.Epoch + ":" + packageInfo.Version + "-" + packageInfo.Release
-}
-
-// Nevra renders the package's "name-[epoch:]version-release.arch".
-func (packageInfo RpmPackage) Nevra() string {
-	return packageInfo.Name + "-" + packageInfo.Evr() + "." + packageInfo.Arch
-}
-
-func (packageInfo RpmPackage) Nvra() string {
-	return packageInfo.Name + "-" + packageInfo.Version + "-" + packageInfo.Release + "." + packageInfo.Arch
-}
-
-// newRpmPackage builds an RpmPackage from its name, epoch, version, release, architecture, and vendor.
-func newRpmPackage(name string, epoch string, version string, release string, arch string, vendor string) (RpmPackage, error) {
-	if name == "" {
-		return RpmPackage{}, fmt.Errorf("%w, expected a non-empty name (version='%s', release='%s')",
-			ErrInvalidName, version, release)
-	}
-
-	if version == "" {
-		return RpmPackage{}, fmt.Errorf("%w, expected a non-empty version (name='%s')", ErrInvalidVersion, name)
-	}
-
-	if release == "" {
-		return RpmPackage{}, fmt.Errorf("%w, expected a non-empty release (name='%s')", ErrInvalidRelease, name)
-	}
-
-	if arch == "" {
-		return RpmPackage{}, fmt.Errorf("%w, expected a non-empty architecture (name='%s')", ErrInvalidArch, name)
-	}
-
-	vendor = strings.TrimSpace(vendor)
-	if vendor == rpmTagNone {
-		vendor = ""
-	}
-
-	return RpmPackage{
-		Name:    name,
-		Epoch:   epoch,
-		Version: version,
-		Release: release,
-		Arch:    arch,
-		Vendor:  vendor,
-	}, nil
-}
-
-// newRpmPackageFromNevra builds an RpmPackage from a "name-[epoch:]version-release.arch" NEVRA string.
-func newRpmPackageFromNevra(nevra string, vendor string) (RpmPackage, error) {
-	nevra = strings.TrimSpace(nevra)
-
-	archIndex := strings.LastIndex(nevra, ".")
-	if archIndex < 0 {
-		return RpmPackage{}, fmt.Errorf("%w, expected 'name-[epoch:]version-release.arch' (nevra='%s')",
-			ErrNevraArchSeparator, nevra)
-	}
-
-	nevr, arch := nevra[:archIndex], nevra[archIndex+1:]
-
-	// The epoch, version, and release cannot contain '-', so the dashes separate them unambiguously.
-	releaseIndex := strings.LastIndex(nevr, "-")
-	if releaseIndex < 0 {
-		return RpmPackage{}, fmt.Errorf("%w, expected 'name-[epoch:]version-release.arch' (nevra='%s')",
-			ErrNevraReleaseSeparator, nevra)
-	}
-
-	versionIndex := strings.LastIndex(nevr[:releaseIndex], "-")
-	if versionIndex < 0 {
-		return RpmPackage{}, fmt.Errorf("%w, expected 'name-[epoch:]version-release.arch' (nevra='%s')",
-			ErrNevraVersionSeparator, nevra)
-	}
-
-	name := nevr[:versionIndex]
-
-	epoch := ""
-	version := nevr[versionIndex+1 : releaseIndex]
-	if colon := strings.LastIndex(version, ":"); colon >= 0 {
-		epoch, version = version[:colon], version[colon+1:]
-	}
-
-	release := nevr[releaseIndex+1:]
-
-	return newRpmPackage(name, epoch, version, release, arch, vendor)
-}
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
@@ -246,7 +129,7 @@ func installRpmPackages(ctx context.Context, allPackages []string,
 
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
-	_, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackages, err)
 	}
@@ -278,7 +161,7 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
-	_, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, allPackages, err)
 	}
@@ -305,7 +188,7 @@ func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chro
 
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
-	_, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
@@ -328,7 +211,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 	args := getRpmRemoveArgs(pmHandler, toolsChroot, allPackagesToRemove,
 		false /* removeProtectedPackages */)
 
-	_, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
@@ -363,7 +246,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
-	_, err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		// For DNF/TDNF check-update, exit code 100 means updates are available
 		var exitErr *exec.ExitError
@@ -389,7 +272,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
-	_, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 	}
@@ -439,93 +322,100 @@ func getRpmChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroo
 	return toolsChroot
 }
 
-func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
-	purlNamespace string,
+func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabasePath string, purlNamespace string,
 ) ([]spdxmanifest.Package, error) {
-	args := []string{"-qa", "--queryformat", rpmQueryFormat}
-	args = append(getRpmRootArgs(toolsChroot), args...)
-	chroot := getRpmChroot(imageChroot, toolsChroot)
+	databasePath := filepath.Join(imageChroot.RootDir(), rpmDatabasePath)
 
-	// Query RPM directly because tdnf does not report the package vendor.
-	out, _, err := shell.NewExecBuilder("rpm", args...).
-		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
-		ExecuteCaptureOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the image's installed packages:\n%w", err)
+	walInfo, err := os.Stat(databasePath + "-wal")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if err == nil && walInfo.Size() != 0 {
+		return nil, fmt.Errorf("cannot read RPM database with a nonempty WAL (path='%s')", databasePath)
 	}
 
-	packages, err := parseRpmPackageList(out)
+	database, err := rpmdb.Open(databasePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open RPM database (path='%s'):\n%w", databasePath, err)
+	}
+	defer database.Close()
+
+	packages, err := database.ListPackages()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list RPM database packages (path='%s'):\n%w", databasePath, err)
+	}
+	if err := database.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close RPM database (path='%s'):\n%w", databasePath, err)
 	}
 
 	installedPackages := make([]spdxmanifest.Package, 0, len(packages))
+	installedIds := make(map[string]struct{}, len(packages))
 	for _, packageInfo := range packages {
-		installedPackages = append(installedPackages, newManifestPackageFromRpmPackage(packageInfo, purlNamespace))
-	}
-	return installedPackages, nil
-}
-
-// parseRpmPackageList reads the lines `rpm -qa --qf rpmQueryFormat` writes to stdout.
-func parseRpmPackageList(output string) ([]RpmPackage, error) {
-	packages := []RpmPackage(nil)
-
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		if packageInfo.Arch == "" {
+			logger.Log.Debugf("Skipping RPM record without architecture (name='%s', version='%s', release='%s')",
+				packageInfo.Name, packageInfo.Version, packageInfo.Release)
 			continue
 		}
-
-		columns := strings.Split(line, "\t")
-		if len(columns) != rpmQueryColumns {
-			return nil, fmt.Errorf("%w (line='%s')", ErrInvalidRpmQueryColumns, line)
-		}
-
-		packageInfo, err := newRpmPackageFromNevra(columns[0], columns[1])
+		manifestPackage, err := newManifestPackageFromRpmPackage(*packageInfo, purlNamespace)
 		if err != nil {
 			return nil, err
 		}
 
-		packages = append(packages, packageInfo)
+		if _, found := installedIds[manifestPackage.ID]; found {
+			logger.Log.Warnf("Duplicate installed package ID (id='%s')", manifestPackage.ID)
+		}
+		installedIds[manifestPackage.ID] = struct{}{}
+		installedPackages = append(installedPackages, manifestPackage)
 	}
-
-	return packages, nil
+	return installedPackages, nil
 }
 
-func newManifestPackageFromRpmPackage(rpmPackage RpmPackage, namespace string) spdxmanifest.Package {
-	return spdxmanifest.Package{
-		ID:      rpmPackage.Nevra(),
-		Name:    rpmPackage.Name,
-		Version: rpmPackage.Evr(),
-		Vendor:  rpmPackage.Vendor,
-		Purl: purl.RpmPackageURL(namespace, rpmPackage.Name, rpmPackage.Version, rpmPackage.Release,
-			rpmPackage.Arch, rpmPackage.Epoch),
+func newManifestPackageFromRpmPackage(rpmPackage rpmdb.PackageInfo, namespace string) (spdxmanifest.Package, error) {
+	if rpmPackage.Name == "" || rpmPackage.Version == "" || rpmPackage.Release == "" {
+		err := fmt.Errorf("incomplete RPM package identity (name='%s', version='%s', release='%s')",
+			rpmPackage.Name, rpmPackage.Version, rpmPackage.Release)
+		return spdxmanifest.Package{}, err
 	}
+
+	evr := rpmPackage.Version + "-" + rpmPackage.Release
+	if rpmPackage.Epoch != nil {
+		evr = strconv.Itoa(*rpmPackage.Epoch) + ":" + evr
+	}
+
+	purl := purl.RpmPackageURL(namespace, rpmPackage.Name, rpmPackage.Epoch, rpmPackage.Version, rpmPackage.Release,
+		rpmPackage.Arch)
+
+	return spdxmanifest.Package{
+		ID:      fmt.Sprintf("%s-%s.%s", rpmPackage.Name, evr, rpmPackage.Arch),
+		Name:    rpmPackage.Name,
+		Version: evr,
+		Vendor:  strings.TrimSpace(rpmPackage.Vendor),
+		Purl:    purl,
+	}, nil
 }
 
 func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 	toolsChroot *safechroot.Chroot, packageManagementPackages []string,
-) ([]string, error) {
+) error {
 	packagesToRemove, err := rpmInstalledSubset(imageChroot, pmHandler, toolsChroot, packageManagementPackages)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(packagesToRemove) <= 0 {
 		// Nothing to do.
-		return []string{}, nil
+		return nil
 	}
 
 	args := getRpmRemoveArgs(pmHandler, toolsChroot, packagesToRemove,
 		true /* removeProtectedPackages */)
 
-	removedPackageIds, err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
-		return nil, fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
 	}
 
-	return removedPackageIds, nil
+	return nil
 }
 
 func getRpmRootArgs(toolsChroot *safechroot.Chroot) []string {

@@ -44,7 +44,8 @@ const (
 
 	osEspGrubDirFedora = osEspDir + "/EFI/fedora"
 
-	purlNamespaceFedora = string(targetos.Fedora)
+	purlNamespaceFedora   = string(targetos.Fedora)
+	rpmDatabasePathFedora = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var (
@@ -168,10 +169,6 @@ func (d *fedoraDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
-	if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
-		return ErrUnsupportedPackageManifestCreate
-	}
-
 	return nil
 }
 
@@ -188,7 +185,7 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 
 func (d *fedoraDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -216,9 +213,8 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *fedoraDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
-	toolsChroot *safechroot.Chroot,
 ) ([]spdxmanifest.Package, error) {
-	return nil, ErrUnsupportedPackageManifestCreate
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathFedora, purlNamespaceFedora)
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

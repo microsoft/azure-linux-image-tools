@@ -969,6 +969,7 @@ func TestGetRpmRootArgs(t *testing.T) {
 
 func TestGetRpmRemoveArgs(t *testing.T) {
 	toolsChroot := safechroot.NewChroot(t.TempDir(), true)
+
 	tests := []struct {
 		name            string
 		removeProtected bool
@@ -980,37 +981,62 @@ func TestGetRpmRemoveArgs(t *testing.T) {
 			name:            "execute in image",
 			removeProtected: true,
 			pmHandler:       newTdnfPackageManager("3.0"),
-			expected: []string{"--assumeyes", "--disablerepo", "*", "--setopt=protected_packages=",
-				"remove", "bash", "rpm"},
+			expected: []string{
+				"--assumeyes",
+				"--disablerepo", "*",
+				"--setopt=protected_packages=",
+				"remove", "bash", "rpm",
+			},
 		},
 		{
 			name:            "execute from tools chroot",
 			removeProtected: true,
 			pmHandler:       newTdnfPackageManager("3.0"),
 			toolsChroot:     toolsChroot,
-			expected: []string{"--releasever=3.0", "--installroot=/_imageroot", "--assumeyes",
-				"--disablerepo", "*", "--setopt=protected_packages=", "remove", "bash", "rpm"},
+			expected: []string{
+				"--releasever=3.0",
+				"--installroot=/_imageroot",
+				"--assumeyes",
+				"--disablerepo", "*",
+				"--setopt=protected_packages=",
+				"remove", "bash", "rpm",
+			},
 		},
 		{
 			name:            "release version from dnf handler",
 			removeProtected: true,
 			pmHandler:       newDnfPackageManager("4.0"),
 			toolsChroot:     toolsChroot,
-			expected: []string{"--releasever=4.0", "--installroot=/_imageroot", "--assumeyes",
-				"--disablerepo", "*", "--setopt=protected_packages=", "remove", "bash", "rpm"},
+			expected: []string{
+				"--releasever=4.0",
+				"--installroot=/_imageroot",
+				"--assumeyes",
+				"--disablerepo", "*",
+				"--setopt=protected_packages=",
+				"remove", "bash", "rpm",
+			},
 		},
 		{
 			// A config-requested removal must not be able to take out a protected package.
 			name:      "user removal leaves protected packages alone",
 			pmHandler: newTdnfPackageManager("3.0"),
-			expected:  []string{"--assumeyes", "--disablerepo", "*", "remove", "bash", "rpm"},
+			expected: []string{
+				"--assumeyes",
+				"--disablerepo", "*",
+				"remove", "bash", "rpm",
+			},
 		},
 		{
 			name:        "user removal from tools chroot",
 			pmHandler:   newTdnfPackageManager("3.0"),
 			toolsChroot: toolsChroot,
-			expected: []string{"--releasever=3.0", "--installroot=/_imageroot", "--assumeyes",
-				"--disablerepo", "*", "remove", "bash", "rpm"},
+			expected: []string{
+				"--releasever=3.0",
+				"--installroot=/_imageroot",
+				"--assumeyes",
+				"--disablerepo", "*",
+				"remove", "bash", "rpm",
+			},
 		},
 	}
 

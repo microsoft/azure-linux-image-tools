@@ -40,7 +40,7 @@ func (pm *dnfPackageManager) configureSnapshotTime(packageManagerChroot *safechr
 
 func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
@@ -65,12 +65,11 @@ func (pm *dnfPackageManager) executeCommand(args []string, imageChroot *safechro
 		}
 	}
 
-	err := shell.NewExecBuilder(packageManagerDNF, args...).
+	return shell.NewExecBuilder(packageManagerDNF, args...).
 		LogLevel(logrus.DebugLevel, shell.LogDisabledLevel).
 		StderrCallback(stderrCallback).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
-	return nil, err
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,

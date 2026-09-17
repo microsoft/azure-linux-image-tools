@@ -1,0 +1,14 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: packagemanifest-create-remove-package-manager-base.yaml
+
+os:
+  packages:
+    install:
+    - tree-0:1.8.0-2.azl3
+
+scripts:
+  postCustomization:
+  - content: tdnf --assumeyes install dos2unix-0:7.5.1-1.azl3

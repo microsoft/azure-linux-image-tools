@@ -140,9 +140,9 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 
 func (d *ubuntuDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	err := debRemovePackageManagerTools(imageChroot, packageManagementPackagesDeb)
-	return nil, err
+	return err
 }
 
 func (d *ubuntuDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
@@ -171,7 +171,6 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *ubuntuDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
-	toolsChroot *safechroot.Chroot,
 ) ([]spdxmanifest.Package, error) {
 	return nil, ErrUnsupportedPackageManifestCreate
 }

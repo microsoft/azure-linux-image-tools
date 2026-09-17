@@ -13,7 +13,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -133,52 +132,44 @@ func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, buildTime string, packageManifestMode imagecustomizerapi.PackageManifestMode,
 	removePackageManager bool,
-) (err error) {
-	installedPackages := []spdxmanifest.Package{}
-	if packageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
-		installedPackages, err = preparePackageManifestCreate(ctx, distroHandler, imageChroot, toolsChroot,
-			packageManifestMode)
-		if err != nil {
-			return err
-		}
-	}
-
-	removedPackageIds := []string{}
+) error {
 	if removePackageManager {
-		removedPackageIds, err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
+		err := removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, buildTime, packageManifestMode)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
 		}
+		return nil
 	}
 
-	err = applyPackageManifestMode(ctx, distroHandler, imageChroot, toolsChroot, packageManifestMode, buildTime,
-		installedPackages, removedPackageIds)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return applyPackageManifestMode(ctx, distroHandler, imageChroot, packageManifestMode, buildTime)
 }
 
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+	toolsChroot *safechroot.Chroot, buildTime string, packageManifestMode imagecustomizerapi.PackageManifestMode,
+) error {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_package_manager")
 	defer span.End()
 
 	logger.Log.Infof("Removing package manager")
 
-	removedPackageIds, err := distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
+	err := distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
 	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+	}
+
+	// Reads the package database to get the final state of the customized image, so must be called after packages
+	// associated with the package manager are removed, but before the package manager files are cleaned up.
+	err = applyPackageManifestMode(ctx, distroHandler, imageChroot, packageManifestMode, buildTime)
+	if err != nil {
+		return err
 	}
 
 	err = distroHandler.RemovePackageManagerFiles(ctx, imageChroot)
 	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrRemovePackageManagerFilesAndDirs, err)
+		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerFilesAndDirs, err)
 	}
 
-	return removedPackageIds, nil
+	return nil
 }
 
 func removePackageManagementFiles(imageChroot *safechroot.Chroot, filesAndDirsToRemove []string) error {

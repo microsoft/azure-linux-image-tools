@@ -6,30 +6,74 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
-	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	rpmdb "github.com/anchore/go-rpmdb/pkg"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type packageManifestTestPackage struct {
+	SPDXID           string `json:"SPDXID"`
+	Name             string `json:"name"`
+	VersionInfo      string `json:"versionInfo"`
+	Supplier         string `json:"supplier"`
+	DownloadLocation string `json:"downloadLocation"`
+	FilesAnalyzed    bool   `json:"filesAnalyzed"`
+	LicenseConcluded string `json:"licenseConcluded"`
+	LicenseDeclared  string `json:"licenseDeclared"`
+	CopyrightText    string `json:"copyrightText"`
+	ExternalRefs     []struct {
+		ReferenceCategory string `json:"referenceCategory"`
+		ReferenceType     string `json:"referenceType"`
+		ReferenceLocator  string `json:"referenceLocator"`
+	} `json:"externalRefs"`
+}
+
 func TestPackageManifestCreate(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testPackageManifestCreate(t, baseImageInfo)
+		})
+	}
+}
+
+func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	logSubHook := logMessagesHook.AddSubHook()
+	defer logSubHook.Close()
+
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	rpmArch := packageManifestRpmArch(t)
 
-	configFile := filepath.Join(testDir, "packagemanifest-create.yaml")
+	configFileName := "packagemanifest-create-azl3.yaml"
+	packageManager := "tdnf"
+	expectedPackages := map[string]string{
+		"bash":       "",
+		"filesystem": "",
+		"glibc":      "",
+		"rpm":        "",
+		"systemd":    "",
+		"tree":       "1.8.0-2.azl3",
+	}
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		configFileName = "packagemanifest-create-azl4.yaml"
+		packageManager = "dnf5"
+		expectedPackages["tree"] = "2.2.1-3.azl4"
+	}
+	expectedPackages[packageManager] = ""
+	configFile := filepath.Join(testDir, configFileName)
 	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
@@ -39,26 +83,71 @@ func TestPackageManifestCreate(t *testing.T) {
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	require.NoError(t, err)
-	verifyPackageManifest(t, buildDir, outImageFilePath, baseImageInfo.MountPoints,
-		"azurelinux",                             /* name */
-		[]string{"tree-1.8.0-2.azl3." + rpmArch}, /* expectedNevras */
-		[]string{"bash", "filesystem", "glibc", "systemd", "rpm", "tdnf"}, /* expectedNames */
+	messages := logSubHook.ConsumeMessages()
+	require.NotEmpty(t, messages)
+	for _, message := range messages {
+		if message.Level == logrus.WarnLevel {
+			assert.NotContains(t, message.Message, "Duplicate installed package ID")
+		}
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
+	require.NoError(t, err)
+	defer imageConnection.Close()
+	rootDir := imageConnection.Chroot().RootDir()
+
+	_, manifestPackages := verifyPackageManifest(t, rootDir,
+		baseImageInfo.Distro, /* name */
+		expectedPackages,
 		nil, /* expectedAbsentNames */
 	)
+	actualNevras := verifyRpmManifestPackages(t, baseImageInfo.Distro, manifestPackages)
+
+	rpmQueryOutput, _, err := shell.
+		NewExecBuilder("rpm", "-qa", "--queryformat", `%|ARCH?{%{NEVRA}\n}:{}|`).
+		Chroot(rootDir).
+		ExecuteCaptureOutput()
+	require.NoError(t, err)
+	expectedNevras := strings.Split(strings.TrimSpace(rpmQueryOutput), "\n")
+
+	assert.ElementsMatch(t, expectedNevras, actualNevras)
 }
 
 func TestPackageManifestCreateWithPackageManagerRemoval(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testPackageManifestCreateWithPackageManagerRemoval(t, baseImageInfo)
+		})
+	}
+}
+
+func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	logSubHook := logMessagesHook.AddSubHook()
+	defer logSubHook.Close()
+
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	outManifestFilePath := filepath.Join(testTmpDir, "package-manifest.spdx.json")
-	rpmArch := packageManifestRpmArch(t)
 
-	configFile := filepath.Join(testDir, "packagemanifest-create-remove-package-manager.yaml")
+	configFileName := "packagemanifest-create-remove-package-manager-azl3.yaml"
+	expectedPackages := map[string]string{
+		"bash":       "",
+		"dos2unix":   "7.5.1-1.azl3",
+		"filesystem": "",
+		"glibc":      "",
+		"systemd":    "",
+		"tree":       "1.8.0-2.azl3",
+	}
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		configFileName = "packagemanifest-create-remove-package-manager-azl4.yaml"
+		expectedPackages["tree"] = "2.2.1-3.azl4"
+		expectedPackages["dos2unix"] = "7.5.3-2.azl4"
+	}
+	configFile := filepath.Join(testDir, configFileName)
 	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		OutputPackageManifestFile: outManifestFilePath,
 		BuildDir:                  buildDir,
@@ -69,12 +158,25 @@ func TestPackageManifestCreateWithPackageManagerRemoval(t *testing.T) {
 		PreviewFeatures:           baseImageInfo.PreviewFeatures,
 	})
 	require.NoError(t, err)
-	manifestBytes := verifyPackageManifest(t, buildDir, outImageFilePath, baseImageInfo.MountPoints,
-		"azurelinux", /* name */
-		[]string{"tree-1.8.0-2.azl3." + rpmArch, "dos2unix-7.5.1-1.azl3." + rpmArch}, /* expectedNevras */
-		[]string{"bash", "filesystem", "glibc", "systemd"},                           /* expectedNames */
-		[]string{"rpm", "tdnf"}, /* expectedAbsentNames */
+	messages := logSubHook.ConsumeMessages()
+	require.NotEmpty(t, messages)
+	for _, message := range messages {
+		if message.Level == logrus.WarnLevel {
+			assert.NotContains(t, message.Message, "Duplicate installed package ID")
+		}
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
+	require.NoError(t, err)
+	defer imageConnection.Close()
+	rootDir := imageConnection.Chroot().RootDir()
+
+	manifestBytes, manifestPackages := verifyPackageManifest(t, rootDir,
+		baseImageInfo.Distro, /* name */
+		expectedPackages,
+		[]string{"rpm", "tdnf", "dnf5"}, /* expectedAbsentNames */
 	)
+	verifyRpmManifestPackages(t, baseImageInfo.Distro, manifestPackages)
 
 	outBytes, err := os.ReadFile(outManifestFilePath)
 	assert.NoError(t, err)
@@ -116,108 +218,6 @@ func TestValidateBaseImagePackageManifestCannotExportAbsentPassthrough(t *testin
 	assert.ErrorIs(t, err, ErrPackageManifestCreateRequired)
 }
 
-func TestSubtractPackages(t *testing.T) {
-	packageInfo := spdxmanifest.Package{
-		ID:      "package",
-		Name:    "package",
-		Version: "1.0",
-		Vendor:  "First Vendor",
-		Purl:    "pkg:generic/package@1.0",
-	}
-	relatedPackage := spdxmanifest.Package{
-		ID:   "package-tools",
-		Name: "tools",
-	}
-	otherPackage := spdxmanifest.Package{
-		ID:      "other",
-		Name:    "other",
-		Version: "2.0",
-		Vendor:  "Second Vendor",
-		Purl:    "pkg:generic/other@2.0",
-	}
-	duplicatePackage := packageInfo
-	duplicatePackage.Vendor = "Different Vendor"
-	tests := []struct {
-		name        string
-		installed   []spdxmanifest.Package
-		removed     []string
-		expected    []spdxmanifest.Package
-		expectedErr error
-	}{
-		{
-			name:     "empty installed packages",
-			expected: []spdxmanifest.Package{},
-		},
-		{
-			name:      "no removals",
-			installed: []spdxmanifest.Package{relatedPackage, packageInfo, otherPackage},
-			expected:  []spdxmanifest.Package{relatedPackage, packageInfo, otherPackage},
-		},
-		{
-			name:      "removes exact IDs",
-			installed: []spdxmanifest.Package{relatedPackage, packageInfo, otherPackage},
-			removed:   []string{"package"},
-			expected:  []spdxmanifest.Package{relatedPackage, otherPackage},
-		},
-		{
-			name:      "all packages removed",
-			installed: []spdxmanifest.Package{packageInfo, otherPackage},
-			removed:   []string{"other", "package"},
-			expected:  []spdxmanifest.Package{},
-		},
-		{
-			name:      "repeated removal IDs",
-			installed: []spdxmanifest.Package{relatedPackage, packageInfo, otherPackage},
-			removed:   []string{"package", "package"},
-			expected:  []spdxmanifest.Package{relatedPackage, otherPackage},
-		},
-		{
-			name:        "unknown removal ID returns no partial result",
-			installed:   []spdxmanifest.Package{packageInfo, otherPackage},
-			removed:     []string{"package", "missing"},
-			expectedErr: ErrPackageManifestRemovalNotInstalled,
-		},
-		{
-			name:        "cannot remove from empty installed packages",
-			removed:     []string{"package"},
-			expectedErr: ErrPackageManifestRemovalNotInstalled,
-		},
-		{
-			name:        "duplicate installed ID with different metadata",
-			installed:   []spdxmanifest.Package{packageInfo, duplicatePackage},
-			expectedErr: ErrPackageManifestDuplicatePackage,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			originalInstalled := slices.Clone(test.installed)
-			originalRemoved := slices.Clone(test.removed)
-			remaining, err := subtractPackages(test.installed, test.removed)
-
-			assert.ErrorIs(t, err, test.expectedErr)
-			assert.Equal(t, test.expected, remaining)
-			assert.Equal(t, originalRemoved, test.removed)
-			assert.Equal(t, originalInstalled, test.installed)
-
-			if len(remaining) > 0 {
-				remaining[0].Name = "modified"
-				assert.Equal(t, originalInstalled, test.installed)
-			}
-		})
-	}
-}
-
-func TestSubtractPackagesExplicitZeroEpoch(t *testing.T) {
-	packageID := "rpm-0:4.18.2-2.azl3.x86_64"
-	packages, err := parseRpmPackageList(packageID + "\tMicrosoft Corporation\n")
-	require.NoError(t, err)
-	require.Len(t, packages, 1)
-	installed := []spdxmanifest.Package{newManifestPackageFromRpmPackage(packages[0], "azurelinux")}
-	remaining, err := subtractPackages(installed, []string{packageID})
-	require.NoError(t, err)
-	assert.Empty(t, remaining)
-}
-
 func chrootWithManifest(t *testing.T, manifest string) *safechroot.Chroot {
 	t.Helper()
 	rootDir := t.TempDir()
@@ -227,22 +227,10 @@ func chrootWithManifest(t *testing.T, manifest string) *safechroot.Chroot {
 	return safechroot.NewChroot(rootDir, true)
 }
 
-func packageManifestRpmArch(t *testing.T) string {
+func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPackages map[string]string,
+	expectedAbsentNames []string,
+) ([]byte, []packageManifestTestPackage) {
 	t.Helper()
-	rpmArch := map[string]string{"amd64": "x86_64", "arm64": "aarch64"}[runtime.GOARCH]
-	require.NotEmpty(t, rpmArch, "unsupported architecture: %s", runtime.GOARCH)
-	return rpmArch
-}
-
-func verifyPackageManifest(t *testing.T, buildDir string, imageFilePath string, mountPoints []testutils.MountPoint,
-	name string, expectedNevras []string,
-	expectedNames []string, expectedAbsentNames []string,
-) []byte {
-	t.Helper()
-	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, true, mountPoints)
-	require.NoError(t, err)
-	defer imageConnection.Close()
-	rootDir := imageConnection.Chroot().RootDir()
 
 	manifestBytes, err := os.ReadFile(filepath.Join(rootDir, packageManifestPath))
 	require.NoError(t, err)
@@ -266,22 +254,7 @@ func verifyPackageManifest(t *testing.T, buildDir string, imageFilePath string, 
 			Created  string   `json:"created"`
 			Creators []string `json:"creators"`
 		} `json:"creationInfo"`
-		Packages []struct {
-			SPDXID           string `json:"SPDXID"`
-			Name             string `json:"name"`
-			VersionInfo      string `json:"versionInfo"`
-			Supplier         string `json:"supplier"`
-			DownloadLocation string `json:"downloadLocation"`
-			FilesAnalyzed    bool   `json:"filesAnalyzed"`
-			LicenseConcluded string `json:"licenseConcluded"`
-			LicenseDeclared  string `json:"licenseDeclared"`
-			CopyrightText    string `json:"copyrightText"`
-			ExternalRefs     []struct {
-				ReferenceCategory string `json:"referenceCategory"`
-				ReferenceType     string `json:"referenceType"`
-				ReferenceLocator  string `json:"referenceLocator"`
-			} `json:"externalRefs"`
-		} `json:"packages"`
+		Packages []packageManifestTestPackage `json:"packages"`
 	}
 	require.NoError(t, json.Unmarshal(manifestBytes, &document))
 
@@ -292,66 +265,79 @@ func verifyPackageManifest(t *testing.T, buildDir string, imageFilePath string, 
 	assert.NoError(t, err)
 
 	rootCount := 0
-	actualNevras := []string{}
 	packageNames := []string{}
-	for _, pkg := range document.Packages {
-		if pkg.SPDXID == "SPDXRef-DocumentRoot" {
+	manifestPackages := []packageManifestTestPackage{}
+	for _, manifestPackage := range document.Packages {
+		if manifestPackage.SPDXID == "SPDXRef-DocumentRoot" {
 			rootCount++
-			assert.Equal(t, name, pkg.Name)
-			assert.Equal(t, "NOASSERTION", pkg.Supplier)
-			assert.Equal(t, expectedVersion, pkg.VersionInfo)
+			assert.Equal(t, name, manifestPackage.Name)
+			assert.Equal(t, "NOASSERTION", manifestPackage.Supplier)
+			assert.Equal(t, expectedVersion, manifestPackage.VersionInfo)
 			continue
 		}
 
-		if !assert.Len(t, pkg.ExternalRefs, 1, pkg.Name) {
-			continue
+		packageNames = append(packageNames, manifestPackage.Name)
+		if expectedVersion := expectedPackages[manifestPackage.Name]; expectedVersion != "" {
+			assert.Equal(t, expectedVersion, manifestPackage.VersionInfo, manifestPackage.Name)
 		}
 
+		if !assert.Len(t, manifestPackage.ExternalRefs, 1, manifestPackage.Name) {
+			continue
+		}
+		assert.Equal(t, "PACKAGE_MANAGER", manifestPackage.ExternalRefs[0].ReferenceCategory, manifestPackage.Name)
+		assert.Equal(t, "purl", manifestPackage.ExternalRefs[0].ReferenceType, manifestPackage.Name)
+
+		packageURL, err := url.Parse(manifestPackage.ExternalRefs[0].ReferenceLocator)
+		if !assert.NoError(t, err, manifestPackage.Name) {
+			continue
+		}
+		assert.Equal(t, "pkg", packageURL.Scheme, manifestPackage.Name)
+		assert.NotEmpty(t, packageURL.Opaque, manifestPackage.Name)
+		manifestPackages = append(manifestPackages, manifestPackage)
+	}
+
+	assert.Equal(t, 1, rootCount)
+	for packageName := range expectedPackages {
+		assert.Contains(t, packageNames, packageName)
+	}
+	for _, packageName := range expectedAbsentNames {
+		assert.NotContains(t, packageNames, packageName)
+	}
+
+	return manifestBytes, manifestPackages
+}
+
+func verifyRpmManifestPackages(t *testing.T, namespace string, packages []packageManifestTestPackage) []string {
+	t.Helper()
+	nevras := []string{}
+	for _, pkg := range packages {
 		packageURL, err := url.Parse(pkg.ExternalRefs[0].ReferenceLocator)
-		if !assert.NoError(t, err, pkg.Name) {
-			continue
-		}
+		require.NoError(t, err, pkg.Name)
 
 		qualifiers, err := url.ParseQuery(packageURL.RawQuery)
 		if !assert.NoError(t, err, pkg.Name) {
 			continue
 		}
+		assert.NotEmpty(t, qualifiers.Get("arch"), pkg.Name)
 
 		packageIdentity, err := url.PathUnescape(packageURL.Opaque)
 		assert.NoError(t, err, pkg.Name)
 
-		rpmPackage, err := newRpmPackageFromNevra(pkg.Name+"-"+pkg.VersionInfo+"."+qualifiers.Get("arch"), "")
-		if !assert.NoError(t, err, pkg.Name) {
-			continue
+		version := pkg.VersionInfo
+		epoch := ""
+		if parsedEpoch, parsedVersion, found := strings.Cut(version, ":"); found {
+			epoch, version = parsedEpoch, parsedVersion
 		}
 
-		assert.Equal(t, packageIdentity,
-			fmt.Sprintf("rpm/%s/%s@%s-%s", name, rpmPackage.Name, rpmPackage.Version, rpmPackage.Release))
-		assert.Equal(t, rpmPackage.Epoch, qualifiers.Get("epoch"), pkg.Name)
+		assert.Equal(t, fmt.Sprintf("rpm/%s/%s@%s", namespace, pkg.Name, version), packageIdentity)
+		assert.Equal(t, epoch, qualifiers.Get("epoch"), pkg.Name)
 
-		nevra := rpmPackage.Nevra()
-		assert.NotContains(t, actualNevras, nevra, "duplicate package")
-		actualNevras = append(actualNevras, nevra)
-
-		packageNames = append(packageNames, pkg.Name)
-
+		nevra := pkg.Name + "-" + pkg.VersionInfo + "." + qualifiers.Get("arch")
+		assert.NotContains(t, nevras, nevra, "duplicate package")
+		nevras = append(nevras, nevra)
 	}
 
-	assert.Equal(t, 1, rootCount)
-
-	for _, expectedNevra := range expectedNevras {
-		assert.Contains(t, actualNevras, expectedNevra)
-	}
-
-	for _, packageName := range expectedNames {
-		assert.Contains(t, packageNames, packageName)
-	}
-
-	for _, packageName := range expectedAbsentNames {
-		assert.NotContains(t, packageNames, packageName)
-	}
-
-	return manifestBytes
+	return nevras
 }
 
 func TestBuildMatchesAclGoldenManifest(t *testing.T) {
@@ -383,20 +369,20 @@ func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 	assert.NotContains(t, string(manifest), `\u0026`)
 }
 
-// goldenPackages is the package set of the ACL repo's manifest fixture, in the layout
-// `rpm -qa --qf rpmQueryFormat` emits.
 func goldenPackages(t *testing.T) []spdxmanifest.Package {
 	t.Helper()
 
-	content, err := os.ReadFile(filepath.Join("../../internal/spdxmanifest/testdata", "acl-installed-rpm-packages.txt"))
+	content, err := os.ReadFile(filepath.Join("../../internal/spdxmanifest/testdata", "acl-installed-rpm-packages.json"))
 	require.NoError(t, err)
 
-	packages, err := parseRpmPackageList(string(content))
-	require.NoError(t, err)
+	var packages []rpmdb.PackageInfo
+	require.NoError(t, json.Unmarshal(content, &packages))
 
 	manifestPackages := make([]spdxmanifest.Package, 0, len(packages))
 	for _, packageInfo := range packages {
-		manifestPackages = append(manifestPackages, newManifestPackageFromRpmPackage(packageInfo, "azurelinux"))
+		manifestPackage, err := newManifestPackageFromRpmPackage(packageInfo, "azurelinux")
+		require.NoError(t, err)
+		manifestPackages = append(manifestPackages, manifestPackage)
 	}
 	return manifestPackages
 }

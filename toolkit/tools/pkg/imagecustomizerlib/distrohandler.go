@@ -34,7 +34,6 @@ var (
 	ErrUnsupportedPackageSnapshotTime   = NewImageCustomizerError("Validation:UnsupportedPackageSnapshotTime", "package snapshot time API is not supported")
 	ErrUnsupportedRpmSources            = NewImageCustomizerError("Validation:UnsupportedRpmSources", "RPM sources API is not supported")
 	ErrUnsupportedPackageManifestCreate = NewImageCustomizerError("Validation:UnsupportedPackageManifestCreate", "'os.packages.manifest.mode: create' is not supported for this distro yet")
-	ErrUnsupportedPackageEnumeration    = NewImageCustomizerError("Packages:UnsupportedPackageEnumeration", "enumerating the image's packages is not supported for this distro")
 )
 
 // DistroHandler represents the interface for distribution-specific configuration
@@ -51,8 +50,8 @@ type DistroHandler interface {
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
-	// Removes the package management tools and returns removed package IDs.
-	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) ([]string, error)
+	// Removes the package management tools.
+	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
 
 	// Removes the package management directories (e.g. rpm db).
 	RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot) error
@@ -72,8 +71,7 @@ type DistroHandler interface {
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
 
 	// ListInstalledPackages returns installed package IDs and metadata for manifest generation.
-	// toolsChroot has the same semantics as in IsPackageInstalled.
-	ListInstalledPackages(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]spdxmanifest.Package, error)
+	ListInstalledPackages(imageChroot safechroot.ChrootInterface) ([]spdxmanifest.Package, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

@@ -37,6 +37,7 @@ const (
 	grubModulesPackageAzl3     = "grub2-pc"
 
 	purlNamespaceAzureLinux = string(targetos.AzureLinux)
+	rpmDatabasePathAzl3     = "/var/lib/rpm/rpmdb.sqlite"
 )
 
 var (
@@ -102,7 +103,7 @@ func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir s
 
 func (d *azureLinuxDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -131,9 +132,8 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 }
 
 func (d *azureLinuxDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
-	toolsChroot *safechroot.Chroot,
 ) ([]spdxmanifest.Package, error) {
-	return listInstalledPackagesRpm(imageChroot, toolsChroot, purlNamespaceAzureLinux)
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl3, purlNamespaceAzureLinux)
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

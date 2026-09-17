@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-func RpmPackageURL(namespace string, name string, version string, release string, arch string, epoch string) string {
+func RpmPackageURL(namespace string, name string, epoch *int, version string, release string, arch string) string {
 	qualifiers := []string{"arch=" + purlEncode(arch)}
-	if epoch != "" {
-		qualifiers = append(qualifiers, "epoch="+purlEncode(epoch))
+	if epoch != nil {
+		qualifiers = append(qualifiers, fmt.Sprintf("epoch=%d", *epoch))
 	}
 
 	return fmt.Sprintf("pkg:rpm/%s/%s@%s?%s",

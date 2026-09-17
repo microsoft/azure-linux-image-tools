@@ -38,6 +38,7 @@ const (
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
 
 	purlNamespaceAzureLinux4 = purlNamespaceAzureLinux
+	rpmDatabasePathAzl4      = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
@@ -131,10 +132,6 @@ func (d *azureLinux4DistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) e
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
-	if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
-		return ErrUnsupportedPackageManifestCreate
-	}
-
 	return nil
 }
 
@@ -149,7 +146,7 @@ func (d *azureLinux4DistroHandler) ManagePackages(ctx context.Context, buildDir 
 
 func (d *azureLinux4DistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesFedora)
 }
 
@@ -177,9 +174,8 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 }
 
 func (d *azureLinux4DistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
-	toolsChroot *safechroot.Chroot,
 ) ([]spdxmanifest.Package, error) {
-	return nil, ErrUnsupportedPackageManifestCreate
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl4, purlNamespaceAzureLinux)
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,

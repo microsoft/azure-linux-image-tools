@@ -28,8 +28,6 @@ var (
 	ErrPackageManifestDelete              = NewImageCustomizerError("Packages:PackageManifestDelete", "failed to delete the package manifest")
 	ErrPackageManifestList                = NewImageCustomizerError("Packages:PackageManifestList", "failed to list the image's installed packages")
 	ErrPackageManifestNoInstalledPackages = NewImageCustomizerError("Packages:PackageManifestNoInstalledPackages", "the image reported no installed packages")
-	ErrPackageManifestDuplicatePackage    = NewImageCustomizerError("Packages:PackageManifestDuplicatePackage", "the image reported a duplicate installed package ID")
-	ErrPackageManifestRemovalNotInstalled = NewImageCustomizerError("Packages:PackageManifestRemovalNotInstalled", "removal transaction contains a package that is not installed")
 	ErrPackageManifestVersion             = NewImageCustomizerError("Packages:PackageManifestVersion", "failed to read the image version for the package manifest")
 	ErrPackageManifestBuild               = NewImageCustomizerError("Packages:PackageManifestBuild", "failed to build the package manifest")
 	ErrPackageManifestCreateDirectory     = NewImageCustomizerError("Packages:PackageManifestCreateDirectory", "failed to create the package manifest directory")
@@ -73,40 +71,14 @@ func validateBaseImagePackageManifest(rc *ResolvedConfig, rootDir string) error 
 	return nil
 }
 
-// preparePackageManifestCreate captures the installed packages before package manager removal.
-// It requires a non-empty package list and an image version for manifest creation.
-func preparePackageManifestCreate(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode,
-) ([]spdxmanifest.Package, error) {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "prepare_package_manifest")
-	defer span.End()
-
-	packages, err := distroHandler.ListInstalledPackages(imageChroot, toolsChroot)
-	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrPackageManifestList, err)
-	}
-	if len(packages) == 0 {
-		return nil, ErrPackageManifestNoInstalledPackages
-	}
-
-	return packages, nil
-}
-
-// applyPackageManifestMode applies the specified mode using the snapshot taken before package manager removal.
-// installedPackages and removedPackages are only used in "create" mode.
 func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode,
-	buildTime string, installedPackages []spdxmanifest.Package, removedPackages []string,
+	packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime string,
 ) error {
 	if packageManifestMode == imagecustomizerapi.PackageManifestModeUnspecified {
 		return nil
 	}
 
 	manifestPath := filepath.Join(imageChroot.RootDir(), packageManifestPath)
-	exists, err := file.PathExists(manifestPath)
-	if err != nil {
-		return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestRead, manifestPath, err)
-	}
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "apply_package_manifest_mode")
 	defer span.End()
@@ -117,19 +89,29 @@ func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, 
 		logger.Log.Infof("Skipping package manifest changes (mode='%s')", packageManifestMode)
 
 	case imagecustomizerapi.PackageManifestModeNone:
+		exists, err := file.PathExists(manifestPath)
+		if err != nil {
+			return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestRead, manifestPath, err)
+		}
+
 		if exists {
 			logger.Log.Infof("Deleting package manifest (mode='%s')", packageManifestMode)
 			err = os.Remove(manifestPath)
 			if err != nil {
 				return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestDelete, manifestPath, err)
 			}
+		} else {
+			logger.Log.Infof("Package manifest does not exist, nothing to delete (mode='%s')", packageManifestMode)
 		}
 
 	case imagecustomizerapi.PackageManifestModeCreate:
 		logger.Log.Infof("Writing package manifest (mode='%s')", packageManifestMode)
-		packages, err := subtractPackages(installedPackages, removedPackages)
+		packages, err := distroHandler.ListInstalledPackages(imageChroot)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrPackageManifestList, err)
+		}
+		if len(packages) == 0 {
+			return ErrPackageManifestNoInstalledPackages
 		}
 		err = createPackageManifest(ctx, distroHandler, buildTime, manifestPath, packages)
 		if err != nil {
@@ -176,33 +158,6 @@ func createPackageManifest(ctx context.Context, distroHandler DistroHandler, bui
 	}
 
 	return nil
-}
-
-func subtractPackages(installed []spdxmanifest.Package, removed []string) ([]spdxmanifest.Package, error) {
-	installedIds := make(map[string]struct{}, len(installed))
-	for _, pkg := range installed {
-		if _, found := installedIds[pkg.ID]; found {
-			return nil, fmt.Errorf("%w (id='%s')", ErrPackageManifestDuplicatePackage, pkg.ID)
-		}
-		installedIds[pkg.ID] = struct{}{}
-	}
-
-	removedIDs := make(map[string]struct{}, len(removed))
-	for _, pkgId := range removed {
-		if _, found := installedIds[pkgId]; !found {
-			return nil, fmt.Errorf("%w (id='%s')", ErrPackageManifestRemovalNotInstalled, pkgId)
-		}
-		removedIDs[pkgId] = struct{}{}
-	}
-
-	remainingPackages := make([]spdxmanifest.Package, 0, len(installed))
-	for _, packageInfo := range installed {
-		if _, found := removedIDs[packageInfo.ID]; !found {
-			remainingPackages = append(remainingPackages, packageInfo)
-		}
-	}
-
-	return remainingPackages, nil
 }
 
 func outputPackageManifest(ctx context.Context, outputPath string, buildDir string, buildImage string,

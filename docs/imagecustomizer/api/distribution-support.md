@@ -75,7 +75,7 @@ Customizing such a version requires this feature to be set.
 | &emsp;[.update](./configuration/packages.md#update-string)                               | Yes                   | Yes                   | Preview             | No                        |
 | &emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes                   | No                    | No                  | No                        |
 | &emsp;[.manifest.mode](./configuration/packageManifest.md#mode-string)                   | Preview               | Preview               | Preview             | Preview                   |
-| &emsp;&emsp;`create`                                                                     | Preview               | No                    | No                  | Preview                   |
+| &emsp;&emsp;`create`                                                                     | Preview               | Preview               | No                  | Preview                   |
 | &emsp;&emsp;`passthrough`                                                                | Preview               | Preview               | Preview             | Preview                   |
 | &emsp;&emsp;`none`                                                                       | Preview               | Preview               | Preview             | Preview                   |
 | [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)               | Yes                   | Yes                   | Preview             | Preview                   |

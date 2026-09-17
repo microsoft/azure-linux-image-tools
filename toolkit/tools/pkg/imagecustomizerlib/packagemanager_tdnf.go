@@ -72,10 +72,9 @@ func (pm *tdnfPackageManager) configureSnapshotTime(packageManagerChroot *safech
 	return cleanup, nil
 }
 
-// executeCommand runs TDNF and returns the NEVRAs of removed packages, captured from its "Removing: " output.
 func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
 	fullArgs := []string{"-v"}
@@ -89,20 +88,14 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 	lastDownloadPackageSeen := ""
 	inSummary := false
 	seenTransactionErrorMessage := false
-	removedPackages := []string{}
 
 	stdoutCallback := func(line string) {
-		pkg, isRemoveOp := strings.CutPrefix(line, tdnfOpRemoveLine)
-
 		if !seenTransactionErrorMessage {
 			seenTransactionErrorMessage = tdnfTransactionErrorRegex.MatchString(line)
 		}
 
 		switch {
-		case isRemoveOp || strings.HasPrefix(line, tdnfOpInstallLine):
-			if isRemoveOp {
-				removedPackages = append(removedPackages, strings.TrimSpace(pkg))
-			}
+		case strings.HasPrefix(line, tdnfOpRemoveLine) || strings.HasPrefix(line, tdnfOpInstallLine):
 			logger.Log.Debug(line)
 
 		case seenTransactionErrorMessage:
@@ -133,17 +126,12 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 		}
 	}
 
-	err := shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
+	return shell.NewExecBuilder(packageManagerTDNF, fullArgs...).
 		StdoutCallback(stdoutCallback).
 		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		Chroot(pmChroot.ChrootDir()).
 		Execute()
-	if err != nil {
-		return nil, err
-	}
-
-	return removedPackages, nil
 }
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface,

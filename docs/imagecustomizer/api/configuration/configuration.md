@@ -73,11 +73,12 @@ The top level type for the YAML file is the [config](./config.md) type.
 
 17. Run ([postCustomization](./scripts.md#postcustomization-script)) scripts.
 
-18. Manage the image's package manifest, as
-    ([os.packages.manifest.mode](./packageManifest.md#mode-string)) specifies.
-
-19. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
+18. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
     specified, then remove the package manager tools.
+
+19. Manage the image's package manifest, as
+  ([os.packages.manifest.mode](./packageManifest.md#mode-string)) specifies.
+  If removing the package manager was requested, then delete its remaining files.
 
 20. Restore the `/etc/resolv.conf` file.
 

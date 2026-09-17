@@ -118,7 +118,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 
 func (d *aclDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
-) ([]string, error) {
+) error {
 	return rpmRemovePackageManagerTools(imageChroot, d.packageManager, toolsChroot, packageManagementPackagesAzl3)
 }
 
@@ -143,9 +143,8 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 }
 
 func (d *aclDistroHandler) ListInstalledPackages(imageChroot safechroot.ChrootInterface,
-	toolsChroot *safechroot.Chroot,
 ) ([]spdxmanifest.Package, error) {
-	return listInstalledPackagesRpm(imageChroot, toolsChroot, purlNamespaceAzureLinux)
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl3, purlNamespaceAzureLinux)
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
