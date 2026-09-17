@@ -92,6 +92,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 			NewDirPermissions:    newDirPermissionsValue,
 			ChildFilePermissions: childFilePermissionsValue,
 			MergedDirPermissions: (*fs.FileMode)(dirConfigElement.MergedDirPermissions),
+			NoDereference:        dirConfigElement.SymlinkMode == imagecustomizerapi.SymlinkModePreserve,
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {

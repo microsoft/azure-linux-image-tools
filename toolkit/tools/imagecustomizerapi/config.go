@@ -99,6 +99,13 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.manifest'",
 				PreviewFeaturePackageManifest)
 		}
+
+		for i := range c.OS.AdditionalDirs {
+			if c.OS.AdditionalDirs[i].SymlinkMode == SymlinkModePreserve && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePreserveSymlinks) {
+				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode: preserve'",
+					PreviewFeaturePreserveSymlinks)
+			}
+		}
 	}
 
 	err = c.Scripts.IsValid()

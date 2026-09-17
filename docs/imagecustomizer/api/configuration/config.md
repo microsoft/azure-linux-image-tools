@@ -174,6 +174,11 @@ Supported options:
 
   Added in v1.7.
 
+- `preserve-symlinks`: Enables the
+  ([os.additionalDirs[].symlinkMode: preserve](./dirconfig.md#symlinkmode-string)) API.
+
+  Added in v1.8.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image, artifacts, and package manifest.

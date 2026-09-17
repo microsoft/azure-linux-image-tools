@@ -188,6 +188,9 @@
         "childFilePermissions": {
           "$ref": "#/$defs/FilePermissions"
         },
+        "symlinkMode": {
+          "type": "string"
+        },
         "sha256hashmap": {
           "additionalProperties": {
             "type": "string"
