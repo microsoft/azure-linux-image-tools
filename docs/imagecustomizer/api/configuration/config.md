@@ -163,6 +163,24 @@ Supported options:
 
   Added in v1.5.
 
+- `acl-grow-partitions`: Enables the narrow, Azure Container Linux (ACL) only API for growing
+  ACL's standard partitions (e.g. `/usr`, ESP) to explicit target sizes.
+
+  When this option is specified, the `acl.usr` and `acl.esp` configuration becomes available. It is
+  only valid for ACL target images.
+
+  See [acl](./acl.md) for more details.
+
+  Added in v1.6.
+
+- `acl-oem-id`: Enables the narrow, Azure Container Linux (ACL) only API for overriding the flatcar
+  OEM id (`flatcar.oem.id`) on the boot kernel command line.
+
+  When this option is specified, the `acl.oemId` configuration becomes available. It is only valid
+  for ACL target images.
+
+  See [acl](./acl.md) for more details.
+
 - `remove-package-manager`: Enables support for the
   ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) API.
 
@@ -180,3 +198,11 @@ Added in v0.13.
 Specifies a list of configuration files to inherit from.
 
 Added in v1.1.
+
+## acl [[acl](./acl.md)]
+
+Narrow, Azure Container Linux (ACL) only configuration: grows ACL's standard partitions to explicit
+target sizes and/or overrides the boot OEM id. Gated behind the `acl-grow-partitions` and
+`acl-oem-id` preview features.
+
+Added in v1.6.

@@ -51,6 +51,14 @@ const (
 	// PreviewFeatureToolsDir enables support for specifying a tools directory.
 	PreviewFeatureToolsDir PreviewFeature = "tools-dir"
 
+	// PreviewFeatureAclGrowPartitions enables the narrow, ACL-only API for growing ACL's standard
+	// partitions (e.g. /usr, esp) to explicit target sizes.
+	PreviewFeatureAclGrowPartitions PreviewFeature = "acl-grow-partitions"
+
+	// PreviewFeatureAclOemId enables the narrow, ACL-only API for overriding the flatcar OEM id
+	// (flatcar.oem.id) on the boot kernel command line.
+	PreviewFeatureAclOemId PreviewFeature = "acl-oem-id"
+
 	// PreviewFeatureRemovePackageManager enables support for the '.os.packages.removePackageManager' API.
 	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
 )
@@ -61,7 +69,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureRemovePackageManager:
+		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId, PreviewFeatureRemovePackageManager:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

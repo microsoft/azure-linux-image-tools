@@ -85,6 +85,9 @@ type ResolvedConfig struct {
 	// Image History mode
 	ImageHistory imagecustomizerapi.ImageHistory
 
+	// ACL-only partition grow config (preview). Nil when not requested.
+	Acl *imagecustomizerapi.Acl
+
 	// Remove package manager tools and directories
 	RemovePackageManager bool
 }

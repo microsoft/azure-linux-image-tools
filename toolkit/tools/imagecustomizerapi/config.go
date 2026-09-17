@@ -20,6 +20,7 @@ type Config struct {
 	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 	Output          Output           `yaml:"output" json:"output,omitempty"`
 	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
+	Acl             *Acl             `yaml:"acl" json:"acl,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -174,6 +175,24 @@ func (c *Config) IsValid() (err error) {
 	if hasBtrfsFilesystem && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureBtrfs) {
 		return fmt.Errorf("the '%s' preview feature must be enabled to use btrfs filesystems",
 			PreviewFeatureBtrfs)
+	}
+
+	if c.Acl != nil {
+		if err := c.Acl.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'acl' field:\n%w", err)
+		}
+
+		if (c.Acl.Usr != nil || c.Acl.Esp != nil) &&
+			!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclGrowPartitions) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.usr'/'acl.esp'",
+				PreviewFeatureAclGrowPartitions)
+		}
+
+		if c.Acl.OemId != "" &&
+			!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclOemId) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.oemId'",
+				PreviewFeatureAclOemId)
+		}
 	}
 
 	return nil

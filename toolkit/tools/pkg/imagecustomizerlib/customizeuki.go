@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"debug/pe"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -277,8 +278,9 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
+	aclOemId string,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, toolsChroot, distroHandler, aclOemId)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -288,6 +290,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroHandler DistroHandler,
+	aclOemId string,
 ) error {
 	var err error
 
@@ -349,6 +352,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
+
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir)
 	if err != nil {
 		return fmt.Errorf("%w (bootDir='%s'):\n%w", ErrUKIKernelInitramfsMap, bootDir, err)
@@ -427,6 +431,11 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 		logger.Log.Debugf("UKI cmdline resolution: kernel (%s) resolved via %s -> %q", kernel, cmdlineSource, cmdline)
 
+		// ACL-only: override the flatcar OEM id on the resolved cmdline (idempotent; no-op when unset).
+		if aclOemId != "" {
+			cmdline = applyAclOemId(cmdline, aclOemId)
+		}
+
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
 			Initramfs: initramfs,
@@ -484,6 +493,50 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 			strings.Join(cmdlines, " | "))
 	}
 	return cmdlines[0], nil
+}
+
+// applyAclOemId rewrites the OEM id on a kernel cmdline: it strips every existing flatcar.oem.id=*
+// and coreos.oem.id=* token (both the flatcar and legacy coreos spellings) and appends
+// flatcar.oem.id=<oemId> exactly once. This fixes the platform id (parsed last-occurrence-wins) and
+// clears presence-based ConditionKernelCommandLine matches on the old OEM id, so no OEM-specific
+// unit (e.g. the azure metadata/hostname agent) activates. Only the modern flatcar spelling is
+// written (ignition checks flatcar.oem.id first, then coreos.oem.id). Idempotent.
+func applyAclOemId(cmdline string, oemId string) string {
+	filteredArgs, _, err := stripAclOemIdArgs(cmdline)
+	if err != nil {
+		logger.Log.Errorf("Failed to parse cmdline while applying ACL oemId: %v", err)
+		return cmdline
+	}
+
+	filteredArgs = append(filteredArgs, fmt.Sprintf("flatcar.oem.id=%s", oemId))
+
+	return GrubArgsToString(filteredArgs)
+}
+
+// stripAclOemIdArgs removes every flatcar.oem.id=* and coreos.oem.id=* token from cmdline, and
+// reports whether any was present.
+func stripAclOemIdArgs(cmdline string) ([]string, bool, error) {
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to tokenize kernel command line:\n%w", err)
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to parse kernel command-line args:\n%w", err)
+	}
+
+	found := false
+	filteredArgs := []string{}
+	for _, arg := range args {
+		if strings.HasPrefix(arg.Arg, "flatcar.oem.id=") || strings.HasPrefix(arg.Arg, "coreos.oem.id=") {
+			found = true
+			continue
+		}
+		filteredArgs = append(filteredArgs, arg.Arg)
+	}
+
+	return filteredArgs, found, nil
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
@@ -723,6 +776,18 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	// Rebuild the addon with modified cmdline
 	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFullPath := filepath.Join(addonDirPath, ukiAddonFileName(kernelName))
+
+	if rc.Acl != nil && rc.Acl.OemId != "" {
+		// The IC-managed addon is seeded from itself only (extractAndSaveUkiCmdline), so the base's
+		// OEM id may live in a sibling addon that IC never reads. Clear those first, then set the
+		// requested id here, so exactly one OEM id token survives across all addons.
+		err = aclClearOemIdOutsideIcAddon(ukiFilePath, ukiAddonFileName(kernelName), stubPath, rc.BuildDirAbs)
+		if err != nil {
+			return err
+		}
+
+		modifiedCmdline = applyAclOemId(modifiedCmdline, rc.Acl.OemId)
+	}
 
 	err = os.MkdirAll(addonDirPath, os.ModePerm)
 	if err != nil {
@@ -1201,6 +1266,30 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
+}
+
+// peHasSection reports whether a PE image (a UKI or a UKI addon) contains the named section.
+//
+// ukify omits the .cmdline section entirely when the command line is empty. objcopy --dump-section
+// does not fail on a missing section: it prints a diagnostic, exits 0, and simply never writes the
+// output file. So an absent section is indistinguishable from an empty command line -- and from
+// objcopy silently failing for some other reason. Checking the section explicitly makes that
+// distinction, and lets a genuinely unreadable image surface as an error instead of as an empty
+// command line.
+func peHasSection(path string, sectionName string) (bool, error) {
+	peFile, err := pe.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("failed to open PE image (%s):\n%w", path, err)
+	}
+	defer peFile.Close()
+
+	for _, section := range peFile.Sections {
+		if section.Name == sectionName {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {

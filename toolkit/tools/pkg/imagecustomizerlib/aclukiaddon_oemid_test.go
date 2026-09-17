@@ -1,0 +1,270 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+package imagecustomizerlib
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestStripAclOemIdArgs(t *testing.T) {
+	tests := []struct {
+		name          string
+		cmdline       string
+		expectedArgs  []string
+		expectedFound bool
+	}{
+		{
+			name:          "no oem id",
+			cmdline:       "console=tty0 quiet",
+			expectedArgs:  []string{"console=tty0", "quiet"},
+			expectedFound: false,
+		},
+		{
+			name:          "flatcar spelling",
+			cmdline:       "console=tty0 flatcar.oem.id=azure quiet",
+			expectedArgs:  []string{"console=tty0", "quiet"},
+			expectedFound: true,
+		},
+		{
+			name:          "legacy coreos spelling",
+			cmdline:       "coreos.oem.id=azure console=tty0",
+			expectedArgs:  []string{"console=tty0"},
+			expectedFound: true,
+		},
+		{
+			name:          "both spellings and duplicates",
+			cmdline:       "flatcar.oem.id=azure coreos.oem.id=azure quiet flatcar.oem.id=gce",
+			expectedArgs:  []string{"quiet"},
+			expectedFound: true,
+		},
+		{
+			name:          "only an oem id leaves nothing",
+			cmdline:       "flatcar.oem.id=azure",
+			expectedArgs:  []string{},
+			expectedFound: true,
+		},
+		{
+			name:          "empty cmdline",
+			cmdline:       "",
+			expectedArgs:  []string{},
+			expectedFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args, found, err := stripAclOemIdArgs(tt.cmdline)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedArgs, args)
+			assert.Equal(t, tt.expectedFound, found)
+		})
+	}
+}
+
+// aclOemIdTestStubPath returns the systemd addon stub used to build test addons, skipping the test
+// when the host has no ukify/objcopy/stub available.
+func aclOemIdTestStubPath(t *testing.T) string {
+	t.Helper()
+
+	for _, tool := range []string{"ukify", "objcopy"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s not available", tool)
+		}
+	}
+
+	stubPath := "/usr/lib/systemd/boot/efi/addonx64.efi.stub"
+	if _, err := os.Stat(stubPath); err != nil {
+		t.Skipf("UKI addon stub not available (%s)", stubPath)
+	}
+
+	return stubPath
+}
+
+func buildTestUkiPe(t *testing.T, stubPath string, outputPath string, cmdline string) {
+	t.Helper()
+
+	err := os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+	require.NoError(t, err)
+
+	err = shell.ExecuteLiveWithErr(1, "ukify", "build",
+		"--cmdline="+cmdline,
+		"--stub="+stubPath,
+		"--output="+outputPath)
+	require.NoError(t, err)
+}
+
+func TestAclClearOemIdOutsideIcAddon(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	ukiPath := filepath.Join(espDir, "vmlinuz-test.efi")
+	addonDir := ukiPath + ".extra.d"
+
+	// The main UKI carries no OEM id, matching ACL where the cmdline lives in addons.
+	buildTestUkiPe(t, stubPath, ukiPath, "console=tty0")
+
+	icAddonName := ukiAddonFileName("vmlinuz-test")
+	icAddonPath := filepath.Join(addonDir, icAddonName)
+	oemAddonPath := filepath.Join(addonDir, "oem.addon.efi")
+	verityAddonPath := filepath.Join(addonDir, "verity.addon.efi")
+	unrelatedAddonPath := filepath.Join(addonDir, "unrelated.addon.efi")
+
+	// An addon that only sets the OEM id: it should be deleted outright.
+	buildTestUkiPe(t, stubPath, oemAddonPath, "flatcar.oem.id=azure")
+	// An addon that sets the OEM id alongside real args: it should be rebuilt without the OEM id.
+	buildTestUkiPe(t, stubPath, verityAddonPath, "systemd.verity=1 coreos.oem.id=azure")
+	// An addon with no OEM id: it should be left alone.
+	buildTestUkiPe(t, stubPath, unrelatedAddonPath, "quiet")
+	// The IC-managed addon is rewritten by the caller, so this function must not touch it.
+	buildTestUkiPe(t, stubPath, icAddonPath, "flatcar.oem.id=azure console=tty1")
+
+	icAddonBefore, err := os.ReadFile(icAddonPath)
+	require.NoError(t, err)
+
+	err = aclClearOemIdOutsideIcAddon(ukiPath, icAddonName, stubPath, buildDir)
+	require.NoError(t, err)
+
+	// The OEM-id-only addon is gone.
+	_, err = os.Stat(oemAddonPath)
+	assert.True(t, os.IsNotExist(err), "oem.addon.efi should have been removed")
+
+	// The mixed addon kept its real args and lost the OEM id.
+	verityCmdline, err := extractCmdlineFromSinglePE(verityAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, "systemd.verity=1", verityCmdline)
+
+	// The unrelated addon is untouched.
+	unrelatedCmdline, err := extractCmdlineFromSinglePE(unrelatedAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, "quiet", unrelatedCmdline)
+
+	// The IC-managed addon is byte-for-byte untouched.
+	icAddonAfter, err := os.ReadFile(icAddonPath)
+	require.NoError(t, err)
+	assert.Equal(t, icAddonBefore, icAddonAfter, "the IC-managed addon must be left to the caller")
+}
+
+func TestAclClearOemIdOutsideIcAddonMainUkiHasOemId(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	ukiPath := filepath.Join(espDir, "vmlinuz-test.efi")
+
+	// An OEM id baked into the signed main UKI cannot be removed in modify mode.
+	buildTestUkiPe(t, stubPath, ukiPath, "console=tty0 flatcar.oem.id=azure")
+
+	err := aclClearOemIdOutsideIcAddon(ukiPath, ukiAddonFileName("vmlinuz-test"), stubPath, buildDir)
+	assert.ErrorIs(t, err, ErrAclOemIdInMainUki)
+	assert.ErrorContains(t, err, "uki: mode: create")
+}
+
+func TestAclClearOemIdOutsideIcAddonNoAddonDir(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	ukiPath := filepath.Join(buildDir, "esp", "vmlinuz-test.efi")
+	buildTestUkiPe(t, stubPath, ukiPath, "console=tty0")
+
+	err := aclClearOemIdOutsideIcAddon(ukiPath, ukiAddonFileName("vmlinuz-test"), stubPath, buildDir)
+	assert.NoError(t, err)
+}
+
+// ukify omits the .cmdline section entirely when the command line is empty, which is how ACL's main
+// UKI appears: it keeps its whole command line in addons. Such a PE contributes nothing to the
+// kernel command line and must not be mistaken for one that sets an OEM id.
+func TestAclClearOemIdOutsideIcAddonNoCmdlineSection(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	ukiPath := filepath.Join(espDir, "vmlinuz-test.efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	hasCmdline, err := peHasSection(ukiPath, ".cmdline")
+	require.NoError(t, err)
+	require.False(t, hasCmdline, "expected ukify to omit .cmdline for an empty command line")
+
+	sectionlessAddonPath := filepath.Join(addonDir, "sectionless.addon.efi")
+	buildTestUkiPe(t, stubPath, sectionlessAddonPath, "")
+
+	err = aclClearOemIdOutsideIcAddon(ukiPath, ukiAddonFileName("vmlinuz-test"), stubPath, buildDir)
+	require.NoError(t, err)
+
+	_, err = os.Stat(sectionlessAddonPath)
+	assert.NoError(t, err, "an addon with no .cmdline section should be left alone")
+}
+
+// Mirrors the ACL-T base layout reported by acl-iso: an empty main UKI, the OEM id in the
+// IC-managed kernel addon, and a firstboot addon holding only flatcar.first_boot=detected.
+func TestAclClearOemIdOutsideIcAddonAclBaseLayout(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	espDir := filepath.Join(buildDir, "esp")
+	kernel := "vmlinuz-6.6.150.1-1.azl3"
+	ukiPath := filepath.Join(espDir, kernel+".efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	icAddonName := ukiAddonFileName(kernel)
+	icAddonPath := filepath.Join(addonDir, icAddonName)
+	firstBootAddonPath := filepath.Join(addonDir, aclFirstBootAddonName)
+
+	buildTestUkiPe(t, stubPath, icAddonPath, "root=LABEL=ROOT flatcar.oem.id=azure console=tty1")
+	buildTestUkiPe(t, stubPath, firstBootAddonPath, aclFirstBootArg)
+
+	err := aclClearOemIdOutsideIcAddon(ukiPath, icAddonName, stubPath, buildDir)
+	require.NoError(t, err)
+
+	// The first-boot addon carries no OEM id, so it must survive untouched.
+	firstBootCmdline, err := extractCmdlineFromSinglePE(firstBootAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, aclFirstBootArg, firstBootCmdline)
+
+	// The OEM id lives in the IC-managed addon, which the caller rewrites via applyAclOemId.
+	icCmdline, err := extractCmdlineFromSinglePE(icAddonPath, buildDir)
+	require.NoError(t, err)
+	assert.Equal(t, "root=LABEL=ROOT flatcar.oem.id=azure console=tty1", icCmdline)
+	assert.Equal(t, "root=LABEL=ROOT console=tty1 flatcar.oem.id=metal", applyAclOemId(icCmdline, "metal"))
+}
+
+// A UKI that keeps its whole command line in addons has no .cmdline section of its own, which is
+// how ACL's base ships. Create mode reads the base UKI's command line before rebuilding it, so the
+// absent section must resolve to "contributes nothing" and the addons must still be concatenated.
+func TestExtractCmdlineFromUkiWithObjcopySectionlessMainUki(t *testing.T) {
+	stubPath := aclOemIdTestStubPath(t)
+
+	buildDir := t.TempDir()
+	kernel := "vmlinuz-test"
+	ukiPath := filepath.Join(buildDir, "esp", kernel+".efi")
+	addonDir := ukiPath + ".extra.d"
+
+	buildTestUkiPe(t, stubPath, ukiPath, "")
+
+	hasCmdline, err := peHasSection(ukiPath, ".cmdline")
+	require.NoError(t, err)
+	require.False(t, hasCmdline)
+
+	buildTestUkiPe(t, stubPath, filepath.Join(addonDir, ukiAddonFileName(kernel)),
+		"root=LABEL=ROOT flatcar.oem.id=azure")
+	buildTestUkiPe(t, stubPath, filepath.Join(addonDir, aclFirstBootAddonName), aclFirstBootArg)
+
+	cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, buildDir)
+	require.NoError(t, err)
+
+	// Addons are concatenated in lexicographic order, mirroring systemd-boot.
+	assert.Equal(t, "flatcar.first_boot=detected root=LABEL=ROOT flatcar.oem.id=azure", cmdline)
+}
