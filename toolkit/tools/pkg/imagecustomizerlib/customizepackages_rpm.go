@@ -397,9 +397,28 @@ func newManifestPackageFromRpmPackage(rpmPackage rpmdb.PackageInfo, namespace st
 func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 	toolsChroot *safechroot.Chroot, packageManagementPackages []string,
 ) error {
-	packagesToRemove, err := rpmInstalledSubset(imageChroot, pmHandler, toolsChroot, packageManagementPackages)
+	err := rpmEnsurePackagesRemoved(imageChroot, pmHandler, toolsChroot, packageManagementPackages,
+		true /*removeProtectedPackages*/)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
+	toolsChroot *safechroot.Chroot, packages []string, removeProtectedPackages bool,
+) error {
+	packagesToRemove := []string(nil)
+	for _, packageName := range packages {
+		installed, err := pmHandler.isPackageInstalled(imageChroot, toolsChroot, packageName)
+		if err != nil {
+			return err
+		}
+
+		if installed {
+			packagesToRemove = append(packagesToRemove, packageName)
+		}
 	}
 
 	if len(packagesToRemove) <= 0 {
@@ -407,10 +426,9 @@ func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmP
 		return nil
 	}
 
-	args := getRpmRemoveArgs(pmHandler, toolsChroot, packagesToRemove,
-		true /* removeProtectedPackages */)
+	args := getRpmRemoveArgs(pmHandler, toolsChroot, packagesToRemove, removeProtectedPackages)
 
-	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
+	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packagesToRemove, err)
 	}
@@ -453,22 +471,4 @@ func getRpmRemoveArgs(pmHandler rpmPackageManagerHandler, toolsChroot *safechroo
 	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	return args
-}
-
-func rpmInstalledSubset(imageChroot safechroot.ChrootInterface, pmHandler rpmPackageManagerHandler,
-	toolsChroot *safechroot.Chroot, packages []string,
-) ([]string, error) {
-	installedPackages := []string(nil)
-	for _, packageName := range packages {
-		installed, err := pmHandler.isPackageInstalled(imageChroot, toolsChroot, packageName)
-		if err != nil {
-			return nil, err
-		}
-
-		if installed {
-			installedPackages = append(installedPackages, packageName)
-		}
-	}
-
-	return installedPackages, nil
 }

@@ -133,16 +133,16 @@ func createPackageManifest(ctx context.Context, distroHandler DistroHandler, bui
 
 	span.SetAttributes(attribute.Int("package_count", len(packages)))
 
-	options := distroHandler.GetPackageManifestBuildOptions(buildTime)
-	if options.VersionInfo == "" {
+	metadata := distroHandler.GetPackageManifestBuildMetadata(buildTime)
+	if metadata.VersionInfo == "" {
 		return ErrPackageManifestVersion
 	}
-	options.ToolVersion = ToolVersion
-	if options.ToolVersion == "" {
-		options.ToolVersion = "dev"
+	metadata.ToolVersion = ToolVersion
+	if metadata.ToolVersion == "" {
+		metadata.ToolVersion = "dev"
 	}
 
-	manifest, err := spdxmanifest.Build(options, packages)
+	manifest, err := spdxmanifest.Build(metadata, packages)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestBuild, manifestPath, err)
 	}
@@ -177,23 +177,7 @@ func outputPackageManifest(ctx context.Context, outputPath string, buildDir stri
 	}
 	defer imageConnection.Close()
 
-	err = copyPackageManifest(outputPath, imageConnection.Chroot().RootDir())
-	if err != nil {
-		return err
-	}
-
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to cleanly close image connection:\n%w", err)
-	}
-
-	logger.Log.Infof("Successfully extracted package manifest to %s", outputPath)
-
-	return nil
-}
-
-func copyPackageManifest(outputPath string, imageRootDir string) error {
-	manifestPath := filepath.Join(imageRootDir, packageManifestPath)
+	manifestPath := filepath.Join(imageConnection.Chroot().RootDir(), packageManifestPath)
 
 	exists, err := file.PathExists(manifestPath)
 	if err != nil {
@@ -208,6 +192,13 @@ func copyPackageManifest(outputPath string, imageRootDir string) error {
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrPackageManifestOutputWrite, outputPath, err)
 	}
+
+	err = imageConnection.CleanClose()
+	if err != nil {
+		return fmt.Errorf("failed to cleanly close image connection:\n%w", err)
+	}
+
+	logger.Log.Infof("Successfully extracted package manifest to %s", outputPath)
 
 	return nil
 }

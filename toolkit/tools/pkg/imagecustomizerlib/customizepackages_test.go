@@ -18,7 +18,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
@@ -959,94 +958,6 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	)
 
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
-}
-
-func TestGetRpmRootArgs(t *testing.T) {
-	assert.Nil(t, getRpmRootArgs(nil))
-	toolsChroot := safechroot.NewChroot(t.TempDir(), true)
-	assert.Equal(t, []string{"--root", "/_imageroot"}, getRpmRootArgs(toolsChroot))
-}
-
-func TestGetRpmRemoveArgs(t *testing.T) {
-	toolsChroot := safechroot.NewChroot(t.TempDir(), true)
-
-	tests := []struct {
-		name            string
-		removeProtected bool
-		pmHandler       rpmPackageManagerHandler
-		toolsChroot     *safechroot.Chroot
-		expected        []string
-	}{
-		{
-			name:            "execute in image",
-			removeProtected: true,
-			pmHandler:       newTdnfPackageManager("3.0"),
-			expected: []string{
-				"--assumeyes",
-				"--disablerepo", "*",
-				"--setopt=protected_packages=",
-				"remove", "bash", "rpm",
-			},
-		},
-		{
-			name:            "execute from tools chroot",
-			removeProtected: true,
-			pmHandler:       newTdnfPackageManager("3.0"),
-			toolsChroot:     toolsChroot,
-			expected: []string{
-				"--releasever=3.0",
-				"--installroot=/_imageroot",
-				"--assumeyes",
-				"--disablerepo", "*",
-				"--setopt=protected_packages=",
-				"remove", "bash", "rpm",
-			},
-		},
-		{
-			name:            "release version from dnf handler",
-			removeProtected: true,
-			pmHandler:       newDnfPackageManager("4.0"),
-			toolsChroot:     toolsChroot,
-			expected: []string{
-				"--releasever=4.0",
-				"--installroot=/_imageroot",
-				"--assumeyes",
-				"--disablerepo", "*",
-				"--setopt=protected_packages=",
-				"remove", "bash", "rpm",
-			},
-		},
-		{
-			// A config-requested removal must not be able to take out a protected package.
-			name:      "user removal leaves protected packages alone",
-			pmHandler: newTdnfPackageManager("3.0"),
-			expected: []string{
-				"--assumeyes",
-				"--disablerepo", "*",
-				"remove", "bash", "rpm",
-			},
-		},
-		{
-			name:        "user removal from tools chroot",
-			pmHandler:   newTdnfPackageManager("3.0"),
-			toolsChroot: toolsChroot,
-			expected: []string{
-				"--releasever=3.0",
-				"--installroot=/_imageroot",
-				"--assumeyes",
-				"--disablerepo", "*",
-				"remove", "bash", "rpm",
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			args := getRpmRemoveArgs(test.pmHandler, test.toolsChroot, []string{"bash", "rpm"},
-				test.removeProtected)
-			assert.Equal(t, test.expected, args)
-		})
-	}
 }
 
 func TestCustomizeImageRemovePackageManager(t *testing.T) {

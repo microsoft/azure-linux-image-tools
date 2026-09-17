@@ -76,32 +76,34 @@ The top level type for the YAML file is the [config](./config.md) type.
 18. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
     specified, then remove the package manager tools.
 
-19. Manage the image's package manifest, as
-  ([os.packages.manifest.mode](./packageManifest.md#mode-string)) specifies.
-  If removing the package manager was requested, then delete its remaining files.
+19. If [os.packages.manifest.mode](./packageManifest.md#mode-string) is specified,
+    then manage the package manifest accordingly.
 
-20. Restore the `/etc/resolv.conf` file.
+20. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
+    specified, then remove the package manager files.
 
-21. If SELinux is enabled, call `setfiles`.
+21. Restore the `/etc/resolv.conf` file.
 
-22. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
+22. If SELinux is enabled, call `setfiles`.
 
-23. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
+23. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
 
-24. If a ([verity](./storage.md#verity-verity)) device is specified, then
+24. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
+
+25. If a ([verity](./storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-25. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
+26. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
     specified, then copy the artifacts to the specified output directory.
 
-26. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
+27. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
     specified, then extract the SELinux policy files from the customized image.
 
-27. If ([output.packageManifest](./output.md#packagemanifest-outputpackagemanifest)) or
+28. If ([output.packageManifest](./output.md#packagemanifest-outputpackagemanifest)) or
   [--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path) is
     specified, then copy the package manifest out of the customized image.
 
-28. If the output format is set to `iso` or `pxe`, copy additional iso media files.
+29. If the output format is set to `iso` or `pxe`, copy additional iso media files.
     ([iso](./iso.md) or [pxe](./pxe.md))
 
 ## /etc/resolv.conf

@@ -134,7 +134,7 @@ func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler,
 	removePackageManager bool,
 ) error {
 	if removePackageManager {
-		err := removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, buildTime, packageManifestMode)
+		err := removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, packageManifestMode, buildTime)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
 		}
@@ -145,14 +145,16 @@ func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler,
 }
 
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, buildTime string, packageManifestMode imagecustomizerapi.PackageManifestMode,
+	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime string,
 ) error {
+	var err error
+
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_package_manager")
 	defer span.End()
 
 	logger.Log.Infof("Removing package manager")
 
-	err := distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
+	err = distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
 	}

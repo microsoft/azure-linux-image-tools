@@ -344,7 +344,7 @@ func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 	packages := goldenPackages(t)
 	assert.Len(t, packages, 22)
 
-	options := spdxmanifest.BuildOptions{
+	options := spdxmanifest.BuildMetadata{
 		Name:        "azurecontainerlinux",
 		VersionInfo: "0.0.0-spec-conformance",
 		ToolVersion: "dev",
@@ -372,7 +372,7 @@ func TestBuildMatchesAclGoldenManifest(t *testing.T) {
 func goldenPackages(t *testing.T) []spdxmanifest.Package {
 	t.Helper()
 
-	content, err := os.ReadFile(filepath.Join("../../internal/spdxmanifest/testdata", "acl-installed-rpm-packages.json"))
+	content, err := os.ReadFile(filepath.Join("../../internal/spdxmanifest/testdata", "expected-packages.json"))
 	require.NoError(t, err)
 
 	var packages []rpmdb.PackageInfo

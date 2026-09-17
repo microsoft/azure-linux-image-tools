@@ -7,7 +7,7 @@
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://azurelinux.microsoft.com/spdxdocs/azurecontainerlinux-aa795c73-97d7-57e3-8910-e6dea02de352",
+  "documentNamespace": "https://spdx.org/spdxdocs/azurecontainerlinux-aa795c73-97d7-57e3-8910-e6dea02de352",
   "name": "azurecontainerlinux",
   "packages": [
     {

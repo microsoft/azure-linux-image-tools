@@ -25,27 +25,32 @@ func TestBuildCreator(t *testing.T) {
 		{name: "release", toolVersion: "1.7.0", creator: "Tool: imagecustomizer-1.7.0"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			options := BuildOptions{
-				Name:        "azurelinux",
-				VersionInfo: "1.0",
-				ToolVersion: test.toolVersion,
-				Created:     "2025-01-01T00:00:00Z",
-			}
-			manifest, err := Build(options, nil)
-			require.NoError(t, err)
-			var document struct {
-				CreationInfo struct {
-					Creators []string `json:"creators"`
-				} `json:"creationInfo"`
-			}
-			require.NoError(t, json.Unmarshal(manifest, &document))
-			assert.Equal(t, []string{test.creator}, document.CreationInfo.Creators)
+			testBuildCreatorHelper(t, test.toolVersion, test.creator)
 		})
 	}
 }
 
+func testBuildCreatorHelper(t *testing.T, toolVersion string, expectedCreator string) {
+	t.Helper()
+	options := BuildMetadata{
+		Name:        "azurelinux",
+		VersionInfo: "1.0",
+		ToolVersion: toolVersion,
+		Created:     "2025-01-01T00:00:00Z",
+	}
+	manifest, err := Build(options, nil)
+	require.NoError(t, err)
+	var document struct {
+		CreationInfo struct {
+			Creators []string `json:"creators"`
+		} `json:"creationInfo"`
+	}
+	require.NoError(t, json.Unmarshal(manifest, &document))
+	assert.Equal(t, []string{expectedCreator}, document.CreationInfo.Creators)
+}
+
 func TestBuildPreservesPackageMetadata(t *testing.T) {
-	manifest, err := Build(BuildOptions{
+	manifest, err := Build(BuildMetadata{
 		Name:    "image",
 		Created: "2025-01-01T00:00:00Z",
 	}, []Package{
@@ -78,7 +83,7 @@ func TestBuildWarnsForLiteralNoAssertionVendor(t *testing.T) {
 	packages := []Package{
 		{ID: "sentinel", Name: "sentinel", Vendor: "NOASSERTION"},
 	}
-	manifest, err := Build(BuildOptions{Name: "image"}, packages)
+	manifest, err := Build(BuildMetadata{Name: "image"}, packages)
 	require.NoError(t, err)
 
 	var document struct {

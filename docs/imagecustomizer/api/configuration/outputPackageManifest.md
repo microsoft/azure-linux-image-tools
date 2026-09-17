@@ -15,10 +15,6 @@ Specifies the configuration for the package manifest output file.
 Example:
 
 ```yaml
-os:
-  packages:
-    manifest:
-      mode: create
 output:
   packageManifest:
     path: ./out/package-manifest.spdx.json
@@ -36,7 +32,7 @@ The path to write the image's package manifest to. It is copied from
 applied.
 
 If specified, [os.packages.manifest.mode](./packageManifest.md#mode-string)
-is required. It cannot be `none`, which leaves no manifest to copy.
+is required. The mode cannot be `none`, which leaves no manifest to copy.
 If the base image has no package manifest, the mode must be `create`.
 
 If both [--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path)

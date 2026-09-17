@@ -39,7 +39,7 @@ var (
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
-	GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions
+	GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata
 
 	// Validates the image config for a distro.
 	// This is primarily intended to be used to block unsupported features.

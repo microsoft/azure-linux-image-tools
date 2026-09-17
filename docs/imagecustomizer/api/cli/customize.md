@@ -181,7 +181,7 @@ The path to write the image's package manifest to. It is copied from
 applied.
 
 If specified, [os.packages.manifest.mode](../configuration/packageManifest.md#mode-string)
-is required. It cannot be `none`, which leaves no manifest to copy.
+is required. The mode cannot be `none`, which leaves no manifest to copy.
 If the base image has no package manifest, the mode must be `create`.
 
 If both [output.packageManifest.path](../configuration/outputPackageManifest.md#path-string)

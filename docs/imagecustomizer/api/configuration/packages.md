@@ -219,7 +219,7 @@ is either `iso`, `pxe-dir`, `pxe-tar`, `cosi`, or `baremetal-image`, then the bu
 fail. This is planned to be fixed in a future release.
 
 If this value is set to `true`, then
-[os.packages.manifest.mode](./packageManifest.md#mode-string) must also be specified.
+[os.packages.manifest.mode](./packageManifest.md#mode-string) is required.
 
 Example:
 

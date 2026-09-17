@@ -37,14 +37,14 @@ const (
 	supplierOrganization = "Organization"
 
 	// The namespace need not resolve. It only has to be a unique URI for the document.
-	documentNamespaceBase = "https://azurelinux.microsoft.com/spdxdocs"
+	documentNamespaceBase = "https://spdx.org/spdxdocs"
 )
 
 // An SPDXID must be an "idstring"; everything else in a package name is replaced with a dash.
 var nonSpdxID = regexp.MustCompile(`[^A-Za-z0-9.\-]`)
 
-// BuildOptions carries the document-level values a refresh cannot derive from the package set.
-type BuildOptions struct {
+// BuildMetadata carries the document-level values a refresh cannot derive from the package set.
+type BuildMetadata struct {
 	// Name determines the root package name and document namespace.
 	Name string
 
@@ -64,7 +64,7 @@ type Package struct {
 }
 
 // Build renders a package manifest.
-func Build(options BuildOptions, packages []Package) ([]byte, error) {
+func Build(metadata BuildMetadata, packages []Package) ([]byte, error) {
 	sortedPackages := slices.Clone(packages)
 	slices.SortFunc(sortedPackages, func(first Package, second Package) int {
 		return strings.Compare(first.ID, second.ID)
@@ -73,8 +73,8 @@ func Build(options BuildOptions, packages []Package) ([]byte, error) {
 	spdxPackages := []*spdx.Package{
 		{
 			PackageSPDXIdentifier:   rootID,
-			PackageName:             options.Name,
-			PackageVersion:          options.VersionInfo,
+			PackageName:             metadata.Name,
+			PackageVersion:          metadata.VersionInfo,
 			PackageSupplier:         &spdxcommon.Supplier{Supplier: noAssertion},
 			PackageDownloadLocation: noAssertion,
 			FilesAnalyzed:           false,
@@ -124,12 +124,12 @@ func Build(options BuildOptions, packages []Package) ([]byte, error) {
 	spdxDocument := spdx.Document{
 		SPDXVersion:       spdx.Version,
 		SPDXIdentifier:    documentID,
-		DocumentName:      options.Name,
-		DocumentNamespace: documentNamespace(options.Name, options.VersionInfo, sortedPackages),
+		DocumentName:      metadata.Name,
+		DocumentNamespace: documentNamespace(metadata.Name, metadata.VersionInfo, sortedPackages),
 		DataLicense:       spdx.DataLicense,
 		CreationInfo: &spdx.CreationInfo{
-			Created:  options.Created,
-			Creators: []spdxcommon.Creator{{CreatorType: "Tool", Creator: "imagecustomizer-" + options.ToolVersion}},
+			Created:  metadata.Created,
+			Creators: []spdxcommon.Creator{{CreatorType: "Tool", Creator: "imagecustomizer-" + metadata.ToolVersion}},
 		},
 		Packages:      spdxPackages,
 		Relationships: spdxRelationships,

@@ -41,7 +41,7 @@ In particular, these scripts run after:
 
 3. The package manager has been removed (if specified)
 
-4. The `/usr/share/os-manifests/package-manifest.spdx.json` package manifest has
+4. The package manifest at `/usr/share/os-manifests/package-manifest.spdx.json` has
    been created (if specified)
 
 but before the conversion to the requested output type.

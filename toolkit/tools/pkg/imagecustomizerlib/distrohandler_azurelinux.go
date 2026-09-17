@@ -68,8 +68,8 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	return d.targetOs
 }
 
-func (d *azureLinuxDistroHandler) GetPackageManifestBuildOptions(created string) spdxmanifest.BuildOptions {
-	return spdxmanifest.BuildOptions{
+func (d *azureLinuxDistroHandler) GetPackageManifestBuildMetadata(created string) spdxmanifest.BuildMetadata {
+	return spdxmanifest.BuildMetadata{
 		Name:        string(d.targetOs.Distro),
 		VersionInfo: d.targetOs.PackageManifestVersionInfo,
 		Created:     created,

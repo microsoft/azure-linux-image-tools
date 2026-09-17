@@ -43,8 +43,10 @@ const (
 )
 
 var (
-	tdnfOpRemoveLine  = "Removing: "
-	tdnfOpInstallLine = "Installing/Updating: "
+	tdnfOpLines = []string{
+		"Installing/Updating: ",
+		"Removing: ",
+	}
 
 	tdnfSummaryLines = []string{
 		"Installing:",
@@ -95,9 +97,6 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 		}
 
 		switch {
-		case strings.HasPrefix(line, tdnfOpRemoveLine) || strings.HasPrefix(line, tdnfOpInstallLine):
-			logger.Log.Debug(line)
-
 		case seenTransactionErrorMessage:
 			logger.Log.Warn(line)
 
@@ -110,6 +109,9 @@ func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechr
 
 		case slices.Contains(tdnfSummaryLines, line):
 			inSummary = true
+			logger.Log.Debug(line)
+
+		case slices.ContainsFunc(tdnfOpLines, func(opPrefix string) bool { return strings.HasPrefix(line, opPrefix) }):
 			logger.Log.Debug(line)
 
 		default:
