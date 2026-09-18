@@ -33,7 +33,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTime := time.Now().UTC().Format(buildTimeFormat)
+	buildTimestamp := time.Now()
+	buildTime := buildTimestamp.Format(buildTimeFormat)
 
 	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
 	// the same merged /etc the booted OS sees.
@@ -235,8 +236,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot, buildTime,
-		rc.PackageManifestMode, rc.RemovePackageManager)
+	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot,
+		buildTimestamp.UTC().Format(buildTimeFormat), rc.PackageManifestMode, rc.RemovePackageManager)
 	if err != nil {
 		return err
 	}

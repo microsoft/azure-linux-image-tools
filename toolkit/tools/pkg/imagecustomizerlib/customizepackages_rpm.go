@@ -348,6 +348,11 @@ func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabas
 		return nil, fmt.Errorf("failed to close RPM database (path='%s'):\n%w", databasePath, err)
 	}
 
+	return newManifestPackagesFromRpmPackages(packages, purlNamespace)
+}
+
+func newManifestPackagesFromRpmPackages(packages []*rpmdb.PackageInfo, purlNamespace string,
+) ([]spdxmanifest.Package, error) {
 	installedPackages := make([]spdxmanifest.Package, 0, len(packages))
 	installedIds := make(map[string]struct{}, len(packages))
 	for _, packageInfo := range packages {
@@ -362,7 +367,7 @@ func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabas
 		}
 
 		if _, found := installedIds[manifestPackage.ID]; found {
-			logger.Log.Infof("Duplicate installed package ID (id='%s')", manifestPackage.ID)
+			return nil, fmt.Errorf("duplicate installed package ID (id='%s')", manifestPackage.ID)
 		}
 		installedIds[manifestPackage.ID] = struct{}{}
 		installedPackages = append(installedPackages, manifestPackage)

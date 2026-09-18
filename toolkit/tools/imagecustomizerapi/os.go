@@ -128,7 +128,7 @@ func (s *OS) IsValid() error {
 	}
 
 	if err := s.Packages.IsValid(); err != nil {
-		return err
+		return fmt.Errorf("invalid packages:\n%w", err)
 	}
 
 	return nil

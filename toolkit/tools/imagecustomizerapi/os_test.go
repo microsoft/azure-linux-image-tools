@@ -119,6 +119,17 @@ func TestOSIsValidInvalidUser(t *testing.T) {
 	assert.ErrorContains(t, err, "user () is invalid")
 }
 
+func TestOSIsValidInvalidPackages(testContext *testing.T) {
+	osConfig := OS{
+		Packages: Packages{
+			Manifest: &PackageManifest{Mode: "invalid"},
+		},
+	}
+
+	err := osConfig.IsValid()
+	assert.ErrorContains(testContext, err, "invalid packages:\n")
+}
+
 func TestOSIsValidInvalidServices(t *testing.T) {
 	os := OS{
 		Services: Services{

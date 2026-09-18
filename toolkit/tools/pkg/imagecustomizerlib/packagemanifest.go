@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const packageManifestPath = "usr/share/os-manifests/package-manifest.spdx.json"
+const packageManifestPath = "/usr/share/os-manifests/package-manifest.spdx.json"
 
 var (
 	ErrPackageManifestRead                = NewImageCustomizerError("PackageManifest:Read", "failed to read the package manifest")
@@ -53,7 +53,7 @@ func validateBaseImagePackageManifest(rc *ResolvedConfig, rootDir string) error 
 	if exists {
 		// Require an explicit mode when there is an existing manifest so it isn't unintentionally left stale.
 		if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeUnspecified {
-			return fmt.Errorf("%w (path='/%s')", ErrPackageManifestModeRequired, packageManifestPath)
+			return fmt.Errorf("%w (path='%s')", ErrPackageManifestModeRequired, packageManifestPath)
 		}
 		return nil
 	}
@@ -66,7 +66,7 @@ func validateBaseImagePackageManifest(rc *ResolvedConfig, rootDir string) error 
 	// The output file requires creating a manifest when the base image has none to copy.
 	// Other modes do not create the manifest.
 	if rc.PackageManifestMode != imagecustomizerapi.PackageManifestModeCreate {
-		return fmt.Errorf("%w (path='/%s')", ErrPackageManifestCreateRequired, packageManifestPath)
+		return fmt.Errorf("%w (path='%s')", ErrPackageManifestCreateRequired, packageManifestPath)
 	}
 
 	return nil
@@ -203,7 +203,7 @@ func outputPackageManifest(ctx context.Context, imageChroot safechroot.ChrootInt
 	}
 
 	if !exists {
-		return fmt.Errorf("%w (path='/%s')", ErrPackageManifestOutputMissing, packageManifestPath)
+		return fmt.Errorf("%w (path='%s')", ErrPackageManifestOutputMissing, packageManifestPath)
 	}
 
 	err = file.Copy(manifestPath, outputPath)
