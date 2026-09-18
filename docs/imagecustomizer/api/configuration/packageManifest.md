@@ -49,6 +49,9 @@ Supported values:
   that. It is not created if the base image does not have one.
 
 - `none`: Remove the manifest if the base image has one.
+  This mode cannot be combined with
+  [output.packageManifest.path](./outputPackageManifest.md#path-string) or
+  [--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path).
 
 There is no default mode. If the base image has a manifest, removing the
 package manager is requested, or a manifest output path is specified,

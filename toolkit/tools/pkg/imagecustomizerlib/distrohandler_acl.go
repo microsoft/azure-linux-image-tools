@@ -31,8 +31,6 @@ type aclDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
-const purlNamespaceAzureContainerLinux = string(targetos.AzureContainerLinux)
-
 func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
 	logger.Log.Debugf("Distro handler: ACL (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
 

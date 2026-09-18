@@ -257,7 +257,7 @@ func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPa
 			continue
 		}
 		externalReference := manifestPackage.PackageExternalReferences[0]
-		assert.Equal(t, "PACKAGE_MANAGER", externalReference.Category, manifestPackage.PackageName)
+		assert.Equal(t, "PACKAGE-MANAGER", externalReference.Category, manifestPackage.PackageName)
 		assert.Equal(t, "purl", externalReference.RefType, manifestPackage.PackageName)
 
 		packageURL, err := url.Parse(externalReference.Locator)
