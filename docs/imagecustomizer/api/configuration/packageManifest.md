@@ -10,7 +10,7 @@ Its API and behavior is subject to change.
 You must enable this feature by specifying `package-manifest` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
-Enables the management of the customized image's package manifest. On images
+Enables the management of the image's package manifest. On images
 without a package manager, vulnerability scanners rely on this manifest to identify
 installed packages. Shipping such an image with a stale or missing manifest can
 cause scanners to miss vulnerabilities and is therefore not recommended.
@@ -39,16 +39,16 @@ Specifies how to manage the SPDX 2.2 package manifest at
 
 Supported values:
 
-- `create`: Write a manifest describing the packages the image has once every
-  package operation has run, including the removal of the package manager.
-  Any manifest the base image carries is written over, and one is created if it
-  has none.
+- `create`: Write a manifest after the configured package operations,
+  `postCustomization` scripts, and any requested removal of the package manager
+  have run. Any existing manifest is overwritten, and one is created
+  if none exists.
 
-- `passthrough`: Leave the base image's manifest exactly as it was.
-  Any package operation leaves it stale, and the caller takes responsibility for
-  that. It is not created if the base image does not have one.
+- `passthrough`: Do not read, validate, or modify the manifest. Package changes
+  can leave it stale, and the caller takes responsibility for that. This mode
+  does not create a missing manifest.
 
-- `none`: Remove the manifest if the base image has one.
+- `none`: Remove the manifest if one exists.
   This mode cannot be combined with
   [output.packageManifest.path](./outputPackageManifest.md#path-string) or
   [--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path).
@@ -57,6 +57,11 @@ There is no default mode. If the base image has a manifest, removing the
 package manager is requested, or a manifest output path is specified,
 an explicit mode is required. Otherwise, `os.packages.manifest` may be omitted,
 in which case Image Customizer will not do anything.
+
+Creating or deleting the manifest requires its directory to be writable. On an
+image with a verity-protected `/usr`, set
+[storage.reinitializeVerity: all](./storage.md#reinitializeverity-string) and
+enable the `reinitialize-verity` preview feature before changing the manifest.
 
 Example:
 

@@ -73,7 +73,7 @@ func doOsCustomizationsCreate(
 	distroHandler DistroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
-	buildTime := time.Now().Format(buildTimeFormat)
+	buildTime := time.Now().UTC().Format(buildTimeFormat)
 
 	// Override resolv.conf inside the image chroot so user scripts and RPM
 	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own
