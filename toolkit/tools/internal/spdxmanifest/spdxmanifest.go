@@ -122,11 +122,10 @@ func Build(metadata BuildMetadata, packages []Package) ([]byte, error) {
 	}
 
 	spdxDocument := spdx.Document{
-		SPDXVersion:       spdx.Version,
-		SPDXIdentifier:    documentID,
-		DocumentName:      metadata.Name,
-		DocumentNamespace: documentNamespace(metadata.Name, metadata.VersionInfo, sortedPackages),
-		DataLicense:       spdx.DataLicense,
+		SPDXVersion:    spdx.Version,
+		SPDXIdentifier: documentID,
+		DocumentName:   metadata.Name,
+		DataLicense:    spdx.DataLicense,
 		CreationInfo: &spdx.CreationInfo{
 			Created:  metadata.Created,
 			Creators: []spdxcommon.Creator{{CreatorType: "Tool", Creator: "imagecustomizer-" + metadata.ToolVersion}},
@@ -135,11 +134,20 @@ func Build(metadata BuildMetadata, packages []Package) ([]byte, error) {
 		Relationships: spdxRelationships,
 	}
 
+	namespace, err := documentNamespace(spdxDocument)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate package manifest namespace:\n%w", err)
+	}
+	spdxDocument.DocumentNamespace = namespace
+
+	return writeDocument(spdxDocument)
+}
+
+func writeDocument(document spdx.Document) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 
 	// Package URLs carry '&' between qualifiers, which the default HTML escaping would mangle into \u0026.
-	err := spdxjson.Write(spdxDocument, buffer, spdxjson.Indent("  "), spdxjson.EscapeHTML(false))
-	if err != nil {
+	if err := spdxjson.Write(document, buffer, spdxjson.Indent("  "), spdxjson.EscapeHTML(false)); err != nil {
 		return nil, fmt.Errorf("failed to write package manifest:\n%w", err)
 	}
 
@@ -160,15 +168,14 @@ func packageSupplier(pkg Package) *spdxcommon.Supplier {
 	return &spdxcommon.Supplier{SupplierType: supplierOrganization, Supplier: pkg.Vendor}
 }
 
-// documentNamespace uses UUID version 5 (SHA-1) with the name, version, and ordered package IDs as its seed.
-func documentNamespace(name string, version string, packages []Package) string {
-	packageIDs := make([]string, 0, len(packages))
-	for _, pkg := range packages {
-		packageIDs = append(packageIDs, pkg.ID)
+// documentNamespace uses UUID version 5 (SHA-1), seeded by the document with its namespace cleared.
+func documentNamespace(document spdx.Document) (string, error) {
+	document.DocumentNamespace = ""
+	seed, err := writeDocument(document)
+	if err != nil {
+		return "", err
 	}
+	unique := uuid.NewSHA1(uuid.NameSpaceURL, seed)
 
-	seed := fmt.Sprintf("%s/%s/%s", name, version, strings.Join(packageIDs, "/"))
-	unique := uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed))
-
-	return fmt.Sprintf("%s/%s-%s", documentNamespaceBase, name, unique)
+	return fmt.Sprintf("%s/%s-%s", documentNamespaceBase, document.DocumentName, unique), nil
 }
