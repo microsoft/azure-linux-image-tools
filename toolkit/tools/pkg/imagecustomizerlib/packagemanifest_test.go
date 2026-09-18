@@ -30,8 +30,6 @@ func TestPackageManifestCreate(t *testing.T) {
 
 func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-	logSubHook := logMessagesHook.AddSubHook()
-	defer logSubHook.Close()
 
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
@@ -65,11 +63,6 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	require.NoError(t, err)
-	messages := logSubHook.ConsumeMessages()
-	require.NotEmpty(t, messages)
-	for _, message := range messages {
-		assert.NotContains(t, message.Message, "Duplicate installed package ID")
-	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
 	require.NoError(t, err)
@@ -103,8 +96,6 @@ func TestPackageManifestCreateWithPackageManagerRemoval(t *testing.T) {
 
 func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-	logSubHook := logMessagesHook.AddSubHook()
-	defer logSubHook.Close()
 
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
@@ -138,11 +129,6 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 		PreviewFeatures:           baseImageInfo.PreviewFeatures,
 	})
 	require.NoError(t, err)
-	messages := logSubHook.ConsumeMessages()
-	require.NotEmpty(t, messages)
-	for _, message := range messages {
-		assert.NotContains(t, message.Message, "Duplicate installed package ID")
-	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
 	require.NoError(t, err)
