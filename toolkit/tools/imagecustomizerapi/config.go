@@ -22,6 +22,19 @@ type Config struct {
 	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
 }
 
+// validateAdditionalFilesPreserveSymlinks requires the 'preserve-symlinks' preview feature
+// when any additionalFiles entry uses 'symlinkMode: preserve'. apiPath names the config
+// location (e.g. "os.additionalFiles") for the error message.
+func validateAdditionalFilesPreserveSymlinks(files AdditionalFileList, previewFeatures []PreviewFeature, apiPath string) error {
+	for i := range files {
+		if files[i].SymlinkMode == SymlinkModePreserve && !sliceutils.ContainsValue(previewFeatures, PreviewFeaturePreserveSymlinks) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use '%s[].symlinkMode: preserve'",
+				PreviewFeaturePreserveSymlinks, apiPath)
+		}
+	}
+	return nil
+}
+
 func (c *Config) IsValid() (err error) {
 	err = c.Input.IsValid()
 	if err != nil {
@@ -43,6 +56,9 @@ func (c *Config) IsValid() (err error) {
 		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
+		if err := validateAdditionalFilesPreserveSymlinks(c.Iso.AdditionalFiles, c.PreviewFeatures, "iso.additionalFiles"); err != nil {
+			return err
+		}
 	}
 
 	if c.Pxe != nil {
@@ -52,6 +68,9 @@ func (c *Config) IsValid() (err error) {
 		}
 		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
+		}
+		if err := validateAdditionalFilesPreserveSymlinks(c.Pxe.AdditionalFiles, c.PreviewFeatures, "pxe.additionalFiles"); err != nil {
+			return err
 		}
 	}
 
@@ -100,6 +119,10 @@ func (c *Config) IsValid() (err error) {
 				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode: preserve'",
 					PreviewFeaturePreserveSymlinks)
 			}
+		}
+
+		if err := validateAdditionalFilesPreserveSymlinks(c.OS.AdditionalFiles, c.PreviewFeatures, "os.additionalFiles"); err != nil {
+			return err
 		}
 	}
 

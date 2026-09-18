@@ -235,6 +235,34 @@ func TestConfigIsValidDereferenceSymlinkModeNeedsNoPreviewFeature(t *testing.T) 
 	}
 }
 
+func TestConfigIsValidWithAdditionalFilesPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalFiles: AdditionalFileList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeaturePreserveSymlinks},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingAdditionalFilesPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalFiles: AdditionalFileList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'preserve-symlinks' preview feature must be enabled to use 'os.additionalFiles[].symlinkMode: preserve'")
+}
+
 func TestConfigIsValidWithInvalidBootType(t *testing.T) {
 	config := &Config{
 		Storage: Storage{
