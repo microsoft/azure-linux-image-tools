@@ -58,10 +58,9 @@ package manager is requested, or a manifest output path is specified,
 an explicit mode is required. Otherwise, `os.packages.manifest` may be omitted,
 in which case Image Customizer will not do anything.
 
-Creating or deleting the manifest requires its directory to be writable. On an
-image with a verity-protected `/usr`, set
-[storage.reinitializeVerity: all](./storage.md#reinitializeverity-string) and
-enable the `reinitialize-verity` preview feature before changing the manifest.
+Creating a manifest, or deleting an existing one, requires a writable manifest
+directory, so images with a verity-protected `/usr` require
+[storage.reinitializeVerity](./storage.md#reinitializeverity-string) to be set to `all`.
 
 Example:
 
