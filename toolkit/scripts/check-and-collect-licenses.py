@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from typing import Any, cast
 import urllib
 import urllib.request
 
@@ -73,11 +74,69 @@ def download_trivy():
 
     print("Trivy installed successfully.")
 
+def validate_license_choice(package_id: str, choice: Any) -> None:
+    """Raise ValueError for malformed or internally inconsistent policy entries."""
+    package_name, separator, version = package_id.rpartition("@")
+    if not package_name.strip() or not separator or not version.strip():
+        raise ValueError(f"{package_id!r}: license choice key must use 'package@version'")
+
+    if not isinstance(choice, dict):
+        raise ValueError(f"{package_id}: license choice must be an object")
+    choice = cast(dict[str, Any], choice)
+
+    for field in ("selected", "source"):
+        value = choice.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{package_id}: '{field}' must be a non-empty string")
+
+    reviewed_licenses = choice.get("licenses")
+    if not isinstance(reviewed_licenses, list):
+        raise ValueError(f"{package_id}: 'licenses' must be a non-empty list of license names")
+    reviewed_licenses = cast(list[Any], reviewed_licenses)
+    if not reviewed_licenses or any(
+        not isinstance(license_name, str) or not license_name.strip()
+        for license_name in reviewed_licenses
+    ):
+        raise ValueError(f"{package_id}: 'licenses' must be a non-empty list of license names")
+
+    selected_license = choice["selected"]
+    if selected_license not in reviewed_licenses:
+        raise ValueError(
+            f"{package_id}: selected license {selected_license!r} is not in the reviewed licenses"
+        )
+
+def find_license_choice(
+    package: dict[str, Any],
+    license_name: str | None,
+    license_choices: dict[str, dict[str, Any]],
+) -> tuple[str, str, str] | None:
+    """Return the package ID, selected license, and source URL if the policy allows ignoring the flagged license."""
+    package_id = f"{package.get('Name')}@{package.get('Version')}"
+    if package_id not in license_choices:
+        return None
+
+    expected_licenses = set(license_choices[package_id]["licenses"])
+    if set(package.get("Licenses", [])) != expected_licenses:
+        return None
+
+    selected_license = license_choices[package_id]["selected"]
+    unselected_licenses = expected_licenses - {selected_license}
+    if license_name in unselected_licenses:
+        license_source_url = license_choices[package_id]["source"]
+        return package_id, selected_license, license_source_url
+
+    return None
+
 def run_trivy_scan():
     print("Running Trivy license scan...")
 
     with open(LICENSE_CHOICES_JSON) as policy_file:
         license_choices = json.load(policy_file)
+    if not isinstance(license_choices, dict):
+        raise ValueError("License choices must be an object keyed by 'package@version'")
+    license_choices = cast(dict[str, dict[str, Any]], license_choices)
+    for package_id, choice in license_choices.items():
+        validate_license_choice(package_id, choice)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -92,24 +151,38 @@ def run_trivy_scan():
     with open(LICENSE_SCAN_OUTPUT) as f:
         data = json.load(f)
 
-    findings = []
+    findings: list[str] = []
     results = data.get("Results", [])
+
+    packages_by_target_and_name: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for result in results:
+        target = result.get("Target")
+        if not target:
+            continue
+
+        for package in result.get("Packages", []):
+            package_name = package.get("Name")
+            if package_name:
+                key = (target, package_name)
+                packages_by_target_and_name.setdefault(key, []).append(package)
+
     for result in results:
         for license_entry in result.get("Licenses", []):
-            if license_entry.get("Severity") not in ("HIGH", "CRITICAL"):
-                continue
+            if license_entry.get("Severity") in ("HIGH", "CRITICAL"):
+                package_name = license_entry.get('PkgName')
+                license_name = license_entry.get('Name')
 
-            package_name = license_entry.get('PkgName')
-            license_name = license_entry.get('Name')
+                packages = packages_by_target_and_name.get((result.get("Target"), package_name), [])
+                license_choice_match = None
+                if len(packages) == 1:
+                    license_choice_match = find_license_choice(packages[0], license_name, license_choices)
+                if license_choice_match:
+                    package_id, selected_license, license_source_url = license_choice_match
+                    print(f"Using {selected_license} for {package_id} ({license_source_url})")
+                    continue
 
-            match = find_license_choice(results, result.get("Target"), package_name, license_name, license_choices)
-            if match:
-                package_id, choice = match
-                print(f"Using {choice['selected']} for {package_id} ({choice['source']})")
-                continue
-
-            category = license_entry.get('Category')
-            findings.append(f"- {package_name}: {license_name} [{category}]")
+                category = license_entry.get('Category')
+                findings.append(f"- {package_name}: {license_name} [{category}]")
 
     if findings:
         print("❌ Found HIGH or CRITICAL severity license classification:")
