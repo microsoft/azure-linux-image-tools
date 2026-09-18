@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -129,6 +130,11 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	packageName string,
 ) (*PackageVersionInformation, error) {
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
+}
+
+func (d *aclDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl3, purlNamespaceAzureLinux)
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,

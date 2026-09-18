@@ -34,6 +34,10 @@ func validateCreateImageSupportedFields(rc *ResolvedConfig) error {
 		return fmt.Errorf("selinux field is not supported by the create subcommand")
 	}
 
+	if rc.OutputPackageManifestPath != "" {
+		return fmt.Errorf("output.packageManifest field is not supported by the create subcommand")
+	}
+
 	for _, config := range rc.ConfigChain {
 		if config.Config.OS != nil {
 			if err := validateCreateImageSupportedOsFields(config.Config.OS); err != nil {
@@ -61,6 +65,11 @@ func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error
 	if osConfig.Overlays != nil {
 		return fmt.Errorf("os.overlay field is not supported by the create subcommand")
 	}
+
+	if osConfig.Packages.Manifest != nil {
+		return fmt.Errorf("os.packages.manifest field is not supported by the create subcommand")
+	}
+
 	return nil
 }
 

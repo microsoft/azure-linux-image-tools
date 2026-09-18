@@ -45,6 +45,7 @@ Customizing such a version requires this feature to be set.
 | &emsp;&emsp;`vhdx`                                                                                  | Yes             | Yes             | Preview             | Preview                   |
 | &emsp;[--cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                  | Yes             | Yes             | No                  | No                        |
 | &emsp;[--output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path) | Yes             | Yes             | No                  | No                        |
+| &emsp;[--output-package-manifest-file](./cli/customize.md#--output-package-manifest-filefile-path)  | Preview         | Preview         | Preview             | Preview                   |
 | &emsp;[--config-file](./cli/customize.md#--config-filefile-path)                                    | Yes             | Yes             | Preview             | Preview                   |
 | &emsp;[--rpm-source](./cli/customize.md#--rpm-sourcepath)                                           | Yes             | Yes             | No                  | No                        |
 | &emsp;[--disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)           | Yes             | Yes             | No                  | No                        |
@@ -73,6 +74,10 @@ Customizing such a version requires this feature to be set.
 | &emsp;[.updateLists](./configuration/packages.md#updatelists-string)                     | Yes                   | Yes                   | Preview             | No                        |
 | &emsp;[.update](./configuration/packages.md#update-string)                               | Yes                   | Yes                   | Preview             | No                        |
 | &emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes                   | No                    | No                  | No                        |
+| &emsp;[.manifest.mode](./configuration/packageManifest.md#mode-string)                   | Preview               | Preview               | Preview             | Preview                   |
+| &emsp;&emsp;`create`                                                                     | Preview               | Preview               | No                  | Preview                   |
+| &emsp;&emsp;`passthrough`                                                                | Preview               | Preview               | Preview             | Preview                   |
+| &emsp;&emsp;`none`                                                                       | Preview               | Preview               | Preview             | Preview                   |
 | [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)               | Yes                   | Yes                   | Preview             | Preview                   |
 | [os.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                      | Yes                   | Yes                   | Preview             | Preview                   |
 | [os.groups](./configuration/os.md#groups-group)                                          | Yes                   | Yes                   | Preview             | Preview                   |
@@ -87,5 +92,6 @@ Customizing such a version requires this feature to be set.
 | [scripts](./configuration/config.md#scripts-scripts)                                     | Yes                   | Yes                   | Preview             | Preview                   |
 | [output.image](./configuration/output.md#image-outputimage)                              | Yes                   | Yes                   | Preview             | Preview                   |
 | [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | Yes                   | No                  | Preview                   |
+| [output.packageManifest.path](./configuration/outputPackageManifest.md#path-string)      | Preview               | Preview               | Preview             | Preview                   |
 | [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)           | Yes                   | Yes                   | No                  | No                        |
 | [previewFeatures](./configuration/config.md#previewfeatures-string)                      | Yes                   | Yes                   | Yes                 | Yes                       |

@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
@@ -29,9 +30,10 @@ var (
 	ErrUnsupportedDistroVersion       = NewImageCustomizerError("Validation:UnsupportedDistroVersion", "base image has unsupported distro version")
 	ErrUnsupportedDistroVersionSuffix = fmt.Sprintf("preview feature '%s' may be specified to use unsupported versions", imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion)
 
-	ErrUnsupportedDistroApi           = NewImageCustomizerError("Validation:UnsupportedDistroApi", "unsupported API for distro")
-	ErrUnsupportedPackageSnapshotTime = NewImageCustomizerError("Validation:UnsupportedPackageSnapshotTime", "package snapshot time API is not supported")
-	ErrUnsupportedRpmSources          = NewImageCustomizerError("Validation:UnsupportedRpmSources", "RPM sources API is not supported")
+	ErrUnsupportedDistroApi             = NewImageCustomizerError("Validation:UnsupportedDistroApi", "unsupported API for distro")
+	ErrUnsupportedPackageSnapshotTime   = NewImageCustomizerError("Validation:UnsupportedPackageSnapshotTime", "package snapshot time API is not supported")
+	ErrUnsupportedRpmSources            = NewImageCustomizerError("Validation:UnsupportedRpmSources", "RPM sources API is not supported")
+	ErrUnsupportedPackageManifestCreate = NewImageCustomizerError("Validation:UnsupportedPackageManifestCreate", "'os.packages.manifest.mode: create' is not supported for this distro yet")
 )
 
 // DistroHandler represents the interface for distribution-specific configuration
@@ -47,7 +49,7 @@ type DistroHandler interface {
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
-	// Removes the package management tools (e.g. rpm, dnf, apt).
+	// Removes the package management tools.
 	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error
 
 	// Removes the package management directories (e.g. rpm db).
@@ -66,6 +68,9 @@ type DistroHandler interface {
 	// Get all installed packages from the chroot.
 	// toolsChroot has the same semantics as in IsPackageInstalled.
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) ([]cosiapi.OsPackage, error)
+
+	// ListInstalledPackagesForSpdx returns installed package IDs and metadata for SPDX package manifest generation.
+	ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface) ([]spdxmanifest.Package, error)
 
 	// Detect the bootloader type installed in the image. toolsChroot has the same semantics as in IsPackageInstalled.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot) (cosiapi.BootloaderType, error)

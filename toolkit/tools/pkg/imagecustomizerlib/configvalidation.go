@@ -57,6 +57,9 @@ var (
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
 	ErrStorageMoreThanOne                   = NewImageCustomizerError("Validation:StorageMoreThanOne", "storage may only be specified in one config file:\nstorage merging logic not yet implemented")
 	ErrRemovePackageManagerBadOutputFormat  = NewImageCustomizerError("Validation:RemovePackageManagerBadOutputFormat", "removePackageManager API does not work yet with output format")
+	ErrPackageManifestOutputModeRequired    = NewImageCustomizerError("Validation:PackageManifestOutputModeRequired", "'os.packages.manifest.mode' must be specified when the package manifest is written out")
+	ErrPackageManifestOutputWithModeNone    = NewImageCustomizerError("Validation:PackageManifestOutputWithModeNone", "the package manifest cannot be written out with 'os.packages.manifest.mode: none'")
+	ErrPackageManifestRemovalModeRequired   = NewImageCustomizerError("Validation:PackageManifestRemovalModeRequired", "'os.packages.manifest.mode' must be specified when 'os.packages.removePackageManager' is true")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -254,6 +257,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	rc.OutputPackageManifestPath = resolveOutputPackageManifestFile(rc.ConfigChain, options.OutputPackageManifestFile)
+
 	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
 		rc.OutputImageFormat)
 	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
@@ -261,6 +266,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.ImageHistory = resolveImageHistory(rc.ConfigChain)
 
 	rc.RemovePackageManager = resolveRemovePackageManager(rc.ConfigChain)
+
+	rc.PackageManifestMode, err = validatePackageManifestMode(rc.ConfigChain, rc.OutputPackageManifestPath,
+		rc.RemovePackageManager)
+	if err != nil {
+		return nil, err
+	}
 
 	if rc.RemovePackageManager {
 		switch rc.OutputImageFormat {
@@ -723,6 +734,23 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 	return "", ErrOutputImageFileRequired
 }
 
+func resolveOutputPackageManifestFile(configChain []*ConfigWithBasePath, cliOutputPackageManifestFile string,
+) string {
+	if cliOutputPackageManifestFile != "" {
+		return cliOutputPackageManifestFile
+	}
+
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.PackageManifest != nil &&
+			configWithBase.Config.Output.PackageManifest.Path != "" {
+			return file.GetAbsPathWithBase(configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.PackageManifest.Path)
+		}
+	}
+
+	return ""
+}
+
 func validateUsers(baseConfigPath string, users []imagecustomizerapi.User, validateFiles bool) error {
 	for _, user := range users {
 		err := validateUser(baseConfigPath, user, validateFiles)
@@ -1131,4 +1159,34 @@ func resolveRemovePackageManager(configChain []*ConfigWithBasePath) bool {
 	}
 
 	return false
+}
+
+func validatePackageManifestMode(configChain []*ConfigWithBasePath, outputPackageManifestPath string,
+	removePackageManager bool,
+) (imagecustomizerapi.PackageManifestMode, error) {
+	packageManifestMode := imagecustomizerapi.PackageManifestModeUnspecified
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil &&
+			configWithBase.Config.OS.Packages.Manifest != nil &&
+			configWithBase.Config.OS.Packages.Manifest.Mode != imagecustomizerapi.PackageManifestModeUnspecified {
+			packageManifestMode = configWithBase.Config.OS.Packages.Manifest.Mode
+			break
+		}
+	}
+
+	if removePackageManager && packageManifestMode == imagecustomizerapi.PackageManifestModeUnspecified {
+		return packageManifestMode, ErrPackageManifestRemovalModeRequired
+	}
+
+	if outputPackageManifestPath != "" {
+		switch packageManifestMode {
+		case imagecustomizerapi.PackageManifestModeUnspecified:
+			return packageManifestMode, ErrPackageManifestOutputModeRequired
+
+		case imagecustomizerapi.PackageManifestModeNone:
+			return packageManifestMode, ErrPackageManifestOutputWithModeNone
+		}
+	}
+
+	return packageManifestMode, nil
 }

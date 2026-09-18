@@ -34,9 +34,9 @@ Added in v0.8.
 
 ## mode [string]
 
-Specifies how to handle UKI creation or preservation.
-
 Required.
+
+Specifies how to handle UKI creation or preservation.
 
 Supported values:
 

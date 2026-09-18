@@ -4,14 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 
+	rpmdb "github.com/anchore/go-rpmdb/pkg"
+	_ "github.com/glebarez/go-sqlite"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
+	"github.com/package-url/packageurl-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -120,12 +127,7 @@ func installRpmPackages(ctx context.Context, allPackages []string,
 
 	args = append(args, allPackages...)
 
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -157,12 +159,7 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 
 	args = append(args, allPackages...)
 
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -189,12 +186,7 @@ func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chro
 	cacheOptions := pmHandler.getCacheOnlyOptions()
 	args = append(args, cacheOptions...)
 
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -216,15 +208,8 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 	_, span := startRemovePackagesSpan(ctx, allPackagesToRemove)
 	defer span.End()
 
-	// Build command arguments directly
-	args := []string{"remove", "--assumeyes", "--disablerepo", "*"}
-	args = append(args, allPackagesToRemove...)
-
-	if toolsChroot != nil {
-		args = append(
-			[]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir},
-			args...)
-	}
+	args := getRpmRemoveArgs(pmHandler, toolsChroot, allPackagesToRemove,
+		false /* removeProtectedPackages */)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -259,12 +244,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	err = pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -290,12 +270,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 	// Build command arguments directly
 	args := []string{"clean", "all"}
 
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -309,13 +284,8 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsCh
 ) ([]cosiapi.OsPackage, error) {
 	args := []string{"-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n"}
 
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image rpm.
-		args = append([]string{"--root", "/" + toolsRootImageDir}, args...)
-		chroot = toolsChroot
-	}
+	args = append(getRpmRootArgs(toolsChroot), args...)
+	chroot := getRpmChroot(imageChroot, toolsChroot)
 
 	out, _, err := shell.NewExecBuilder("rpm", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
@@ -341,6 +311,96 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsCh
 	}
 
 	return packages, nil
+}
+
+func getRpmChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
+) safechroot.ChrootInterface {
+	if toolsChroot == nil {
+		return imageChroot
+	}
+
+	return toolsChroot
+}
+
+func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabasePath string, purlNamespace string,
+) ([]spdxmanifest.Package, error) {
+	databasePath := filepath.Join(imageChroot.RootDir(), rpmDatabasePath)
+
+	walInfo, err := os.Stat(databasePath + "-wal")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if err == nil && walInfo.Size() != 0 {
+		return nil, fmt.Errorf("cannot read RPM database with a nonempty WAL (path='%s')", databasePath)
+	}
+
+	database, err := rpmdb.Open(databasePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open RPM database (path='%s'):\n%w", databasePath, err)
+	}
+	defer database.Close()
+
+	packages, err := database.ListPackages()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list RPM database packages (path='%s'):\n%w", databasePath, err)
+	}
+	if err := database.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close RPM database (path='%s'):\n%w", databasePath, err)
+	}
+
+	return newManifestPackagesFromRpmPackages(packages, purlNamespace)
+}
+
+func newManifestPackagesFromRpmPackages(packages []*rpmdb.PackageInfo, purlNamespace string,
+) ([]spdxmanifest.Package, error) {
+	installedPackages := make([]spdxmanifest.Package, 0, len(packages))
+	installedIds := make(map[string]struct{}, len(packages))
+	for _, packageInfo := range packages {
+		if packageInfo.Arch == "" {
+			logger.Log.Debugf("Skipping RPM record without architecture (name='%s', version='%s', release='%s')",
+				packageInfo.Name, packageInfo.Version, packageInfo.Release)
+			continue
+		}
+		manifestPackage, err := newManifestPackageFromRpmPackage(*packageInfo, purlNamespace)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, found := installedIds[manifestPackage.ID]; found {
+			return nil, fmt.Errorf("duplicate installed package ID (id='%s')", manifestPackage.ID)
+		}
+		installedIds[manifestPackage.ID] = struct{}{}
+		installedPackages = append(installedPackages, manifestPackage)
+	}
+	return installedPackages, nil
+}
+
+func newManifestPackageFromRpmPackage(rpmPackage rpmdb.PackageInfo, namespace string) (spdxmanifest.Package, error) {
+	if rpmPackage.Name == "" || rpmPackage.Version == "" || rpmPackage.Release == "" {
+		err := fmt.Errorf("incomplete RPM package identity (name='%s', version='%s', release='%s')",
+			rpmPackage.Name, rpmPackage.Version, rpmPackage.Release)
+		return spdxmanifest.Package{}, err
+	}
+
+	vr := rpmPackage.Version + "-" + rpmPackage.Release
+
+	evr := vr
+	qualifiers := packageurl.Qualifiers{{Key: "arch", Value: rpmPackage.Arch}}
+	if rpmPackage.Epoch != nil {
+		epoch := strconv.Itoa(*rpmPackage.Epoch)
+		evr = epoch + ":" + evr
+		qualifiers = append(qualifiers, packageurl.Qualifier{Key: "epoch", Value: epoch})
+	}
+
+	purl := packageurl.NewPackageURL(packageurl.TypeRPM, namespace, rpmPackage.Name, vr, qualifiers, "")
+
+	return spdxmanifest.Package{
+		ID:      fmt.Sprintf("%s-%s.%s", rpmPackage.Name, evr, rpmPackage.Arch),
+		Name:    rpmPackage.Name,
+		Version: evr,
+		Vendor:  strings.TrimSpace(rpmPackage.Vendor),
+		Purl:    purl.ToString(),
+	}, nil
 }
 
 func rpmRemovePackageManagerTools(imageChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
@@ -375,19 +435,7 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 		return nil
 	}
 
-	args := []string{"--assumeyes", "--disablerepo", "*"}
-	if removeProtectedPackages {
-		args = append(args, "--setopt=protected_packages=")
-	}
-	args = append(args, "remove")
-	args = append(args, packagesToRemove...)
-
-	if toolsChroot != nil {
-		args = append([]string{
-			"--releasever=" + pmHandler.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-	}
+	args := getRpmRemoveArgs(pmHandler, toolsChroot, packagesToRemove, removeProtectedPackages)
 
 	err := pmHandler.executeCommand(args, imageChroot, toolsChroot)
 	if err != nil {
@@ -395,4 +443,41 @@ func rpmEnsurePackagesRemoved(imageChroot *safechroot.Chroot, pmHandler rpmPacka
 	}
 
 	return nil
+}
+
+func getRpmRootArgs(toolsChroot *safechroot.Chroot) []string {
+	if toolsChroot == nil {
+		return nil
+	}
+
+	// Run rpm from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
+	// imageChroot has no in-image rpm.
+	return []string{"--root", "/" + toolsRootImageDir}
+}
+
+func getRpmInstallRootArgs(pmHandler rpmPackageManagerHandler, toolsChroot *safechroot.Chroot) []string {
+	if toolsChroot == nil {
+		return nil
+	}
+
+	return []string{
+		"--releasever=" + pmHandler.getReleaseVersion(),
+		"--installroot=/" + toolsRootImageDir,
+	}
+}
+
+func getRpmRemoveArgs(pmHandler rpmPackageManagerHandler, toolsChroot *safechroot.Chroot, packages []string,
+	removeProtectedPackages bool,
+) []string {
+	args := []string{"--assumeyes", "--disablerepo", "*"}
+	if removeProtectedPackages {
+		args = append(args, "--setopt=protected_packages=")
+	}
+
+	args = append(args, "remove")
+	args = append(args, packages...)
+
+	args = append(getRpmInstallRootArgs(pmHandler, toolsChroot), args...)
+
+	return args
 }

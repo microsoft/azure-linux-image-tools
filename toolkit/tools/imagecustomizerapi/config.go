@@ -94,6 +94,11 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.removePackageManager'",
 				PreviewFeatureRemovePackageManager)
 		}
+
+		if c.OS.Packages.Manifest != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageManifest) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.manifest'",
+				PreviewFeaturePackageManifest)
+		}
 	}
 
 	err = c.Scripts.IsValid()
@@ -130,6 +135,13 @@ func (c *Config) IsValid() (err error) {
 	if c.Output.SelinuxPolicyPath != "" {
 		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputSelinuxPolicy) {
 			return fmt.Errorf("the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+		}
+	}
+
+	if c.Output.PackageManifest != nil {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageManifest) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'output.packageManifest'",
+				PreviewFeaturePackageManifest)
 		}
 	}
 

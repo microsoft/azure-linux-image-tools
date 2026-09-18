@@ -87,6 +87,12 @@ type ResolvedConfig struct {
 
 	// Remove package manager tools and directories
 	RemovePackageManager bool
+
+	// Mode to use when generating the package manifest
+	PackageManifestMode imagecustomizerapi.PackageManifestMode
+
+	// Output path for the generated package manifest
+	OutputPackageManifestPath string
 }
 
 func (c *ResolvedConfig) InputFileExt() string {
