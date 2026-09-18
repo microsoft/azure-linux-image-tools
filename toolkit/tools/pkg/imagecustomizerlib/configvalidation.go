@@ -258,9 +258,6 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	rc.OutputPackageManifestPath = resolveOutputPackageManifestFile(rc.ConfigChain, options.OutputPackageManifestFile)
-	if err != nil {
-		return nil, err
-	}
 
 	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
 		rc.OutputImageFormat)

@@ -33,7 +33,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTime := time.Now().Format(buildTimeFormat)
+	buildTime := time.Now().UTC().Format(buildTimeFormat)
 
 	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
 	// the same merged /etc the booted OS sees.

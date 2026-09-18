@@ -1356,7 +1356,7 @@ func TestValidatePackageManifestMode(t *testing.T) {
 			expected:   imagecustomizerapi.PackageManifestModePassthrough,
 		},
 		{
-			name: "good child mode overrides bad base",
+			name: "bad child mode overrides good base",
 			configChain: []*ConfigWithBasePath{
 				{Config: &imagecustomizerapi.Config{OS: &imagecustomizerapi.OS{
 					Packages: imagecustomizerapi.Packages{
