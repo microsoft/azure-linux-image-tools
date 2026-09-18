@@ -172,31 +172,6 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 	return true, nil
 }
 
-func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	packageName string,
-) (*PackageVersionInformation, error) {
-	args := []string{"info", packageName, "--repo", "@system"}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL).
-		args = append([]string{
-			"--releasever=" + pm.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-		chroot = toolsChroot
-	}
-
-	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, args...).
-		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
-		ExecuteCaptureOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to query (%s) package information via tdnf:\n%w", packageName, err)
-	}
-	return parsePackageInfoOutput(packageName, packageInfo)
-}
-
 func (pm *tdnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	chrootGpgKeys []string, uriGpgKeys []string,
 ) error {

@@ -40,14 +40,14 @@ var blscfgCommandRegex = regexp.MustCompile(`(?m)^[ \t]*blscfg[ \t]*$`)
 // updateLiveOSGrubCfgBLSForLiveOS applies the common LiveOS-compatibility edits for distros that use Boot Loader
 // Specification entries.
 func updateLiveOSGrubCfgBLSForLiveOS(grubCfgContent string, bootDir string,
-	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
+	initramfsType imagecustomizerapi.InitramfsImageType, savedConfigs *SavedConfigs,
 ) (string, error) {
 	grubCfgContent, err := replaceSearchCommandAll(grubCfgContent, isogenerator.DefaultVolumeId)
 	if err != nil {
 		return "", fmt.Errorf("failed to update the search command in the live OS grub.cfg:\n%w", err)
 	}
 
-	err = updateLiveOSBLSEntries(bootDir, initramfsType, disableSELinux, savedConfigs)
+	err = updateLiveOSBLSEntries(bootDir, initramfsType, savedConfigs)
 	if err != nil {
 		return "", fmt.Errorf("failed to update the live OS BLS entries:\n%w", err)
 	}
@@ -138,7 +138,7 @@ func expandBLSEntriesToPxeGrubMenu(bootDir string) error {
 }
 
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string,
+	savedConfigs *SavedConfigs, kernelVersions []string,
 ) (string, error) {
 	inputContentString, err := replaceSearchCommandAll(inputContentString, isogenerator.DefaultVolumeId)
 	if err != nil {
@@ -217,14 +217,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 		return "", fmt.Errorf("unsupported initramfs image type (%s)", initramfsImageType)
 	}
 
-	if disableSELinux {
-		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString,
-			imagecustomizerapi.SELinuxModeDisabled)
-		if err != nil {
-			return "", fmt.Errorf("failed to set SELinux mode:\n%w", err)
-		}
-	}
-
 	savedArgs := GrubArgsToString(savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
@@ -291,7 +283,7 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 // This function generates both the iso and the pxe versions of the grub so
 // that the call does not need to call it multiple times.
 func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string,
+	savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string,
 	distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Updating grub.cfg")
@@ -305,7 +297,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 
 	// Update grub.cfg content to be 'live-os compatible'.
 	liveosContentString, err := distroHandler.UpdateLiveOSGrubCfgForLiveOS(inputContentString, bootDir,
-		initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
+		initramfsImageType, savedConfigs, kernelVersions)
 	if err != nil {
 		return err
 	}
@@ -329,14 +321,6 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 	// Update grub.cfg content to be used for pxe booting.
 	if (outputFormat == imagecustomizerapi.ImageFormatTypePxeDir) ||
 		(outputFormat == imagecustomizerapi.ImageFormatTypePxeTar) {
-		if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-			// Check if the dracut version in use meets our minimum requirements for
-			// PXE support.
-			err = verifyDracutPXESupport(savedConfigs.OS.DracutPackageInfo)
-			if err != nil {
-				return fmt.Errorf("cannot generate grub.cfg for PXE booting.\n%v", err)
-			}
-		}
 		pxeContentString, err := distroHandler.UpdateLiveOSGrubCfgForPxe(liveosContentString, initramfsImageType,
 			savedConfigs.Pxe.bootstrapBaseUrl, savedConfigs.Pxe.bootstrapFileUrl)
 		if err != nil {
