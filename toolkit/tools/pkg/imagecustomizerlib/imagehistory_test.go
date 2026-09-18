@@ -215,3 +215,27 @@ func sha256HexOfString(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
 }
+
+// TestPopulateAdditionalFilesSymlinkPreserve verifies that image history records the
+// tagged target string for an additionalFiles source that is a preserved symlink.
+func TestPopulateAdditionalFilesSymlinkPreserve(t *testing.T) {
+	baseConfigPath := t.TempDir()
+
+	assert.NoError(t, os.WriteFile(filepath.Join(baseConfigPath, "target.txt"), []byte("hello"), 0o644))
+	assert.NoError(t, os.Symlink("/does/not/exist/on/host", filepath.Join(baseConfigPath, "link.txt")))
+
+	files := imagecustomizerapi.AdditionalFileList{
+		{Source: "target.txt", Destination: "/target.txt"},
+		{Source: "link.txt", Destination: "/link.txt", SymlinkMode: imagecustomizerapi.SymlinkModePreserve},
+	}
+	err := populateAdditionalFiles(files, baseConfigPath)
+	assert.NoError(t, err)
+
+	// Regular file: hash of its contents.
+	fileHash, err := file.GenerateSHA256(filepath.Join(baseConfigPath, "target.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, fileHash, files[0].SHA256Hash)
+
+	// Preserved symlink: tagged hash of the target string (dangling link would otherwise error).
+	assert.Equal(t, symlinkHashPrefix+sha256HexOfString("/does/not/exist/on/host"), files[1].SHA256Hash)
+}

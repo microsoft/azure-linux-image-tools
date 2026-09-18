@@ -17,6 +17,9 @@
         "permissions": {
           "$ref": "#/$defs/FilePermissions"
         },
+        "symlinkMode": {
+          "type": "string"
+        },
         "sha256hash": {
           "type": "string"
         }

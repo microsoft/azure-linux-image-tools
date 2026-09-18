@@ -247,14 +247,34 @@ func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigLis
 
 func populateAdditionalFiles(configAdditionalFiles imagecustomizerapi.AdditionalFileList, baseConfigPath string) error {
 	for i := range configAdditionalFiles {
-		if configAdditionalFiles[i].Source != "" {
-			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, configAdditionalFiles[i].Source)
-			hash, err := generateSHA256(absSourceFile)
+		if configAdditionalFiles[i].Source == "" {
+			continue
+		}
+		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, configAdditionalFiles[i].Source)
+
+		if configAdditionalFiles[i].SymlinkMode == imagecustomizerapi.SymlinkModePreserve {
+			info, err := os.Lstat(absSourceFile)
 			if err != nil {
 				return err
 			}
-			configAdditionalFiles[i].SHA256Hash = hash
+			if info.Mode()&os.ModeSymlink != 0 {
+				// The image contains the link itself; tag the hash of its target string so it
+				// can't collide with a regular file's content hash.
+				target, err := os.Readlink(absSourceFile)
+				if err != nil {
+					return fmt.Errorf("error reading symlink %s:\n%w", absSourceFile, err)
+				}
+				sum := sha256.Sum256([]byte(target))
+				configAdditionalFiles[i].SHA256Hash = symlinkHashPrefix + hex.EncodeToString(sum[:])
+				continue
+			}
 		}
+
+		hash, err := generateSHA256(absSourceFile)
+		if err != nil {
+			return err
+		}
+		configAdditionalFiles[i].SHA256Hash = hash
 	}
 	return nil
 }
