@@ -147,14 +147,19 @@ def run_trivy_scan():
             stdout=out_file,
         )
 
-    print("Checking for HIGH or CRITICAL severity licenses...")
+    blocked_license_severities = {"HIGH", "CRITICAL"}
+    acceptable_license_severities = {"LOW", "MEDIUM", "HIGH", "CRITICAL"} - blocked_license_severities
+    blocked_severities_text = " or ".join(sorted(blocked_license_severities))
+
+    print(f"Checking for {blocked_severities_text} severity licenses...")
     with open(LICENSE_SCAN_OUTPUT) as f:
         data = json.load(f)
 
     findings: list[str] = []
     results = data.get("Results", [])
 
-    packages_by_target_and_name: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    packages_by_target_and_package_name: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    severity_by_target_package_and_license_name: dict[tuple[str, str, str], str | None] = {}
     for result in results:
         target = result.get("Target")
         if not target:
@@ -164,28 +169,48 @@ def run_trivy_scan():
             package_name = package.get("Name")
             if package_name:
                 key = (target, package_name)
-                packages_by_target_and_name.setdefault(key, []).append(package)
+                packages_by_target_and_package_name.setdefault(key, []).append(package)
+
+        for license_entry in result.get("Licenses", []):
+            license_key = (target, license_entry.get("PkgName"), license_entry.get("Name"))
+            severity = license_entry.get("Severity")
+            if license_key in severity_by_target_package_and_license_name:
+                previous_severity = severity_by_target_package_and_license_name[license_key]
+                if previous_severity != severity:
+                    raise ValueError(f"Conflicting license severities for {license_key}: {previous_severity!r} and {severity!r}")
+
+            severity_by_target_package_and_license_name[license_key] = severity
 
     for result in results:
         for license_entry in result.get("Licenses", []):
-            if license_entry.get("Severity") in ("HIGH", "CRITICAL"):
+            if license_entry.get("Severity") in blocked_license_severities:
                 package_name = license_entry.get('PkgName')
                 license_name = license_entry.get('Name')
 
-                packages = packages_by_target_and_name.get((result.get("Target"), package_name), [])
-                license_choice_match = None
-                if len(packages) == 1:
-                    license_choice_match = find_license_choice(packages[0], license_name, license_choices)
+                packages = packages_by_target_and_package_name.get((result.get("Target"), package_name), [])
+                if len(packages) == 0:
+                    raise ValueError(f"No packages found for target {result.get('Target')} and package name {package_name}")
+                if len(packages) > 1:
+                    raise ValueError(f"Ambiguous package match for target {result.get('Target')} and package name {package_name}: found {len(packages)} packages")
+
+                license_choice_match = find_license_choice(packages[0], license_name, license_choices)
                 if license_choice_match:
                     package_id, selected_license, license_source_url = license_choice_match
-                    print(f"Using {selected_license} for {package_id} ({license_source_url})")
-                    continue
+
+                    selected_license_key = (result.get("Target"), package_name, selected_license)
+                    if selected_license_key not in severity_by_target_package_and_license_name:
+                        raise ValueError(f"Missing severity for selected license {selected_license_key}")
+
+                    selected_license_severity = severity_by_target_package_and_license_name[selected_license_key]
+                    if selected_license_severity in acceptable_license_severities:
+                        print(f"Using {selected_license} for {package_id} ({license_source_url})")
+                        continue
 
                 category = license_entry.get('Category')
                 findings.append(f"- {package_name}: {license_name} [{category}]")
 
     if findings:
-        print("❌ Found HIGH or CRITICAL severity license classification:")
+        print(f"❌ Found {blocked_severities_text} severity license classification:")
         print("\n".join(findings))
         sys.exit(1)
     else:
