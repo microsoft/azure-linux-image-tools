@@ -17,6 +17,9 @@
         "permissions": {
           "$ref": "#/$defs/FilePermissions"
         },
+        "symlinkMode": {
+          "type": "string"
+        },
         "sha256hash": {
           "type": "string"
         }
@@ -187,6 +190,9 @@
         },
         "childFilePermissions": {
           "$ref": "#/$defs/FilePermissions"
+        },
+        "symlinkMode": {
+          "type": "string"
         },
         "sha256hashmap": {
           "additionalProperties": {

@@ -168,6 +168,12 @@ Supported options:
 
   Added in v1.6.
 
+- `preserve-symlinks`: Enables the
+  ([os.additionalDirs[].symlinkMode: preserve](./dirconfig.md#symlinkmode-string)) and
+  ([additionalFiles[].symlinkMode: preserve](./additionalfile.md#symlinkmode-string)) APIs.
+
+  Added in v1.7.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

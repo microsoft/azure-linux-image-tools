@@ -90,9 +90,22 @@ func Copy(src, dst string) (err error) {
 	return NewFileCopyBuilder(src, dst).Run()
 }
 
+// CopyDirOptions controls optional directory copy behavior.
+type CopyDirOptions struct {
+	NoDereference bool
+}
+
 // CopyDir copies src directory to dst, creating the dst directory if needed.
-// dst is assumed to be a directory and not a file.
+// Symbolic links are dereferenced to preserve the existing behavior.
 func CopyDir(src, dst string, newDirPermissions, childFilePermissions fs.FileMode, mergedDirPermissions *fs.FileMode) (err error) {
+	return CopyDirWithOptions(src, dst, newDirPermissions, childFilePermissions, mergedDirPermissions, CopyDirOptions{})
+}
+
+// CopyDirWithOptions copies src directory to dst using the requested symbolic link behavior.
+// dst is assumed to be a directory and not a file.
+func CopyDirWithOptions(src, dst string, newDirPermissions, childFilePermissions fs.FileMode,
+	mergedDirPermissions *fs.FileMode, options CopyDirOptions,
+) (err error) {
 	isDstExist, err := PathExists(dst)
 	if err != nil {
 		return err
@@ -133,12 +146,22 @@ func CopyDir(src, dst string, newDirPermissions, childFilePermissions fs.FileMod
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 
-		if entry.IsDir() {
+		switch {
+		case options.NoDereference && entry.Type()&os.ModeSymlink != 0:
+			// If it's a symlink, recreate it verbatim (no-dereference). We must not
+			// follow the link (which would copy the target's contents or fail on a
+			// dangling link) and must not chmod it. The link resolves inside the image
+			// at runtime, against the image's own filesystem.
+			if err := NewFileCopyBuilder(srcPath, dstPath).SetNoDereference().Run(); err != nil {
+				return fmt.Errorf("failed to copy symlink (%s) to (%s):\n%w", srcPath, dstPath, err)
+			}
+		case entry.IsDir():
 			// If it's a directory, recursively copy it
-			if err := CopyDir(srcPath, dstPath, newDirPermissions, childFilePermissions, mergedDirPermissions); err != nil {
+			if err := CopyDirWithOptions(srcPath, dstPath, newDirPermissions, childFilePermissions,
+				mergedDirPermissions, options); err != nil {
 				return err
 			}
-		} else {
+		default:
 			// If it's a file, copy it and set file permissions
 			if err := NewFileCopyBuilder(srcPath, dstPath).SetFileMode(childFilePermissions).Run(); err != nil {
 				return fmt.Errorf("failed to copy file (%s) to (%s):\n%w", srcPath, dstPath, err)
