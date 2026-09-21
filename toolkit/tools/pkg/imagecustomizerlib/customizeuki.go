@@ -109,15 +109,16 @@ func baseImageHasUkiAddons(espPath string) (bool, error) {
 }
 
 // validateUkiMode validates the UKI mode against the base image state.
+// os.uki.mode is required whenever os.uki is present, so the mode is always one of the three values below.
 // Rules:
 // - If base image has NO UKIs:
-//   - No mode specified (os.uki == nil): No UKI created
+//   - os.uki omitted: No UKI created
 //   - mode: create: Create UKI
 //   - mode: passthrough: FAIL (can't passthrough if no UKIs exist)
 //   - mode: modify: FAIL (can't modify if no UKIs exist)
 //
 // - If base image HAS UKIs:
-//   - No mode specified (os.uki == nil): FAIL (must explicitly specify mode)
+//   - os.uki omitted: FAIL (must explicitly specify mode)
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
 //   - mode: modify: Check for addon, modify addon only (preserve main UKI)
@@ -143,7 +144,7 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 					"Use mode: create to create UKIs from GRUB-based image",
 				)
 			}
-			// mode: create or unspecified (with os.uki present) - both are OK for creating UKIs
+			// mode: create - OK for creating UKIs
 		}
 		// No os.uki specified - that's fine, no UKI will be created
 		return nil
@@ -157,11 +158,6 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 			"  - 'create': extract and regenerate UKIs with updated configurations\n" +
 			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
 			"  - 'modify': modify UKI addons only to append kernel command-line arguments")
-	}
-
-	if uki.Mode == imagecustomizerapi.UkiModeUnspecified {
-		return fmt.Errorf("base image contains UKI files but os.uki.mode is not specified: " +
-			"when base image has UKIs, you must explicitly set mode to 'create', 'passthrough', or 'modify'")
 	}
 
 	// For modify mode, validate that base image has UKI addons
