@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
@@ -73,7 +74,7 @@ func validateBaseImagePackageManifest(rc *ResolvedConfig, rootDir string) error 
 }
 
 func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime string,
+	packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime time.Time,
 ) error {
 	if packageManifestMode == imagecustomizerapi.PackageManifestModeUnspecified {
 		return nil
@@ -127,7 +128,7 @@ func applyPackageManifestMode(ctx context.Context, distroHandler DistroHandler, 
 }
 
 func createPackageManifest(ctx context.Context, distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
-	buildTime string, manifestPath string, packages []spdxmanifest.Package,
+	buildTime time.Time, manifestPath string, packages []spdxmanifest.Package,
 ) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_package_manifest")
 	defer span.End()
@@ -141,7 +142,7 @@ func createPackageManifest(ctx context.Context, distroHandler DistroHandler, ima
 	metadata := spdxmanifest.BuildMetadata{
 		Name:        string(distroHandler.GetTargetOs().Distro),
 		VersionInfo: versionInfo,
-		Created:     buildTime,
+		Created:     buildTime.UTC().Format(buildTimeFormatUtc),
 	}
 	metadata.ToolVersion = ToolVersion
 	if metadata.ToolVersion == "" {

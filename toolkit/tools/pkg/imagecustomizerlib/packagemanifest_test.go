@@ -162,7 +162,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 func TestFinalizePackageManagementPassthroughPreservesBytes(t *testing.T) {
 	manifest := "not JSON\n"
 	imageChroot := chrootWithManifest(t, manifest)
-	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "passthrough", false)
+	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "passthrough", false)
 	assert.NoError(t, err)
 	actual, err := os.ReadFile(filepath.Join(imageChroot.RootDir(), packageManifestPath))
 	assert.NoError(t, err)
@@ -171,11 +171,11 @@ func TestFinalizePackageManagementPassthroughPreservesBytes(t *testing.T) {
 
 func TestFinalizePackageManagementNoneDeletesExistingManifest(t *testing.T) {
 	imageChroot := chrootWithManifest(t, "old manifest")
-	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "none", false)
+	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "none", false)
 	assert.NoError(t, err)
 	_, err = os.Stat(filepath.Join(imageChroot.RootDir(), packageManifestPath))
 	assert.ErrorIs(t, err, os.ErrNotExist)
-	err = finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "none", false)
+	err = finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "none", false)
 	assert.NoError(t, err)
 }
 

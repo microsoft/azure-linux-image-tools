@@ -29,7 +29,7 @@ func TestAddCustomizerRelease(t *testing.T) {
 	assert.NoError(t, err)
 
 	expectedVersion := "0.1.0"
-	buildTime := formatBuildTime(time.Date(2026, time.January, 1, 0, 30, 0, 0, time.FixedZone("UTC+1", 60*60)))
+	buildTime := time.Date(2026, time.January, 1, 0, 30, 0, 0, time.FixedZone("UTC+1", 60*60))
 	expectedDate := "2025-12-31T23:30:00Z"
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
