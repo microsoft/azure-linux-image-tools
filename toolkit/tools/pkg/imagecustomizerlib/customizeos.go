@@ -25,6 +25,10 @@ var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 		"Both 'passthrough' and 'modify' modes preserve the existing kernel and initramfs. "+
 		"Use 'mode: create' to regenerate UKIs with updated kernels")
 
+func formatBuildTime(buildTime time.Time) string {
+	return buildTime.UTC().Format(buildTimeFormat)
+}
+
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 	toolsChroot *safechroot.Chroot,
@@ -33,8 +37,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTimestamp := time.Now()
-	buildTime := buildTimestamp.Format(buildTimeFormat)
+	buildTime := formatBuildTime(time.Now())
 
 	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
 	// the same merged /etc the booted OS sees.
@@ -236,8 +239,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot,
-		buildTimestamp.UTC().Format(buildTimeFormat), rc.PackageManifestMode, rc.RemovePackageManager)
+	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot, buildTime,
+		rc.PackageManifestMode, rc.RemovePackageManager)
 	if err != nil {
 		return err
 	}

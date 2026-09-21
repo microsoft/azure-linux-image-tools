@@ -29,11 +29,12 @@ func TestAddCustomizerRelease(t *testing.T) {
 	assert.NoError(t, err)
 
 	expectedVersion := "0.1.0"
-	expectedDate := time.Now().Format(buildTimeFormat)
+	buildTime := formatBuildTime(time.Date(2026, time.January, 1, 0, 30, 0, 0, time.FixedZone("UTC+1", 60*60)))
+	expectedDate := "2025-12-31T23:30:00Z"
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
-	err = addCustomizerRelease(t.Context(), proposedDir, expectedVersion, expectedDate, expectedUuid)
+	err = addCustomizerRelease(t.Context(), proposedDir, expectedVersion, buildTime, expectedUuid)
 	assert.NoError(t, err)
 
 	releaseFilePath := filepath.Join(proposedDir, "etc/image-customizer-release")
