@@ -30,11 +30,9 @@ type DirConfig struct {
 	// Note: If this value is not specified in the config, the permissions for these directories will be set to 0755.
 	ChildFilePermissions *FilePermissions `yaml:"childFilePermissions" json:"childFilePermissions,omitempty"`
 
-	// Controls how symbolic links inside the source directory are handled.
-	// 'dereference' (the default when omitted) follows links and copies their target
-	// contents, preserving the existing additionalDirs behavior. 'preserve' recreates
-	// each link verbatim without reading its target on the build host, and requires the
-	// 'preserve-symlinks' preview feature.
+	// Controls how symbolic links inside the source directory are handled. See the
+	// SymlinkMode values for the supported behaviors. Requires the 'symlink-mode'
+	// preview feature when set.
 	SymlinkMode SymlinkMode `yaml:"symlinkMode" json:"symlinkMode,omitempty"`
 
 	SHA256HashMap map[string]string `json:"sha256hashmap,omitempty"`

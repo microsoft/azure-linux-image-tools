@@ -149,7 +149,11 @@ func TestCopyDir(t *testing.T) {
 
 	// Defining dst directory and copying src into dst
 	dst := testDir + "/destination"
-	err = CopyDir(src, dst, newDirPermissions, childFilePermissions, &mergeDirPermissions)
+	err = CopyDir(src, dst, CopyDirOptions{
+		NewDirPermissions:    newDirPermissions,
+		ChildFilePermissions: childFilePermissions,
+		MergedDirPermissions: &mergeDirPermissions,
+	})
 	assert.NoError(t, err)
 
 	// verifying the directories are equal
@@ -169,7 +173,7 @@ func TestCopyDirDereferencesSymlinksByDefault(t *testing.T) {
 	assert.NoError(t, os.WriteFile(filepath.Join(src, "target.txt"), []byte("hello"), 0o644))
 	assert.NoError(t, os.Symlink("target.txt", filepath.Join(src, "link.txt")))
 
-	err := CopyDir(src, dst, 0o755, 0o644, nil)
+	err := CopyDir(src, dst, CopyDirOptions{NewDirPermissions: 0o755, ChildFilePermissions: 0o644})
 	assert.NoError(t, err)
 
 	info, err := os.Lstat(filepath.Join(dst, "link.txt"))
@@ -211,8 +215,11 @@ func TestCopyDirPreservesSymlinks(t *testing.T) {
 
 	newDirPermissions := fs.FileMode(0755)
 	childFilePermissions := fs.FileMode(0755)
-	err := CopyDirWithOptions(src, dst, newDirPermissions, childFilePermissions, nil,
-		CopyDirOptions{NoDereference: true})
+	err := CopyDir(src, dst, CopyDirOptions{
+		NewDirPermissions:    newDirPermissions,
+		ChildFilePermissions: childFilePermissions,
+		NoDereference:        true,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -236,8 +243,11 @@ func TestCopyDirPreservesSymlinks(t *testing.T) {
 
 	// Re-running the copy into the same destination must overwrite the existing
 	// entries (symlinks included) rather than failing with EEXIST.
-	err = CopyDirWithOptions(src, dst, newDirPermissions, childFilePermissions, nil,
-		CopyDirOptions{NoDereference: true})
+	err = CopyDir(src, dst, CopyDirOptions{
+		NewDirPermissions:    newDirPermissions,
+		ChildFilePermissions: childFilePermissions,
+		NoDereference:        true,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}

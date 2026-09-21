@@ -61,28 +61,8 @@ func (b FileCopyBuilder) Run() (err error) {
 			return fmt.Errorf("failed to read source file link info:\n%w", err)
 		}
 
-		isSrcSymlink := srcFileInfo.Mode().Type() == os.ModeSymlink
-		if isSrcSymlink {
-			// Copy the symlink.
-			symlinkPath, err := os.Readlink(b.Src)
-			if err != nil {
-				return fmt.Errorf("failed to read source symlink:\n%w", err)
-			}
-
-			// os.Symlink fails with EEXIST if the destination exists. Regular files
-			// overwrite and directories merge, so remove any existing destination first
-			// to give the symlink the same overwrite behavior.
-			err = os.Remove(b.Dst)
-			if err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("failed to remove existing destination:\n%w", err)
-			}
-
-			err = os.Symlink(symlinkPath, b.Dst)
-			if err != nil {
-				return fmt.Errorf("failed to copy symlink:\n%w", err)
-			}
-
-			return nil
+		if srcFileInfo.Mode().Type() == os.ModeSymlink {
+			return copySymlink(b.Src, b.Dst)
 		}
 	}
 

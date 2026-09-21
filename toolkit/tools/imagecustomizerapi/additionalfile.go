@@ -24,10 +24,9 @@ type AdditionalFile struct {
 	// The file permissions to set on the file.
 	Permissions *FilePermissions `yaml:"permissions" json:"permissions,omitempty"`
 
-	// Controls how a symbolic link 'source' is copied.
-	// 'dereference' (the default) follows the link and copies the target's contents.
-	// 'preserve' recreates the link verbatim without reading its target on the build host,
-	// and requires the 'preserve-symlinks' preview feature. Only valid with 'source'.
+	// Controls how a symbolic link 'source' is copied. Only valid with 'source'. See the
+	// SymlinkMode values for the supported behaviors. Requires the 'symlink-mode'
+	// preview feature when set.
 	SymlinkMode SymlinkMode `yaml:"symlinkMode" json:"symlinkMode,omitempty"`
 
 	SHA256Hash string `json:"sha256hash,omitempty"`
@@ -69,8 +68,8 @@ func (f *AdditionalFile) IsValid() (err error) {
 	if err != nil {
 		return fmt.Errorf("invalid symlinkMode value:\n%w", err)
 	}
-	if f.SymlinkMode == SymlinkModePreserve && f.Content != nil {
-		return fmt.Errorf("'symlinkMode: preserve' cannot be used with 'content'")
+	if f.SymlinkMode != SymlinkModeUnspecified && f.Source == "" {
+		return fmt.Errorf("'symlinkMode' can only be used with 'source'")
 	}
 
 	return nil

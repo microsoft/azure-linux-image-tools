@@ -80,18 +80,20 @@ Added in v0.7.
 ## symlinkMode [string]
 
 Controls how a symbolic link given as `source` is copied. Only applies when `source` is
-set (not `content`).
+set; setting `symlinkMode` without `source` is rejected during validation.
+
+Setting `symlinkMode` (to any value) requires the `symlink-mode`
+[preview feature](./config.md#previewfeatures-string) to be enabled. When `symlinkMode`
+is omitted, the link is dereferenced, matching the behavior of existing `additionalFiles`
+configurations, and no preview feature is required.
 
 Supported values:
 
-- `dereference`: Follow the symbolic link and copy its target contents. This is the
-  default when `symlinkMode` is omitted, preserving the behavior of existing
-  `additionalFiles` configurations.
+- `dereference`: Follow the symbolic link and copy its target contents. This is also the
+  behavior when `symlinkMode` is omitted.
 - `preserve`: Recreate the symbolic link at the destination with the same target string
   without reading the link target on the build host. This supports dangling links and
-  links to special files. It requires the `preserve-symlinks`
-  [preview feature](./config.md#previewfeatures-string) to be enabled, and cannot be used
-  with `content`.
+  links to special files.
 
 The `permissions` field is not applied to the symbolic link itself when using `preserve`.
 

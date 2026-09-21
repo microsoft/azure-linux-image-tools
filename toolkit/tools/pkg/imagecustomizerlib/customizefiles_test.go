@@ -272,6 +272,51 @@ func verifyAddDirs(t *testing.T, baseImageInfo testBaseImageInfo, buildDir strin
 	verifyFileContentsSame(t, animalsFileOrigPath, animalsFileNewPath)
 }
 
+func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Make a directory that contains an infinite file.
+	// Specifically, a file that symlinks to /dev/zero, which is a virtual file that contains
+	// infinite bytes of 0. Without symlinkMode: preserve, the default dereference behavior
+	// follows the link and copies its contents, which should run out of free space on the disk.
+	srcDirPath := filepath.Join(testTmpDir, "a")
+	infiniteFilePath := filepath.Join(srcDirPath, "zero")
+
+	err := os.MkdirAll(srcDirPath, os.ModePerm)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = os.Symlink("/dev/zero", infiniteFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	config := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			AdditionalDirs: []imagecustomizerapi.DirConfig{
+				{
+					Source:      srcDirPath,
+					Destination: "/a",
+				},
+			},
+		},
+	}
+
+	// Customize image.
+	err = basicCustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	assert.ErrorContains(t, err, "failed to copy directory")
+	assert.ErrorContains(t, err, "failed to copy file")
+	assert.ErrorContains(t, err, "no space left on device")
+}
+
 func TestCustomizeImageAdditionalDirsSymlinkPreserved(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
@@ -298,7 +343,7 @@ func TestCustomizeImageAdditionalDirsSymlinkPreserved(t *testing.T) {
 
 	config := imagecustomizerapi.Config{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeaturePreserveSymlinks,
+			imagecustomizerapi.PreviewFeatureSymlinkMode,
 		},
 		OS: &imagecustomizerapi.OS{
 			AdditionalDirs: []imagecustomizerapi.DirConfig{

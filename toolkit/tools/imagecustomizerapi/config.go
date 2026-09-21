@@ -22,19 +22,6 @@ type Config struct {
 	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
 }
 
-// validateAdditionalFilesPreserveSymlinks requires the 'preserve-symlinks' preview feature
-// when any additionalFiles entry uses 'symlinkMode: preserve'. apiPath names the config
-// location (e.g. "os.additionalFiles") for the error message.
-func validateAdditionalFilesPreserveSymlinks(files AdditionalFileList, previewFeatures []PreviewFeature, apiPath string) error {
-	for i := range files {
-		if files[i].SymlinkMode == SymlinkModePreserve && !sliceutils.ContainsValue(previewFeatures, PreviewFeaturePreserveSymlinks) {
-			return fmt.Errorf("the '%s' preview feature must be enabled to use '%s[].symlinkMode: preserve'",
-				PreviewFeaturePreserveSymlinks, apiPath)
-		}
-	}
-	return nil
-}
-
 func (c *Config) IsValid() (err error) {
 	err = c.Input.IsValid()
 	if err != nil {
@@ -56,7 +43,7 @@ func (c *Config) IsValid() (err error) {
 		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
-		if err := validateAdditionalFilesPreserveSymlinks(c.Iso.AdditionalFiles, c.PreviewFeatures, "iso.additionalFiles"); err != nil {
+		if err := validateAdditionalFilesSymlinkMode(c.Iso.AdditionalFiles, c.PreviewFeatures, "iso.additionalFiles"); err != nil {
 			return err
 		}
 	}
@@ -69,7 +56,7 @@ func (c *Config) IsValid() (err error) {
 		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
-		if err := validateAdditionalFilesPreserveSymlinks(c.Pxe.AdditionalFiles, c.PreviewFeatures, "pxe.additionalFiles"); err != nil {
+		if err := validateAdditionalFilesSymlinkMode(c.Pxe.AdditionalFiles, c.PreviewFeatures, "pxe.additionalFiles"); err != nil {
 			return err
 		}
 	}
@@ -120,13 +107,14 @@ func (c *Config) IsValid() (err error) {
 		}
 
 		for i := range c.OS.AdditionalDirs {
-			if c.OS.AdditionalDirs[i].SymlinkMode == SymlinkModePreserve && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePreserveSymlinks) {
-				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode: preserve'",
-					PreviewFeaturePreserveSymlinks)
+			if c.OS.AdditionalDirs[i].SymlinkMode != SymlinkModeUnspecified &&
+				!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureSymlinkMode) {
+				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode'",
+					PreviewFeatureSymlinkMode)
 			}
 		}
 
-		if err := validateAdditionalFilesPreserveSymlinks(c.OS.AdditionalFiles, c.PreviewFeatures, "os.additionalFiles"); err != nil {
+		if err := validateAdditionalFilesSymlinkMode(c.OS.AdditionalFiles, c.PreviewFeatures, "os.additionalFiles"); err != nil {
 			return err
 		}
 	}
@@ -218,6 +206,20 @@ func (c *Config) IsValid() (err error) {
 			PreviewFeatureBtrfs)
 	}
 
+	return nil
+}
+
+// validateAdditionalFilesSymlinkMode requires the 'symlink-mode' preview feature when
+// any additionalFiles entry sets 'symlinkMode'. apiPath names the config location
+// (e.g. "os.additionalFiles") for the error message.
+func validateAdditionalFilesSymlinkMode(files AdditionalFileList, previewFeatures []PreviewFeature, apiPath string) error {
+	for i := range files {
+		if files[i].SymlinkMode != SymlinkModeUnspecified &&
+			!sliceutils.ContainsValue(previewFeatures, PreviewFeatureSymlinkMode) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use '%s[].symlinkMode'",
+				PreviewFeatureSymlinkMode, apiPath)
+		}
+	}
 	return nil
 }
 

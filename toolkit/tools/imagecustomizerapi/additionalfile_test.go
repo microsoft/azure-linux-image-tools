@@ -96,7 +96,7 @@ func TestAdditionalFilesIsValidInvalidSymlinkMode(t *testing.T) {
 	assert.ErrorContains(t, err, "must be one of ['', 'dereference', 'preserve']")
 }
 
-func TestAdditionalFilesIsValidPreserveWithContent(t *testing.T) {
+func TestAdditionalFilesIsValidSymlinkModeRequiresSource(t *testing.T) {
 	additionalFiles := AdditionalFileList{
 		{
 			Destination: "/a.txt",
@@ -106,5 +106,5 @@ func TestAdditionalFilesIsValidPreserveWithContent(t *testing.T) {
 	}
 	err := additionalFiles.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'symlinkMode: preserve' cannot be used with 'content'")
+	assert.ErrorContains(t, err, "'symlinkMode' can only be used with 'source'")
 }

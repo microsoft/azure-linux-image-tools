@@ -90,22 +90,27 @@ func Copy(src, dst string) (err error) {
 	return NewFileCopyBuilder(src, dst).Run()
 }
 
-// CopyDirOptions controls optional directory copy behavior.
+// CopyDirOptions controls directory copy behavior.
 type CopyDirOptions struct {
+	// NewDirPermissions are applied to directories created at the destination, including
+	// the top-level directory.
+	NewDirPermissions fs.FileMode
+
+	// ChildFilePermissions are applied to files copied into the destination.
+	ChildFilePermissions fs.FileMode
+
+	// MergedDirPermissions, when non-nil, are applied to destination directories that
+	// already exist.
+	MergedDirPermissions *fs.FileMode
+
+	// NoDereference recreates symbolic links verbatim instead of dereferencing them.
 	NoDereference bool
 }
 
 // CopyDir copies src directory to dst, creating the dst directory if needed.
-// Symbolic links are dereferenced to preserve the existing behavior.
-func CopyDir(src, dst string, newDirPermissions, childFilePermissions fs.FileMode, mergedDirPermissions *fs.FileMode) (err error) {
-	return CopyDirWithOptions(src, dst, newDirPermissions, childFilePermissions, mergedDirPermissions, CopyDirOptions{})
-}
-
-// CopyDirWithOptions copies src directory to dst using the requested symbolic link behavior.
-// dst is assumed to be a directory and not a file.
-func CopyDirWithOptions(src, dst string, newDirPermissions, childFilePermissions fs.FileMode,
-	mergedDirPermissions *fs.FileMode, options CopyDirOptions,
-) (err error) {
+// dst is assumed to be a directory and not a file. By default symbolic links are
+// dereferenced; set CopyDirOptions.NoDereference to recreate them verbatim.
+func CopyDir(src, dst string, options CopyDirOptions) (err error) {
 	isDstExist, err := PathExists(dst)
 	if err != nil {
 		return err
@@ -119,8 +124,8 @@ func CopyDirWithOptions(src, dst string, newDirPermissions, childFilePermissions
 			return fmt.Errorf("destination exists but is not a directory (%s)", dst)
 		}
 		logger.Log.Debugf("Destination (%s) already exists and is a directory", dst)
-		if mergedDirPermissions != nil {
-			if err := os.Chmod(dst, *mergedDirPermissions); err != nil {
+		if options.MergedDirPermissions != nil {
+			if err := os.Chmod(dst, *options.MergedDirPermissions); err != nil {
 				return fmt.Errorf("error setting file permissions: %w", err)
 			}
 		}
@@ -129,7 +134,7 @@ func CopyDirWithOptions(src, dst string, newDirPermissions, childFilePermissions
 	if !isDstExist {
 		logger.Log.Debugf("Creating destination directory (%s)", dst)
 		// Create dst dir
-		err = os.MkdirAll(dst, newDirPermissions)
+		err = os.MkdirAll(dst, options.NewDirPermissions)
 		if err != nil {
 			return fmt.Errorf("failed to create directory (%s):\n%w", dst, err)
 		}
@@ -148,25 +153,46 @@ func CopyDirWithOptions(src, dst string, newDirPermissions, childFilePermissions
 
 		switch {
 		case options.NoDereference && entry.Type()&os.ModeSymlink != 0:
-			// If it's a symlink, recreate it verbatim (no-dereference). We must not
-			// follow the link (which would copy the target's contents or fail on a
-			// dangling link) and must not chmod it. The link resolves inside the image
-			// at runtime, against the image's own filesystem.
-			if err := NewFileCopyBuilder(srcPath, dstPath).SetNoDereference().Run(); err != nil {
+			// Recreate the link verbatim. We must not follow it (which would copy the
+			// target's contents or fail on a dangling link) and must not chmod it. The
+			// link resolves inside the image at runtime, against the image's filesystem.
+			if err := copySymlink(srcPath, dstPath); err != nil {
 				return fmt.Errorf("failed to copy symlink (%s) to (%s):\n%w", srcPath, dstPath, err)
 			}
 		case entry.IsDir():
 			// If it's a directory, recursively copy it
-			if err := CopyDirWithOptions(srcPath, dstPath, newDirPermissions, childFilePermissions,
-				mergedDirPermissions, options); err != nil {
+			if err := CopyDir(srcPath, dstPath, options); err != nil {
 				return err
 			}
 		default:
 			// If it's a file, copy it and set file permissions
-			if err := NewFileCopyBuilder(srcPath, dstPath).SetFileMode(childFilePermissions).Run(); err != nil {
+			if err := NewFileCopyBuilder(srcPath, dstPath).SetFileMode(options.ChildFilePermissions).Run(); err != nil {
 				return fmt.Errorf("failed to copy file (%s) to (%s):\n%w", srcPath, dstPath, err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// copySymlink recreates the symbolic link at src as dst without dereferencing it. Any
+// existing destination is removed first so the link overwrites like a regular file copy.
+func copySymlink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source symlink:\n%w", err)
+	}
+
+	// os.Symlink fails with EEXIST if the destination exists. Regular files overwrite and
+	// directories merge, so remove any existing destination first to match that behavior.
+	err = os.Remove(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove existing destination:\n%w", err)
+	}
+
+	err = os.Symlink(target, dst)
+	if err != nil {
+		return fmt.Errorf("failed to copy symlink:\n%w", err)
 	}
 
 	return nil
