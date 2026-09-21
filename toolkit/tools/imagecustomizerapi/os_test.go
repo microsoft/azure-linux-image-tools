@@ -284,7 +284,7 @@ func TestOSInvalidUkiInvalidMode(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid uki mode value (invalid-mode)")
 }
 
-func TestOSValidUkiUnspecifiedMode(t *testing.T) {
+func TestOSInvalidUkiUnspecifiedMode(t *testing.T) {
 	os := OS{
 		BootLoader: BootLoader{
 			ResetType: ResetBootLoaderTypeHard,
@@ -295,5 +295,7 @@ func TestOSValidUkiUnspecifiedMode(t *testing.T) {
 	}
 
 	err := os.IsValid()
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki")
+	assert.ErrorContains(t, err, "invalid uki mode value ()")
 }

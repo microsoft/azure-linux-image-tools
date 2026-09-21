@@ -28,12 +28,13 @@ func TestUkiIsValidWithPassthrough(t *testing.T) {
 }
 
 func TestUkiIsValidWithUnspecified(t *testing.T) {
-	validUki := Uki{
+	invalidUki := Uki{
 		Mode: UkiModeUnspecified,
 	}
 
-	err := validUki.IsValid()
-	assert.NoError(t, err)
+	err := invalidUki.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki mode value ()")
 }
 
 func TestUkiIsValidInvalidMode(t *testing.T) {

@@ -18,9 +18,9 @@ const (
 
 func (u UkiMode) IsValid() error {
 	switch u {
-	case UkiModeUnspecified, UkiModeCreate, UkiModePassthrough, UkiModeModify:
+	case UkiModeCreate, UkiModePassthrough, UkiModeModify:
 		return nil
 	default:
-		return fmt.Errorf("invalid uki mode value (%s): must be one of ['', 'create', 'passthrough', 'modify']", u)
+		return fmt.Errorf("invalid uki mode value (%s): must be one of ['create', 'passthrough', 'modify']", u)
 	}
 }

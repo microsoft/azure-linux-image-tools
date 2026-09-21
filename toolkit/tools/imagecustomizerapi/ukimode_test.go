@@ -21,10 +21,18 @@ func TestUkiModeIsValidPassthrough(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUkiModeIsValidModify(t *testing.T) {
+	mode := UkiModeModify
+	err := mode.IsValid()
+	assert.NoError(t, err)
+}
+
 func TestUkiModeIsValidUnspecified(t *testing.T) {
 	mode := UkiModeUnspecified
 	err := mode.IsValid()
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki mode value ()")
+	assert.ErrorContains(t, err, "must be one of ['create', 'passthrough', 'modify']")
 }
 
 func TestUkiModeIsValidInvalid(t *testing.T) {
