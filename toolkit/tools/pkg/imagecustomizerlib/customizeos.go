@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	buildTimeFormat = "2006-01-02T15:04:05Z"
+	buildTimeFormatUtc = "2006-01-02T15:04:05Z"
 )
 
 var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
@@ -33,8 +33,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTimestamp := time.Now()
-	buildTime := buildTimestamp.Format(buildTimeFormat)
+	buildTime := time.Now()
 
 	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
 	// the same merged /etc the booted OS sees.
@@ -236,8 +235,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot,
-		buildTimestamp.UTC().Format(buildTimeFormat), rc.PackageManifestMode, rc.RemovePackageManager)
+	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot, buildTime,
+		rc.PackageManifestMode, rc.RemovePackageManager)
 	if err != nil {
 		return err
 	}

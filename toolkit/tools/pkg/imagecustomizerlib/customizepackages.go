@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -130,7 +131,7 @@ func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 }
 
 func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, buildTime string, packageManifestMode imagecustomizerapi.PackageManifestMode,
+	toolsChroot *safechroot.Chroot, buildTime time.Time, packageManifestMode imagecustomizerapi.PackageManifestMode,
 	removePackageManager bool,
 ) error {
 	if removePackageManager {
@@ -145,7 +146,7 @@ func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler,
 }
 
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime string,
+	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime time.Time,
 ) error {
 	var err error
 

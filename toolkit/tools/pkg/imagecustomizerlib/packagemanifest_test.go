@@ -31,6 +31,12 @@ func TestPackageManifestCreate(t *testing.T) {
 func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	originalLocal := time.Local
+	time.Local = time.FixedZone("UTC+1", 60*60)
+	t.Cleanup(func() {
+		time.Local = originalLocal
+	})
+
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
 
@@ -54,6 +60,7 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	}
 	expectedPackages[packageManager] = ""
 	configFile := filepath.Join(testDir, configFileName)
+	buildStartTime := time.Now().UTC().Truncate(time.Second)
 	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
@@ -62,6 +69,7 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 		UseBaseImageRpmRepos: true,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
+	buildEndTime := time.Now().UTC()
 	require.NoError(t, err)
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
@@ -69,10 +77,8 @@ func testPackageManifestCreate(t *testing.T, baseImageInfo testBaseImageInfo) {
 	defer imageConnection.Close()
 	rootDir := imageConnection.Chroot().RootDir()
 
-	_, manifestPackages := verifyPackageManifest(t, rootDir,
-		baseImageInfo.Distro, /* name */
-		expectedPackages,
-		nil, /* expectedAbsentNames */
+	_, manifestPackages := verifyPackageManifest(t, rootDir, baseImageInfo.Distro /* name */, expectedPackages,
+		nil /* expectedAbsentNames */, buildStartTime, buildEndTime,
 	)
 	actualNevras := verifyRpmManifestPackages(t, manifestPackages)
 
@@ -97,6 +103,12 @@ func TestPackageManifestCreateWithPackageManagerRemoval(t *testing.T) {
 func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	originalLocal := time.Local
+	time.Local = time.FixedZone("UTC+1", 60*60)
+	t.Cleanup(func() {
+		time.Local = originalLocal
+	})
+
 	testTmpDir := filepath.Join(tmpDir, t.Name())
 	defer os.RemoveAll(testTmpDir)
 
@@ -119,6 +131,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 		expectedPackages["dos2unix"] = "7.5.3-2.azl4"
 	}
 	configFile := filepath.Join(testDir, configFileName)
+	buildStartTime := time.Now().UTC().Truncate(time.Second)
 	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		OutputPackageManifestFile: outManifestFilePath,
 		BuildDir:                  buildDir,
@@ -128,6 +141,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 		UseBaseImageRpmRepos:      true,
 		PreviewFeatures:           baseImageInfo.PreviewFeatures,
 	})
+	buildEndTime := time.Now().UTC()
 	require.NoError(t, err)
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
@@ -135,10 +149,8 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 	defer imageConnection.Close()
 	rootDir := imageConnection.Chroot().RootDir()
 
-	manifestBytes, manifestPackages := verifyPackageManifest(t, rootDir,
-		baseImageInfo.Distro, /* name */
-		expectedPackages,
-		[]string{"rpm", "tdnf", "dnf5"}, /* expectedAbsentNames */
+	manifestBytes, manifestPackages := verifyPackageManifest(t, rootDir, baseImageInfo.Distro, /* name */
+		expectedPackages, []string{"rpm", "tdnf", "dnf5"} /* expectedAbsentNames */, buildStartTime, buildEndTime,
 	)
 	verifyRpmManifestPackages(t, manifestPackages)
 
@@ -150,7 +162,7 @@ func testPackageManifestCreateWithPackageManagerRemoval(t *testing.T, baseImageI
 func TestFinalizePackageManagementPassthroughPreservesBytes(t *testing.T) {
 	manifest := "not JSON\n"
 	imageChroot := chrootWithManifest(t, manifest)
-	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "passthrough", false)
+	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "passthrough", false)
 	assert.NoError(t, err)
 	actual, err := os.ReadFile(filepath.Join(imageChroot.RootDir(), packageManifestPath))
 	assert.NoError(t, err)
@@ -159,11 +171,11 @@ func TestFinalizePackageManagementPassthroughPreservesBytes(t *testing.T) {
 
 func TestFinalizePackageManagementNoneDeletesExistingManifest(t *testing.T) {
 	imageChroot := chrootWithManifest(t, "old manifest")
-	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "none", false)
+	err := finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "none", false)
 	assert.NoError(t, err)
 	_, err = os.Stat(filepath.Join(imageChroot.RootDir(), packageManifestPath))
 	assert.ErrorIs(t, err, os.ErrNotExist)
-	err = finalizePackageManagement(t.Context(), nil, imageChroot, nil, "", "none", false)
+	err = finalizePackageManagement(t.Context(), nil, imageChroot, nil, time.Time{}, "none", false)
 	assert.NoError(t, err)
 }
 
@@ -192,7 +204,7 @@ func chrootWithManifest(t *testing.T, manifest string) *safechroot.Chroot {
 }
 
 func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPackages map[string]string,
-	expectedAbsentNames []string,
+	expectedAbsentNames []string, buildStartTime time.Time, buildEndTime time.Time,
 ) ([]byte, []*spdx.Package) {
 	t.Helper()
 
@@ -218,8 +230,11 @@ func verifyPackageManifest(t *testing.T, rootDir string, name string, expectedPa
 	assert.NotEmpty(t, document.DocumentNamespace)
 	require.NotNil(t, document.CreationInfo)
 	assert.Len(t, document.CreationInfo.Creators, 1)
-	_, err = time.Parse(time.RFC3339, document.CreationInfo.Created)
-	assert.NoError(t, err)
+
+	createdTime, err := time.Parse(time.RFC3339, document.CreationInfo.Created)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, createdTime.Location())
+	assert.WithinRange(t, createdTime, buildStartTime, buildEndTime)
 
 	rootCount := 0
 	packageNames := []string{}

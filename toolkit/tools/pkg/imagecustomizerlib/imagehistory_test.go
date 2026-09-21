@@ -44,12 +44,13 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 	assert.NoError(t, err, "failed to serialize original config")
 
 	expectedVersion := "0.1.0"
-	expectedDate := time.Now().Format(buildTimeFormat)
+	buildTime := time.Date(2026, time.January, 1, 0, 30, 0, 0, time.FixedZone("UTC+1", 60*60))
+	expectedDate := "2025-12-31T23:30:00Z"
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
 	// Test adding the first entry
-	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, buildTime, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
@@ -62,7 +63,7 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 	// Test adding another entry with a different uuid
 	_, expectedUuid, err = randomization.CreateUuid()
 	assert.NoError(t, err)
-	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, buildTime, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
