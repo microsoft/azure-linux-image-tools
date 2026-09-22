@@ -79,13 +79,16 @@ Added in v0.7.
 
 ## symlinkMode [string]
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `symlink-mode` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
 Controls how a symbolic link given as `source` is copied. Only applies when `source` is
 set; setting `symlinkMode` without `source` is rejected during validation.
 
-Setting `symlinkMode` (to any value) requires the `symlink-mode`
-[preview feature](./config.md#previewfeatures-string) to be enabled. When `symlinkMode`
-is omitted, the link is dereferenced, matching the behavior of existing `additionalFiles`
-configurations, and no preview feature is required.
+When `symlinkMode` is omitted, the link is dereferenced, matching the behavior of existing
+`additionalFiles` configurations.
 
 Supported values:
 

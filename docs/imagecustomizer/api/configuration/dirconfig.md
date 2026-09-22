@@ -35,12 +35,15 @@ Added in v0.3.
 
 ## symlinkMode [string]
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `symlink-mode` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
 Controls how symbolic links inside the source directory are copied.
 
-Setting `symlinkMode` (to any value) requires the `symlink-mode`
-[preview feature](./config.md#previewfeatures-string) to be enabled. When `symlinkMode`
-is omitted, symbolic links are dereferenced, preserving the behavior of existing
-`additionalDirs` configurations, and no preview feature is required.
+When `symlinkMode` is omitted, symbolic links are dereferenced, preserving the behavior
+of existing `additionalDirs` configurations.
 
 Supported values:
 
