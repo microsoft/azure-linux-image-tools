@@ -21,6 +21,12 @@ var (
 type DiskSize uint64
 
 func (s *DiskSize) IsValid() error {
+	// The imager's diskutils works in MiB. So, restrict disk and partition sizes to multiples of 1 MiB.
+	if *s%DefaultPartitionAlignment != 0 {
+		return fmt.Errorf("size (%s) must be a multiple of %s", s.HumanReadable(),
+			DiskSize(DefaultPartitionAlignment).HumanReadable())
+	}
+
 	return nil
 }
 
@@ -117,12 +123,6 @@ func parseDiskSize(diskSizeString string) (DiskSize, error) {
 		}
 
 		num *= multiplier
-	}
-
-	// The imager's diskutils works in MiB. So, restrict disk and partition sizes to multiples of 1 MiB.
-	if num%DefaultPartitionAlignment != 0 {
-		return 0, fmt.Errorf("(%s) must be a multiple of %s", diskSizeString,
-			DiskSize(DefaultPartitionAlignment).HumanReadable())
 	}
 
 	return DiskSize(num), nil
