@@ -191,6 +191,94 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 	assert.ErrorContains(t, err, "the 'uki' preview feature must be enabled to use 'os.uki'")
 }
 
+func TestConfigIsValidWithPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalDirs: DirConfigList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureSymlinkMode},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalDirs: DirConfigList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'symlink-mode' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode'")
+}
+
+func TestConfigIsValidUnspecifiedSymlinkModeNeedsNoPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalDirs: DirConfigList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModeUnspecified},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidExplicitDereferenceSymlinkModeNeedsPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalDirs: DirConfigList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModeDereference},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'symlink-mode' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode'")
+
+	config.PreviewFeatures = []PreviewFeature{PreviewFeatureSymlinkMode}
+	err = config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithAdditionalFilesPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalFiles: AdditionalFileList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureSymlinkMode},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingAdditionalFilesPreserveSymlinksPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			AdditionalFiles: AdditionalFileList{
+				{Source: "a", Destination: "/a", SymlinkMode: SymlinkModePreserve},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'symlink-mode' preview feature must be enabled to use 'os.additionalFiles[].symlinkMode'")
+}
+
 func TestConfigIsValidWithInvalidBootType(t *testing.T) {
 	config := &Config{
 		Storage: Storage{

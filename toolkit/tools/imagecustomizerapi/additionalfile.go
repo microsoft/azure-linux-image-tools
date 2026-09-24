@@ -24,6 +24,11 @@ type AdditionalFile struct {
 	// The file permissions to set on the file.
 	Permissions *FilePermissions `yaml:"permissions" json:"permissions,omitempty"`
 
+	// Controls how a symbolic link 'source' is copied. Only valid with 'source'. See the
+	// SymlinkMode values for the supported behaviors. Requires the 'symlink-mode'
+	// preview feature when set.
+	SymlinkMode SymlinkMode `yaml:"symlinkMode" json:"symlinkMode,omitempty"`
+
 	SHA256Hash string `json:"sha256hash,omitempty"`
 }
 
@@ -57,6 +62,14 @@ func (f *AdditionalFile) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid permissions value:\n%w", err)
 		}
+	}
+
+	err = f.SymlinkMode.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid symlinkMode value:\n%w", err)
+	}
+	if f.SymlinkMode != SymlinkModeUnspecified && f.Source == "" {
+		return fmt.Errorf("'symlinkMode' can only be used with 'source'")
 	}
 
 	return nil

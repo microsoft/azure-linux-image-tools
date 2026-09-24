@@ -43,6 +43,9 @@ func (c *Config) IsValid() (err error) {
 		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
+		if err := validateAdditionalFilesSymlinkMode(c.Iso.AdditionalFiles, c.PreviewFeatures, "iso.additionalFiles"); err != nil {
+			return err
+		}
 	}
 
 	if c.Pxe != nil {
@@ -52,6 +55,9 @@ func (c *Config) IsValid() (err error) {
 		}
 		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
+		}
+		if err := validateAdditionalFilesSymlinkMode(c.Pxe.AdditionalFiles, c.PreviewFeatures, "pxe.additionalFiles"); err != nil {
+			return err
 		}
 	}
 
@@ -98,6 +104,18 @@ func (c *Config) IsValid() (err error) {
 		if c.OS.Packages.Manifest != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageManifest) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.manifest'",
 				PreviewFeaturePackageManifest)
+		}
+
+		for i := range c.OS.AdditionalDirs {
+			if c.OS.AdditionalDirs[i].SymlinkMode != SymlinkModeUnspecified &&
+				!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureSymlinkMode) {
+				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode'",
+					PreviewFeatureSymlinkMode)
+			}
+		}
+
+		if err := validateAdditionalFilesSymlinkMode(c.OS.AdditionalFiles, c.PreviewFeatures, "os.additionalFiles"); err != nil {
+			return err
 		}
 	}
 
@@ -188,6 +206,20 @@ func (c *Config) IsValid() (err error) {
 			PreviewFeatureBtrfs)
 	}
 
+	return nil
+}
+
+// validateAdditionalFilesSymlinkMode requires the 'symlink-mode' preview feature when
+// any additionalFiles entry sets 'symlinkMode'. apiPath names the config location
+// (e.g. "os.additionalFiles") for the error message.
+func validateAdditionalFilesSymlinkMode(files AdditionalFileList, previewFeatures []PreviewFeature, apiPath string) error {
+	for i := range files {
+		if files[i].SymlinkMode != SymlinkModeUnspecified &&
+			!sliceutils.ContainsValue(previewFeatures, PreviewFeatureSymlinkMode) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use '%s[].symlinkMode'",
+				PreviewFeatureSymlinkMode, apiPath)
+		}
+	}
 	return nil
 }
 

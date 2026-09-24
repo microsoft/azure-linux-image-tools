@@ -61,20 +61,8 @@ func (b FileCopyBuilder) Run() (err error) {
 			return fmt.Errorf("failed to read source file link info:\n%w", err)
 		}
 
-		isSrcSymlink := srcFileInfo.Mode().Type() == os.ModeSymlink
-		if isSrcSymlink {
-			// Copy the symlink.
-			symlinkPath, err := os.Readlink(b.Src)
-			if err != nil {
-				return fmt.Errorf("failed to read source symlink:\n%w", err)
-			}
-
-			err = os.Symlink(symlinkPath, b.Dst)
-			if err != nil {
-				return fmt.Errorf("failed to copy symlink:\n%w", err)
-			}
-
-			return nil
+		if srcFileInfo.Mode().Type() == os.ModeSymlink {
+			return copySymlink(b.Src, b.Dst)
 		}
 	}
 

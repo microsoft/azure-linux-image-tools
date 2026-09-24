@@ -48,10 +48,11 @@ func copyAdditionalFiles(ctx context.Context, baseConfigPath string, additionalF
 		}
 
 		fileToCopy := safechroot.FileToCopy{
-			Src:         absSourceFile,
-			Content:     additionalFile.Content,
-			Dest:        additionalFile.Destination,
-			Permissions: (*fs.FileMode)(additionalFile.Permissions),
+			Src:           absSourceFile,
+			Content:       additionalFile.Content,
+			Dest:          additionalFile.Destination,
+			Permissions:   (*fs.FileMode)(additionalFile.Permissions),
+			NoDereference: additionalFile.SymlinkMode == imagecustomizerapi.SymlinkModePreserve,
 		}
 
 		err := imageChroot.AddFiles(fileToCopy)
@@ -92,6 +93,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 			NewDirPermissions:    newDirPermissionsValue,
 			ChildFilePermissions: childFilePermissionsValue,
 			MergedDirPermissions: (*fs.FileMode)(dirConfigElement.MergedDirPermissions),
+			NoDereference:        dirConfigElement.SymlinkMode == imagecustomizerapi.SymlinkModePreserve,
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {

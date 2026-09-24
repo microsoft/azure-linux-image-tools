@@ -174,6 +174,12 @@ Supported options:
 
   Added in v1.7.
 
+- `symlink-mode`: Enables the
+  ([os.additionalDirs[].symlinkMode](./dirconfig.md#symlinkmode-string)) and
+  ([additionalFiles[].symlinkMode](./additionalfile.md#symlinkmode-string)) APIs.
+
+  Added in v1.7.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image, artifacts, and package manifest.

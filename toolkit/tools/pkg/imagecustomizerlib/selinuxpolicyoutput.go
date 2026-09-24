@@ -81,7 +81,10 @@ func outputSelinuxPolicy(ctx context.Context, imageChroot safechroot.ChrootInter
 	destPath := filepath.Join(outputDir, selinuxType)
 	logger.Log.Infof("Copying SELinux policy to %s", destPath)
 
-	err = file.CopyDir(selinuxPolicyFullPath, destPath, 0755, 0644, nil)
+	err = file.CopyDir(selinuxPolicyFullPath, destPath, file.CopyDirOptions{
+		NewDirPermissions:    0o755,
+		ChildFilePermissions: 0o644,
+	})
 	if err != nil {
 		return fmt.Errorf("%w (src='%s', dest='%s'):\n%w",
 			ErrSelinuxPolicyDirCopy, selinuxPolicyFullPath, destPath, err)

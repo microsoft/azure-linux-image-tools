@@ -57,6 +57,10 @@ const (
 	// PreviewFeaturePackageManifest enables support for the '.os.packages.manifest' and
 	// '.output.packageManifest' APIs.
 	PreviewFeaturePackageManifest PreviewFeature = "package-manifest"
+
+	// PreviewFeatureSymlinkMode enables the 'symlinkMode' API on '.os.additionalDirs[]' and
+	// 'additionalFiles[]'.
+	PreviewFeatureSymlinkMode PreviewFeature = "symlink-mode"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -65,7 +69,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest:
+		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest, PreviewFeatureSymlinkMode:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

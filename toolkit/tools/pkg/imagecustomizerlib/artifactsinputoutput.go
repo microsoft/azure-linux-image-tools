@@ -161,7 +161,10 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 					addonDestDir := filepath.Join(ukiOutputSubdir, addonDirName)
 
 					// Copy the entire addon directory with all its contents
-					err = file.CopyDir(addonSrcDir, addonDestDir, 0o755, 0o644, nil)
+					err = file.CopyDir(addonSrcDir, addonDestDir, file.CopyDirOptions{
+						NewDirPermissions:    0o755,
+						ChildFilePermissions: 0o644,
+					})
 					if err != nil {
 						return fmt.Errorf("failed to copy UKI addon directory (%s):\n%w", addonSrcDir, err)
 					}
