@@ -645,6 +645,36 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ResizeDisk": {
+      "properties": {
+        "diskSize": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "partitions": {
+          "items": {
+            "$ref": "#/$defs/ResizePartition"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ResizePartition": {
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "freeSpace": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "size": {
+          "$ref": "#/$defs/DiskSize"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "SELinux": {
       "properties": {
         "mode": {
@@ -751,6 +781,9 @@
         },
         "reinitializeVerity": {
           "type": "string"
+        },
+        "resizeDisk": {
+          "$ref": "#/$defs/ResizeDisk"
         }
       },
       "additionalProperties": false,
