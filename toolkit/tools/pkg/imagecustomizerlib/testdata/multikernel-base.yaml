@@ -1,3 +1,6 @@
+previewFeatures:
+- resize-disk
+
 # Ensure disk size is large enough for multiple kernels.
 storage:
   resizeDisk:
