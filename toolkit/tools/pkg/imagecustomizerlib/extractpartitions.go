@@ -72,7 +72,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 			continue
 		}
 
-		partitionNum, err := getPartitionNum(partition.Path)
+		partitionNum, err := diskutils.GetPartitionNum(partition.Path)
 		if err != nil {
 			return nil, err
 		}

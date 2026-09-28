@@ -134,19 +134,29 @@ func extractGptTableData(diskDevPath string, outDir string, basename string,
 		return "", 0, fmt.Errorf("failed to read GPT header:\n%w", err)
 	}
 
-	// Round up to sector boundary
-	sectorsToExtract := mathutils.DivRoundUp(gptEndBytes, uint64(sectorSize))
-
 	rawFile := filepath.Join(outDir, basename+"_gpt.raw")
-	err = extractSectorsFromFile(srcFile, rawFile, sectorSize, 0, int64(sectorsToExtract))
+	err = extractBytesFromFile(srcFile, rawFile, 0, int64(gptEndBytes))
 	if err != nil {
 		return "", 0, fmt.Errorf("%w:\n%w", ErrGptExtractPrimary, err)
 	}
 
-	logger.Log.Infof("Extracted primary GPT: %d bytes (%d sectors extracted)",
-		gptEndBytes, sectorsToExtract)
-
+	logger.Log.Infof("Extracted primary GPT: %d bytes", gptEndBytes)
 	return rawFile, gptEndBytes, nil
+}
+
+func readGptHeaderSize(diskDevPath string, sectorSize int) (uint64, error) {
+	srcFile, err := os.Open(diskDevPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open disk device (%s):\n%w", diskDevPath, err)
+	}
+	defer srcFile.Close()
+
+	gptEndBytes, err := readGptEndOffset(srcFile, sectorSize)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read GPT header:\n%w", err)
+	}
+
+	return gptEndBytes, nil
 }
 
 // readGptEndOffset reads the GPT header and calculates the byte offset of the end of the GPT entries.
@@ -172,19 +182,21 @@ func readGptEndOffset(file *os.File, sectorSize int) (uint64, error) {
 	partitionArrayStart := header.PartitionEntryLBA * uint64(sectorSize)
 	gptEndOffset := partitionArrayStart + partitionArraySize
 
+	// Round up to sector boundary
+	gptEndOffset = mathutils.RoundDown(gptEndOffset, uint64(sectorSize))
+
 	logger.Log.Debugf("GPT header parsed: PartitionEntryLBA=%d, NumEntries=%d, EntrySize=%d, EndOffset=%d",
 		header.PartitionEntryLBA, header.NumberOfPartitionEntries, header.SizeOfPartitionEntry, gptEndOffset)
 
 	return gptEndOffset, nil
 }
 
-func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
-	startSector int64, sectorCount int64,
+func extractBytesFromFile(srcFile *os.File, outFile string,
+	start int64, numBytes int64,
 ) error {
-	startOffset := startSector * int64(sectorSize)
-	_, err := srcFile.Seek(startOffset, io.SeekStart)
+	_, err := srcFile.Seek(start, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("failed to seek to offset %d:\n%w", startOffset, err)
+		return fmt.Errorf("failed to seek to offset %d:\n%w", start, err)
 	}
 
 	dstFile, err := os.Create(outFile)
@@ -193,10 +205,9 @@ func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
 	}
 	defer dstFile.Close()
 
-	bytesToCopy := sectorCount * int64(sectorSize)
-	_, err = io.Copy(dstFile, io.LimitReader(srcFile, bytesToCopy))
+	_, err = io.Copy(dstFile, io.LimitReader(srcFile, numBytes))
 	if err != nil {
-		return fmt.Errorf("failed to copy %d bytes:\n%w", bytesToCopy, err)
+		return fmt.Errorf("failed to copy %d bytes:\n%w", numBytes, err)
 	}
 
 	err = dstFile.Close()
@@ -224,7 +235,7 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile cosiapi.ImageFile
 	})
 
 	for _, partition := range pt.Partitions {
-		partNum, err := getPartitionNum(partition.Path)
+		partNum, err := diskutils.GetPartitionNum(partition.Path)
 		if err != nil {
 			return cosiapi.Disk{}, fmt.Errorf("failed to get partition number from path (%s):\n%w", partition.Path, err)
 		}

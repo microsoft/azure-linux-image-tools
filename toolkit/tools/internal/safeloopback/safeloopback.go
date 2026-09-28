@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 type Loopback struct {
@@ -72,6 +73,13 @@ func (l *Loopback) DevicePath() string {
 
 func (l *Loopback) DiskFilePath() string {
 	return l.diskFilePath
+}
+
+// Request the loopback device refresh the size of the disk from file.
+func (l *Loopback) RefreshDiskSize() error {
+	return shell.NewExecBuilder("losetup", "--set-capacity", l.devicePath).
+		ErrorStderrLines(1).
+		Execute()
 }
 
 func (l *Loopback) Close() {

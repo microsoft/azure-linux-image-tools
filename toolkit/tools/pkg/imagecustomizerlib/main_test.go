@@ -65,6 +65,7 @@ type testBaseImageInfo struct {
 	ParamName   string
 	Param       *string
 	MountPoints []testutils.MountPoint
+	LastPartNum int
 }
 
 var (
@@ -153,6 +154,7 @@ var (
 		ParamName:     paramBaseImageAzl2CoreEfi,
 		Param:         baseImageCoreEfiAzl2,
 		MountPoints:   azureLinuxCoreEfiMountPoints,
+		LastPartNum:   2,
 	}
 
 	testBaseImageAzl3CoreEfi = testBaseImageInfo{
@@ -162,6 +164,7 @@ var (
 		ParamName:     paramBaseImageAzl3CoreEfi,
 		Param:         baseImageCoreEfiAzl3,
 		MountPoints:   azureLinuxCoreEfiMountPoints,
+		LastPartNum:   2,
 	}
 
 	testBaseImageAzl4CoreEfi = testBaseImageInfo{
@@ -171,6 +174,7 @@ var (
 		ParamName:     paramBaseImageAzl4CoreEfi,
 		Param:         baseImageCoreEfiAzl4,
 		MountPoints:   azureLinuxCoreEfiMountPoints,
+		LastPartNum:   2,
 	}
 
 	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
@@ -180,6 +184,7 @@ var (
 		ParamName:     paramBaseImageUbuntu2204AzureCloud,
 		Param:         baseImageUbuntuAzureCloud2204,
 		MountPoints:   ubuntuAzureCloudMountPoints,
+		LastPartNum:   1,
 	}
 
 	testBaseImageUbuntu2404AzureCloud = testBaseImageInfo{
@@ -189,6 +194,7 @@ var (
 		ParamName:     paramBaseImageUbuntu2404AzureCloud,
 		Param:         baseImageUbuntuAzureCloud2404,
 		MountPoints:   ubuntuAzureCloudMountPoints,
+		LastPartNum:   1,
 	}
 
 	baseImageAzureLinuxAll = []testBaseImageInfo{

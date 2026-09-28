@@ -592,7 +592,49 @@ func TestStorageIsValidBothDisksAndResetUuid(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "cannot specify both 'resetPartitionsUuidsType' and 'disks'")
+	assert.ErrorContains(t, err, "can only specify one of 'disks', 'resetPartitionsUuidsType', and 'resizeDisk'")
+}
+
+func TestStorageIsValidBothDisksAndResizeDisk(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(4 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "rootfs",
+					Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootfs",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+		ResizeDisk: &ResizeDisk{},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "can only specify one of 'disks', 'resetPartitionsUuidsType', and 'resizeDisk'")
 }
 
 func TestStorageIsValid_DuplicateMountPointBetweenFilesystems_Fail(t *testing.T) {
