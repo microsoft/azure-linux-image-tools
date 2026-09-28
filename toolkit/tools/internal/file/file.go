@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
@@ -149,22 +150,36 @@ func CopyDir(src, dst string, options CopyDirOptions) (err error) {
 	// Iterate over the entries in the source directory
 	for _, entry := range entries {
 		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
 
 		switch {
 		case options.NoDereference && entry.Type()&os.ModeSymlink != 0:
 			// Recreate the link verbatim. We must not follow it (which would copy the
 			// target's contents or fail on a dangling link) and must not chmod it. The
 			// link resolves inside the image at runtime, against the image's filesystem.
+			// Use the lexical path so copySymlink replaces any existing link in place
+			// rather than following it.
+			dstPath := filepath.Join(dst, entry.Name())
 			if err := copySymlink(srcPath, dstPath); err != nil {
 				return fmt.Errorf("failed to copy symlink (%s) to (%s):\n%w", srcPath, dstPath, err)
 			}
 		case entry.IsDir():
+			// Resolve within dst so a destination-side symlink (e.g. from the base image)
+			// on this entry cannot redirect the recursive copy outside dst.
+			dstPath, err := securejoin.SecureJoin(dst, entry.Name())
+			if err != nil {
+				return err
+			}
 			// If it's a directory, recursively copy it
 			if err := CopyDir(srcPath, dstPath, options); err != nil {
 				return err
 			}
 		default:
+			// Resolve within dst so a destination-side symlink on this entry cannot
+			// redirect the file write outside dst.
+			dstPath, err := securejoin.SecureJoin(dst, entry.Name())
+			if err != nil {
+				return err
+			}
 			// If it's a file, copy it and set file permissions
 			if err := NewFileCopyBuilder(srcPath, dstPath).SetFileMode(options.ChildFilePermissions).Run(); err != nil {
 				return fmt.Errorf("failed to copy file (%s) to (%s):\n%w", srcPath, dstPath, err)

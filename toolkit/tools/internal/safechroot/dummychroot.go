@@ -19,3 +19,7 @@ func (d *DummyChroot) ChrootDir() string {
 func (d *DummyChroot) AddFiles(filesToCopy ...FileToCopy) (err error) {
 	return AddFilesToDestination(d.RootDir(), filesToCopy...)
 }
+
+func (d *DummyChroot) SecureJoin(path string) (string, error) {
+	return secureJoinUnderRoot(d.RootDir(), path)
+}

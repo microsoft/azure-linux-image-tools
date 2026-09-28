@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemdependency"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/moby/sys/mountinfo"
 	"golang.org/x/sys/unix"
 )
@@ -268,7 +269,14 @@ func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMoun
 
 // AddDirs copies each directory 'Src' to the relative path chrootRootDir/'Dest' in the chroot.
 func (c *Chroot) AddDirs(dirToCopy DirToCopy) (err error) {
-	return file.CopyDir(dirToCopy.Src, filepath.Join(c.rootDir, dirToCopy.Dest),
+	// SecureJoin resolves the destination within the chroot so a symlink on the path
+	// (placed by an earlier customization or present in the base image) can't redirect
+	// the copy outside the chroot root.
+	dest, err := c.SecureJoin(dirToCopy.Dest)
+	if err != nil {
+		return err
+	}
+	return file.CopyDir(dirToCopy.Src, dest,
 		file.CopyDirOptions{
 			NewDirPermissions:    dirToCopy.NewDirPermissions,
 			ChildFilePermissions: dirToCopy.ChildFilePermissions,
@@ -308,8 +316,27 @@ func AddFilesToDestination(destDir string, filesToCopy ...FileToCopy) error {
 	return nil
 }
 
+// secureJoinUnderRoot resolves a root-relative path within root, clamping any symlink
+// so the result cannot escape the root. It replaces filepath.Join for destinations that
+// are subsequently written.
+func secureJoinUnderRoot(root, path string) (string, error) {
+	dest, err := securejoin.SecureJoin(root, path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve destination (%s) within chroot:\n%w", path, err)
+	}
+	// A difference from the lexical join means a symlink on the path was traversed or an
+	// escape was clamped; surface it for diagnostics.
+	if dest != filepath.Join(root, path) {
+		logger.Log.Warnf("destination (%s) under root (%s) resolved through a symlink to (%s)", path, root, dest)
+	}
+	return dest, nil
+}
+
 func copyFile(destDir string, f FileToCopy) error {
-	dest := filepath.Join(destDir, f.Dest)
+	dest, err := secureJoinUnderRoot(destDir, f.Dest)
+	if err != nil {
+		return err
+	}
 	fileCopyOp := file.NewFileCopyBuilder(f.Src, dest)
 	if f.NoDereference {
 		fileCopyOp = fileCopyOp.SetNoDereference()
@@ -318,7 +345,7 @@ func copyFile(destDir string, f FileToCopy) error {
 		fileCopyOp = fileCopyOp.SetFileMode(*f.Permissions)
 	}
 
-	err := fileCopyOp.Run()
+	err = fileCopyOp.Run()
 	if err != nil {
 		return fmt.Errorf("failed to copy (%s) to (%s):\n%w", f.Src, f.Dest, err)
 	}
@@ -327,9 +354,12 @@ func copyFile(destDir string, f FileToCopy) error {
 }
 
 func writeFile(destDir string, f FileToCopy) error {
-	dest := filepath.Join(destDir, f.Dest)
+	dest, err := secureJoinUnderRoot(destDir, f.Dest)
+	if err != nil {
+		return err
+	}
 
-	err := file.CreateDestinationDir(dest, os.ModePerm)
+	err = file.CreateDestinationDir(dest, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", dest, err)
 	}
@@ -380,6 +410,14 @@ func (c *Chroot) RootDir() string {
 
 func (c *Chroot) ChrootDir() string {
 	return c.RootDir()
+}
+
+// SecureJoin resolves a chroot-relative path within the chroot's root, clamping any
+// symlink (absolute or '..'-escaping, from the base image or an earlier customization)
+// so the result can never point outside the root. Use it instead of
+// filepath.Join(c.RootDir(), path) for any destination that is subsequently written.
+func (c *Chroot) SecureJoin(path string) (string, error) {
+	return secureJoinUnderRoot(c.rootDir, path)
 }
 
 // Close will unmount the chroot and cleanup its files.

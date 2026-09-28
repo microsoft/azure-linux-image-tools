@@ -52,9 +52,20 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 	var modulesToLoad []string
 	var modulesToDisable []string
 	moduleOptionsUpdates := make(map[string]map[string]string)
-	moduleDisableFilePath := filepath.Join(rootDir, moduleDisabledPath)
-	moduleLoadFilePath := filepath.Join(rootDir, moduleLoadPath)
-	moduleOptionsFilePath := filepath.Join(rootDir, moduleOptionsPath)
+	// Clamp within the image root so a symlink on an intermediate component (e.g. a
+	// preserved 'etc -> /' or a base-image link) can't redirect these writes to the host.
+	moduleDisableFilePath, err := secureJoinRoot(rootDir, moduleDisabledPath)
+	if err != nil {
+		return err
+	}
+	moduleLoadFilePath, err := secureJoinRoot(rootDir, moduleLoadPath)
+	if err != nil {
+		return err
+	}
+	moduleOptionsFilePath, err := secureJoinRoot(rootDir, moduleOptionsPath)
+	if err != nil {
+		return err
+	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_kernel_modules")
 	defer span.End()

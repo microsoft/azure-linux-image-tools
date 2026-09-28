@@ -474,8 +474,14 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 		}
 
 		srcPath := file.GetAbsPathWithBase(baseConfigPath, item.Source)
-		destPath := filepath.Join(mountPath, item.Destination)
-		err := file.Copy(srcPath, destPath)
+		// Resolve within the mounted partition so a symlink on the destination path
+		// (from the base image or an earlier customization) cannot redirect the write
+		// outside the partition onto the build host.
+		destPath, err := secureJoinRoot(mountPath, item.Destination)
+		if err != nil {
+			return err
+		}
+		err = file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}

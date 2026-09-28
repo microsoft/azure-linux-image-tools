@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -31,7 +30,10 @@ func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion strin
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_customizer_release")
 	defer span.End()
 
-	customizerReleaseFilePath := filepath.Join(rootDir, ImageCustomizerReleasePath)
+	customizerReleaseFilePath, err := secureJoinRoot(rootDir, ImageCustomizerReleasePath)
+	if err != nil {
+		return err
+	}
 	lines := []string{
 		fmt.Sprintf("%s=\"%s\"", "TOOL_VERSION", toolVersion),
 		fmt.Sprintf("%s=\"%s\"", "BUILD_DATE", buildTime.UTC().Format(buildTimeFormatUtc)),

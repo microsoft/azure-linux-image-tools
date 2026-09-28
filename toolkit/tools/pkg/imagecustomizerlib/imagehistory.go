@@ -86,7 +86,10 @@ func addImageHistoryHelper(ctx context.Context, rootDir string, imageUuid string
 		return fmt.Errorf("%w:\n%w", ErrImageHistoryModify, err)
 	}
 
-	customizerLoggingDirPath := filepath.Join(rootDir, customizerLoggingDir)
+	customizerLoggingDirPath, err := secureJoinRoot(rootDir, customizerLoggingDir)
+	if err != nil {
+		return err
+	}
 	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrImageHistoryDirectoryCreate, customizerLoggingDirPath, err)

@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -29,8 +28,12 @@ func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot
 
 	logger.Log.Infof("Setting hostname (%s)", hostname)
 
-	hostnameFilePath := filepath.Join(imageChroot.RootDir(), "etc/hostname")
-	err := file.Write(hostname, hostnameFilePath)
+	// Clamp within the image root so a symlink on 'etc' can't redirect the write to the host.
+	hostnameFilePath, err := secureJoinRoot(imageChroot.RootDir(), "etc/hostname")
+	if err != nil {
+		return err
+	}
+	err = file.Write(hostname, hostnameFilePath)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrHostnameWrite, err)
 	}

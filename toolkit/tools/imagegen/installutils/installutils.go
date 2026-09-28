@@ -249,15 +249,22 @@ func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 
 	ReportAction("Configuring systemd state files for first boot")
 
+	// Clamp within the image root so a symlink on an intermediate component can't redirect
+	// these writes to the build host.
+	machineIDFullPath, err := installChroot.SecureJoin(machineIDFile)
+	if err != nil {
+		return err
+	}
+
 	// The systemd package will create this file, but if its not installed, we need to create it.
-	exists, err := file.PathExists(filepath.Join(installChroot.RootDir(), machineIDFile))
+	exists, err := file.PathExists(machineIDFullPath)
 	if err != nil {
 		err = fmt.Errorf("failed to check if machine-id exists:\n%w", err)
 		return
 	}
 	if !exists {
 		logger.Log.Debug("Creating empty machine-id file")
-		err = file.Create(filepath.Join(installChroot.RootDir(), machineIDFile), machineIDFilePerms)
+		err = file.Create(machineIDFullPath, machineIDFilePerms)
 		if err != nil {
 			err = fmt.Errorf("failed to create empty machine-id:\n%w", err)
 			return err
@@ -266,10 +273,10 @@ func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 
 	if enableSystemdFirstboot {
 		ReportAction("Enabling systemd firstboot")
-		err = file.Write(machineIDFirstBootOn, filepath.Join(installChroot.RootDir(), machineIDFile))
+		err = file.Write(machineIDFirstBootOn, machineIDFullPath)
 	} else {
 		ReportAction("Disabling systemd firstboot")
-		err = file.Write(machineIDFirstbootOff, filepath.Join(installChroot.RootDir(), machineIDFile))
+		err = file.Write(machineIDFirstbootOff, machineIDFullPath)
 	}
 	if err != nil {
 		err = fmt.Errorf("failed to write empty machine-id:\n%w", err)
@@ -279,7 +286,10 @@ func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 	// These files should not be present in the image, but per https://systemd.io/BUILDING_IMAGES/ we should
 	// be thorough and double-check.
 	for _, filePath := range otherFilesToRemove {
-		fullPath := filepath.Join(installChroot.RootDir(), filePath)
+		fullPath, joinErr := installChroot.SecureJoin(filePath)
+		if joinErr != nil {
+			return joinErr
+		}
 		exists, err = file.PathExists(fullPath)
 		if err != nil {
 			err = fmt.Errorf("failed to check if systemd state file (%s) exists:\n%w", filePath, err)
@@ -644,7 +654,10 @@ func Chage(installChroot safechroot.ChrootInterface, passwordExpirationInDays in
 		usernameWithColon = fmt.Sprintf("%s:", username)
 	)
 
-	installChrootShadowFile := filepath.Join(installChroot.RootDir(), userutils.ShadowFile)
+	installChrootShadowFile, err := installChroot.SecureJoin(userutils.ShadowFile)
+	if err != nil {
+		return
+	}
 
 	shadow, err = file.ReadLines(installChrootShadowFile)
 	if err != nil {
@@ -774,7 +787,10 @@ func ConfigureUserStartupCommand(installChroot safechroot.ChrootInterface, usern
 
 	findPattern := fmt.Sprintf(`^\(%s.*\):[^:]*$`, username)
 	replacePattern := fmt.Sprintf(`\1:%s`, startupCommand)
-	filePath := filepath.Join(installChroot.RootDir(), userutils.PasswdFile)
+	filePath, err := installChroot.SecureJoin(userutils.PasswdFile)
+	if err != nil {
+		return
+	}
 	err = sed(findPattern, replacePattern, sedDelimiter, filePath)
 	if err != nil {
 		err = fmt.Errorf("failed to update user's (%s) startup command (%s):\n%w", username, startupCommand, err)
@@ -801,7 +817,10 @@ func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safech
 		mode = SELinuxConfigDisabled
 	}
 
-	selinuxConfigPath := filepath.Join(installChroot.RootDir(), selinuxConfigFile)
+	selinuxConfigPath, err := installChroot.SecureJoin(selinuxConfigFile)
+	if err != nil {
+		return
+	}
 	selinuxProperty := fmt.Sprintf("SELINUX=%s", mode)
 	err = sed(selinuxPattern, selinuxProperty, "`", selinuxConfigPath)
 	return

@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
@@ -102,7 +101,10 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 		return err
 	}
 
-	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
+	selinuxConfigFileFullPath, err := imageChroot.SecureJoin(selinuxConfigFile)
+	if err != nil {
+		return err
+	}
 	selinuxConfigFileExists, err := file.PathExists(selinuxConfigFileFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='/%s'):\n%w", ErrSELinuxConfigFileCheck, selinuxConfigFile, err)

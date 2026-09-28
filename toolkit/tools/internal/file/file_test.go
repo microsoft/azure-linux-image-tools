@@ -255,6 +255,51 @@ func TestCopyDirPreservesSymlinks(t *testing.T) {
 	assertSymlink("dangling.txt", "/does/not/exist/on/host")
 }
 
+// TestCopyDirClampsDestinationSymlinkEscape ensures a destination-side symlink (e.g. from
+// the base image) on an entry cannot redirect a nested file or directory copy outside dst.
+func TestCopyDirClampsDestinationSymlinkEscape(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "src")
+	dst := filepath.Join(t.TempDir(), "dst")
+	hostArea := filepath.Join(t.TempDir(), "host")
+	assert.NoError(t, os.MkdirAll(dst, 0o755))
+	assert.NoError(t, os.MkdirAll(hostArea, 0o755))
+
+	// Source has a directory 'sub' with a file, and a top-level file 'f.txt'.
+	assert.NoError(t, os.MkdirAll(filepath.Join(src, "sub"), 0o755))
+	assert.NoError(t, os.WriteFile(filepath.Join(src, "sub", "inner.txt"), []byte("payload"), 0o644))
+	assert.NoError(t, os.WriteFile(filepath.Join(src, "f.txt"), []byte("payload"), 0o644))
+
+	// Destination pre-seeds escaping symlinks matching those entry names.
+	assert.NoError(t, os.Symlink(hostArea, filepath.Join(dst, "sub")))
+	assert.NoError(t, os.Symlink(filepath.Join(hostArea, "f.txt"), filepath.Join(dst, "f.txt")))
+
+	err := CopyDir(src, dst, CopyDirOptions{NewDirPermissions: 0o755, ChildFilePermissions: 0o644})
+	assert.NoError(t, err)
+
+	// Nothing escaped into the real hostArea.
+	entries, err := os.ReadDir(hostArea)
+	assert.NoError(t, err)
+	assert.Empty(t, entries, "copy must not escape dst into %s", hostArea)
+
+	// The copy still happened, clamped within dst rather than silently skipped.
+	assert.True(t, containsFileNamedUnder(dst, "inner.txt"), "inner.txt should be copied within dst")
+	assert.True(t, containsFileNamedUnder(dst, "f.txt"), "f.txt should be copied within dst")
+}
+
+// containsFileNamedUnder reports whether a file with the given name exists anywhere under
+// dir. filepath.WalkDir does not follow symlinks, so a match proves the file landed within
+// dir rather than through an escape link.
+func containsFileNamedUnder(dir, name string) bool {
+	found := false
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && d.Name() == name {
+			found = true
+		}
+		return nil
+	})
+	return found
+}
+
 func createTestFiles(filename string, outputDir string) error {
 	// Test data
 	testData := []byte{0x01, 0x02, 0x03, 0x04, 0x05}
