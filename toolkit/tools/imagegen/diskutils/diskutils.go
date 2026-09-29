@@ -6,6 +6,7 @@
 package diskutils
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -140,7 +142,8 @@ const (
 )
 
 var (
-	diskDevPathRegexp = regexp.MustCompile(`^/dev/(\w+)$`)
+	diskDevPathRegexp   = regexp.MustCompile(`^/dev/(\w+)$`)
+	partNumSuffixRegexp = regexp.MustCompile(`[0-9]+$`)
 )
 
 // CreateEmptyDisk creates an empty raw disk in the given working directory as described in disk configuration
@@ -768,6 +771,7 @@ func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partD
 }
 
 // GetDiskPartitions gets the kernel's view of a disk's partitions.
+// Only partition devices are returned, in numeric partition-number order.
 func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
 	// Read the disk's partitions.
 	jsonString, _, err := shell.Execute("lsblk", diskDevPath, "--output",
@@ -784,7 +788,25 @@ func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
 		}
 	}
 
-	return output.Devices, err
+	return filterAndSortDiskPartitions(output.Devices), nil
+}
+
+func filterAndSortDiskPartitions(partitions []PartitionInfo) []PartitionInfo {
+	partitions = slices.DeleteFunc(partitions, func(partition PartitionInfo) bool {
+		return partition.Type != "part"
+	})
+
+	slices.SortStableFunc(partitions, func(left, right PartitionInfo) int {
+		// Kernel partition names end in the decimal partition number. Compare the
+		// digit counts first so that partition 2 sorts before partition 10.
+		leftNumber := partNumSuffixRegexp.FindString(left.Path)
+		rightNumber := partNumSuffixRegexp.FindString(right.Path)
+		if order := cmp.Compare(len(leftNumber), len(rightNumber)); order != 0 {
+			return order
+		}
+		return strings.Compare(leftNumber, rightNumber)
+	})
+	return partitions
 }
 
 // ReadPartitionTable reads the partition table directly from the disk.

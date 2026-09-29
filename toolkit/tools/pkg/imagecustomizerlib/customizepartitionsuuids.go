@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -48,6 +49,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 	if err != nil {
 		return err
 	}
+	logger.Log.Debugf("UUID reset discovery: device=%s partitions=%+v", loopback.DevicePath(), partitions)
 
 	// Update the UUIDs.
 	newUuids := make([]string, len(partitions))
@@ -62,6 +64,8 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 		}
 
 		newUuids[i] = newUuid
+		logger.Log.Debugf("UUID reset filesystem assignment: index=%d path=%s old=%s new=%s",
+			i, partition.Path, partition.Uuid, newUuid)
 	}
 
 	// Update the PARTUUIDs.
@@ -71,18 +75,28 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 			continue
 		}
 
-		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
+		// GetDiskPartitions excludes the disk entry; partition numbers start at 1.
+		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i+1)
 		if err != nil {
 			return fmt.Errorf("%w (partition='%s'):\n%w", ErrPartitionUuidUpdate, partition.Path, err)
 		}
 
 		newPartUuids[i] = newPartUuid
+		logger.Log.Debugf("UUID reset partition assignment: index=%d intendedPath=%s targetPartitionNumber=%d old=%s new=%s",
+			i, partition.Path, i+1, partition.PartUuid, newPartUuid)
 	}
 
 	// Wait for the partition table updates to be processed.
 	err = diskutils.WaitForDiskDevice(loopback.DevicePath())
 	if err != nil {
 		return err
+	}
+	updatedPartitions, traceErr := diskutils.GetDiskPartitions(loopback.DevicePath())
+	if traceErr != nil {
+		logger.Log.Warnf("UUID reset after-update snapshot failed: %s", traceErr)
+	} else {
+		logger.Log.Debugf("UUID reset after-update discovery: device=%s partitions=%+v",
+			loopback.DevicePath(), updatedPartitions)
 	}
 
 	// Fix /etc/fstab file.
@@ -191,6 +205,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	if err != nil {
 		return err
 	}
+	logger.Log.Debugf("UUID reset fstab before: path=%s entries=%+v", fsTabFilePath, fstabEntries)
 
 	// Fix the fstab entries.
 	for i, fstabEntry := range fstabEntries {
@@ -238,6 +253,12 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	err = diskutils.WriteFstabFile(fstabEntries, fsTabFilePath)
 	if err != nil {
 		return err
+	}
+	fstabContents, traceErr := os.ReadFile(fsTabFilePath)
+	if traceErr != nil {
+		logger.Log.Warnf("UUID reset fstab snapshot failed: %s", traceErr)
+	} else {
+		logger.Log.Debugf("UUID reset fstab after: path=%s\n%s", fsTabFilePath, fstabContents)
 	}
 
 	err = partitionMount.CleanClose()

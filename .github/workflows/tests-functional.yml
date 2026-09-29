@@ -101,12 +101,12 @@ jobs:
         set -eux
 
         download() {
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "$1" "$2"
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "$@"
         }
 
         if [[ "$TEST_DISTRO" == "azl3" ]]; then
-            download "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-            download "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+            download "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0 2.0.20260331
+            download "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0 3.0.20260923
         elif [[ "$TEST_DISTRO" == "azl4" ]]; then
             download "azure-linux/core-efi-vhdx-4.0-$HOST_ARCH" azl-core-efi-4.0
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
@@ -123,6 +123,7 @@ jobs:
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
     - name: Download test utils
+      if: ${{ false }}
       run: |
         set -eux
         pushd repo/toolkit/tools
@@ -142,6 +143,12 @@ jobs:
     - name: Run tests
       run: |
         set -euxo pipefail
+
+        uname -a
+        lsblk --version
+        losetup --version
+        sfdisk --version
+        udevadm --version
 
         pushd repo/toolkit/tools
 
@@ -168,10 +175,12 @@ jobs:
         mkdir -p "$TEST_RESULTS_DIR"
 
         sudo env "PATH=$PATH" go test -v \
+          -run '^TestCustomizeImageNewUUIDs$/^AzureLinux3CoreEfi$' -count 200 -failfast \
           -coverprofile="$TEST_RESULTS_DIR/lib.cov" -covermode count \
           -timeout 150m \
           ./pkg/imagecustomizerlib \
           -args \
+          --log-level debug \
           --base-image-core-efi-azl2 "$AZL2_VHDX" \
           --base-image-core-efi-azl3 "$AZL3_VHDX" \
           --base-image-core-efi-azl4 "$AZL4_VHDX" \
