@@ -15,6 +15,11 @@ pxe:
     destination: /etc/systemd/network/89-ethernet.network
 
 os:
+  kernelCommandLine:
+    extraCommandLine:
+    - "systemd.log_level=debug"
+    - "systemd.log_target=console"
+
   selinux:
     mode: enforcing
 
