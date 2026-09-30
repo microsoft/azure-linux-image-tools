@@ -26,12 +26,13 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/build.yml
+    # Temporary diagnostic branch: reuse the tested ARM64 container and run only the reproduction job.
+    uses: ./.github/workflows/tests-vmtests.yml
     with:
-      publishType: dev
-      runFunctionalTests: ${{ inputs.runFunctionalTests || false }}
-      runVMTests: ${{ inputs.runVMTests || false }}
+      hostArch: arm64
+      hostDistro: ubuntu2404
     permissions:
       contents: read
+      actions: read
       # Azure login.
       id-token: write

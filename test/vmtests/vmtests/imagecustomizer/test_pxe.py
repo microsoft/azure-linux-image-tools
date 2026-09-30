@@ -1,9 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import hashlib
 import logging
 import platform
 import random
+import shutil
 import string
 from pathlib import Path
 from typing import List, Tuple
@@ -48,7 +50,11 @@ def run_pxe_test(
     logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
+    boot_count: int = 1,
 ) -> None:
+
+    if not 1 <= boot_count <= 20:
+        raise ValueError("boot_count must be between 1 and 20")
 
     ssh_public_key, ssh_private_key_path = ssh_key
 
@@ -89,7 +95,14 @@ def run_pxe_test(
     )
     customized_log_path = str(logs_dir) + "/" + customized_name
     http_log_file_path = Path(customized_log_path + ".http.log")
-    vm_console_log_file_path = customized_log_path + ".console.log"
+
+    # Diagnostic branch: build once so every fresh VM boots exactly the same bytes.
+    evidence_dir = logs_dir / test_instance_name
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    with pxe_tar_path.open("rb") as image_file:
+        image_sha256 = hashlib.file_digest(image_file, "sha256").hexdigest()
+    (evidence_dir / "image.sha256").write_text(f"{image_sha256}  pxe-artifacts.tar.gz\n")
+    shutil.copy2(modified_config_path, evidence_dir / "config.yaml")
 
     suffix = "".join(random.choice(string.ascii_lowercase) for _ in range(5))
     network_name = test_instance_name + "-pxe"
@@ -105,34 +118,71 @@ def run_pxe_test(
     )
     close_list.append(pxe_env)
 
-    # Create the VM: no disk, boots from the PXE network.
-    vm_spec = VmSpec(
-        test_instance_name,
-        PXE_VM_MEMORY_MIB,
-        PXE_VM_CORE_COUNT,
-        None,
-        "efi",
-        secure_boot=False,
-        pxe_boot=True,
-        network_name=pxe_env.network_name,
-    )
-    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec)
-    logging.debug(f"\n\ndomain_xml = {domain_xml}\n\n")
+    for boot_index in range(1, boot_count + 1):
+        vm_name = f"{test_instance_name}-boot{boot_index:02d}"
+        boot_dir = evidence_dir / f"boot{boot_index:02d}"
+        boot_dir.mkdir()
+        capture_host_resources(boot_dir / "host-before.txt")
+        logging.info("PXE diagnostic boot %d/%d starting, image_sha256=%s", boot_index, boot_count, image_sha256)
 
-    vm = LibvirtVm(test_instance_name, domain_xml, vm_console_log_file_path, libvirt_conn)
-    close_list.append(vm)
+        # Keep resources, boot configuration, and SSH checks identical to the original test.
+        vm_spec = VmSpec(
+            vm_name,
+            PXE_VM_MEMORY_MIB,
+            PXE_VM_CORE_COUNT,
+            None,
+            "efi",
+            secure_boot=False,
+            pxe_boot=True,
+            network_name=pxe_env.network_name,
+        )
+        domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec)
+        (boot_dir / "domain.requested.xml").write_text(domain_xml)
+        vm = LibvirtVm(vm_name, domain_xml, str(boot_dir / "console.log"), libvirt_conn)
+        close_list.append(vm)
 
-    # Start the VM.
-    vm.start()
+        try:
+            vm.start()
+            (boot_dir / "domain.active.xml").write_text(vm.domain.XMLDesc(0))
+            with vm.create_ssh_client(
+                ssh_private_key_path,
+                test_temp_dir,
+                username,
+                ip_wait_time_extra=PXE_BOOT_IP_WAIT_TIME_EXTRA_SECONDS,
+            ) as ssh_client:
+                run_basic_checks(ssh_client, input_image_azl_release, test_temp_dir)
+        except Exception:
+            logging.exception("PXE diagnostic boot %d/%d failed", boot_index, boot_count)
+            try:
+                shutil.copy2(pxe_tar_path, evidence_dir / "pxe-artifacts.tar.gz")
+            except OSError:
+                logging.exception("Could not preserve the failing PXE image")
+            raise
+        finally:
+            capture_host_resources(boot_dir / "host-after.txt")
+            qemu_log = Path("/var/log/libvirt/qemu") / f"{vm_name}.log"
+            try:
+                if qemu_log.is_file():
+                    shutil.copy2(qemu_log, boot_dir / "qemu.log")
+            except OSError:
+                logging.exception("Could not preserve the QEMU log")
 
-    # Connect to the VM and run the basic boot validation.
-    with vm.create_ssh_client(
-        ssh_private_key_path,
-        test_temp_dir,
-        username,
-        ip_wait_time_extra=PXE_BOOT_IP_WAIT_TIME_EXTRA_SECONDS,
-    ) as ssh_client:
-        run_basic_checks(ssh_client, input_image_azl_release, test_temp_dir)
+        logging.info("PXE diagnostic boot %d/%d passed", boot_index, boot_count)
+        if boot_index < boot_count:
+            # Stop and undefine successful guests before starting the next one.
+            # On failure, the existing fixture still owns cleanup and no later boot is attempted.
+            vm.close()
+            close_list.remove(vm)
+
+
+def capture_host_resources(output_path: Path) -> None:
+    try:
+        snapshot = ""
+        for name in ("uptime", "loadavg", "meminfo"):
+            snapshot += f"/proc/{name}\n{Path('/proc', name).read_text()}\n"
+        output_path.write_text(snapshot)
+    except OSError:
+        logging.exception("Could not record host resources")
 
 
 def test_pxe_bootstrap_efi_azl3(
@@ -162,6 +212,7 @@ def test_pxe_bootstrap_efi_azl3(
         logs_dir,
         libvirt_conn,
         close_list,
+        boot_count=20,
     )
 
 
