@@ -156,7 +156,7 @@ jobs:
     - name: Capture host diagnostics
       if: ${{ always() }}
       run: |
-        mkdir -p repo/test/vmtests/out/host
+        sudo install -d -m 0755 -o "$USER" repo/test/vmtests/out/host
         uname -a > repo/test/vmtests/out/host/kernel.txt
         lscpu > repo/test/vmtests/out/host/cpu.txt
         cat /proc/meminfo /proc/loadavg > repo/test/vmtests/out/host/resources.txt
