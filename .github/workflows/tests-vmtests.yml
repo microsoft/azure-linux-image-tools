@@ -163,6 +163,10 @@ jobs:
         sudo dmesg --ctime > repo/test/vmtests/out/host/dmesg.txt
         sudo journalctl -b -u libvirtd --no-pager > repo/test/vmtests/out/host/libvirtd.txt
 
+    - name: Restore diagnostic artifact ownership
+      if: ${{ always() }}
+      run: sudo chown -R "$USER" repo/test/vmtests/out
+
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: ${{ always() }}
       with:
