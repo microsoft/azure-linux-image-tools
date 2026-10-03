@@ -88,8 +88,9 @@ type PartitionTablePartition struct {
 	PartLabel    string `json:"name"`  // Example: rootfs
 
 	// Populated from "blkid --probe":
-	FileSystemType string // Example: vfat
-	FileSystemUuid string // Example: 4BD9-3A78
+	FileSystemType  string // Example: vfat
+	FileSystemUuid  string // Example: 4BD9-3A78
+	FileSystemLabel string // Example: rootfs
 }
 
 type PartitionTable struct {
@@ -847,6 +848,15 @@ func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
 		}
 
 		partition.FileSystemUuid = strings.TrimSpace(stdout)
+
+		// Read the filesystem label directly from disk.
+		stdout, _, err = shell.Execute("flock", "--timeout", "5", "--shared", diskDevPath,
+			"blkid", "--probe", "-s", "LABEL", "-o", "value", partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get filesystem LABEL of partition (%s)\n%w", partition.Path, err)
+		}
+
+		partition.FileSystemLabel = strings.Trim(stdout, "\n")
 	}
 
 	return output.PartitionTable, nil
