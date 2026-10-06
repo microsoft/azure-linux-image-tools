@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,26 +17,48 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 )
 
-// ACL's fixed, well-known GPT partition labels, in on-disk order.
+// ACL's well-known GPT partition labels.
 const (
-	aclPartLabelEsp  = "EFI-SYSTEM"
-	aclPartLabelUsrA = "USR-A"
-	aclPartLabelUsrB = "USR-B"
-	aclPartLabelOem  = "OEM"
-	aclPartLabelRoot = "ROOT"
+	aclPartLabelEsp      = "EFI-SYSTEM"
+	aclPartLabelUsrA     = "USR-A"
+	aclPartLabelUsrB     = "USR-B"
+	aclPartLabelHashA    = "HASH-A"
+	aclPartLabelHashB    = "HASH-B"
+	aclPartLabelHashSigA = "HASH-SIG-A"
+	aclPartLabelHashSigB = "HASH-SIG-B"
+	aclPartLabelOem      = "OEM"
+	aclPartLabelRoot     = "ROOT"
 )
 
-// aclStandardPartLabelsInOrder is the exact, sealed base layout ACL ships. The grow API only
-// operates on images that match this layout exactly.
-var aclStandardPartLabelsInOrder = []string{
+// aclRequiredPartLabels must be present for an image to be recognized as an ACL image the grow API
+// can operate on. Order is deliberately not asserted: ACL has already renumbered its partitions
+// once (per-slot verity hash partitions were inserted after each USR, moving OEM and ROOT), and
+// pinning a sequence turns every future layout change into a hard failure.
+var aclRequiredPartLabels = []string{
 	aclPartLabelEsp, aclPartLabelUsrA, aclPartLabelUsrB, aclPartLabelOem, aclPartLabelRoot,
+}
+
+// aclUsrHashPartLabels maps each USR partition to its dedicated dm-verity hash partition, for
+// layouts that have them. Images without these partitions seal /usr with inline verity instead
+// (the hash tree lives at an offset inside the USR partition).
+var aclUsrHashPartLabels = map[string]string{
+	aclPartLabelUsrA: aclPartLabelHashA,
+	aclPartLabelUsrB: aclPartLabelHashB,
+}
+
+// aclOptionalPartLabels are recognized but not required. Hash signature partitions are a proposed
+// addition (azure-container-linux#88) and are accepted ahead of that change landing.
+var aclOptionalPartLabels = []string{
+	aclPartLabelHashA, aclPartLabelHashB, aclPartLabelHashSigA, aclPartLabelHashSigB,
 }
 
 var (
@@ -207,16 +230,11 @@ func readAclPartitionTable(diskDevPath string) (*aclPartitionTable, []diskutils.
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrAclGrowParseTable, err)
 	}
 
-	// Validate the exact ACL layout: same number of partitions, same labels, same order.
-	if len(table.partitions) != len(aclStandardPartLabelsInOrder) {
-		return nil, nil, fmt.Errorf("%w: expected %d partitions, found %d", ErrAclGrowUnexpectedLayout,
-			len(aclStandardPartLabelsInOrder), len(table.partitions))
-	}
-	for i, expectedLabel := range aclStandardPartLabelsInOrder {
-		if table.partitions[i].label != expectedLabel {
-			return nil, nil, fmt.Errorf("%w: partition %d has label '%s', expected '%s'",
-				ErrAclGrowUnexpectedLayout, i+1, table.partitions[i].label, expectedLabel)
-		}
+	// Validate by role rather than by sequence: every required partition must be present, but the
+	// on-disk order and the presence of optional partitions are not constrained.
+	err = validateAclLayout(table)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	partitions, err := diskutils.GetDiskPartitions(diskDevPath)
@@ -225,6 +243,84 @@ func readAclPartitionTable(diskDevPath string) (*aclPartitionTable, []diskutils.
 	}
 
 	return table, partitions, nil
+}
+
+// validateAclLayout checks that the table holds every partition the grow API requires, and reports
+// what kind of /usr verity sealing the image uses. Partitions that are neither required nor
+// recognized are left alone (and cloned verbatim) rather than rejected, so that a future ACL layout
+// addition does not block customization outright.
+func validateAclLayout(table *aclPartitionTable) error {
+	byLabel := make(map[string]bool, len(table.partitions))
+	for _, p := range table.partitions {
+		if p.label != "" {
+			byLabel[p.label] = true
+		}
+	}
+
+	var missing []string
+	for _, label := range aclRequiredPartLabels {
+		if !byLabel[label] {
+			missing = append(missing, label)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: missing required partition(s): %s (found: %s)",
+			ErrAclGrowUnexpectedLayout, strings.Join(missing, ", "), describeAclLayout(table))
+	}
+
+	// A partition carrying a USR's hash must not appear without its USR, and vice versa, or the
+	// pair cannot be grown coherently.
+	for usrLabel, hashLabel := range aclUsrHashPartLabels {
+		if byLabel[hashLabel] && !byLabel[usrLabel] {
+			return fmt.Errorf("%w: '%s' is present without '%s'", ErrAclGrowUnexpectedLayout,
+				hashLabel, usrLabel)
+		}
+	}
+
+	if !aclHasDedicatedUsrHashPartitions(table) {
+		logger.Log.Warnf("This ACL image seals /usr with inline dm-verity (no %s/%s partitions). That "+
+			"layout is deprecated; current ACL images use dedicated per-slot verity hash partitions. "+
+			"Support for inline /usr verity will be removed in a future release.",
+			aclPartLabelHashA, aclPartLabelHashB)
+	}
+
+	for _, p := range table.partitions {
+		if p.label == "" {
+			continue
+		}
+		if slices.Contains(aclRequiredPartLabels, p.label) || slices.Contains(aclOptionalPartLabels, p.label) {
+			continue
+		}
+		logger.Log.Infof("Partition '%s' is not part of the known ACL layout; it will be copied "+
+			"unchanged and never resized", p.label)
+	}
+
+	return nil
+}
+
+// aclHasDedicatedUsrHashPartitions reports whether the image carries dedicated dm-verity hash
+// partitions for /usr. When it does, /usr fills its whole partition and the hash tree lives in the
+// companion partition; otherwise /usr is sealed with inline verity.
+func aclHasDedicatedUsrHashPartitions(table *aclPartitionTable) bool {
+	for _, p := range table.partitions {
+		if p.label == aclPartLabelHashA {
+			return true
+		}
+	}
+	return false
+}
+
+// describeAclLayout renders the table's labels for error messages.
+func describeAclLayout(table *aclPartitionTable) string {
+	labels := make([]string, 0, len(table.partitions))
+	for _, p := range table.partitions {
+		if p.label == "" {
+			labels = append(labels, "<unlabelled>")
+			continue
+		}
+		labels = append(labels, p.label)
+	}
+	return strings.Join(labels, ", ")
 }
 
 // parseAclPartitionTable parses the text output of `sfdisk --dump`.
@@ -320,6 +416,9 @@ func resolveAclRequestedSizes(acl *imagecustomizerapi.Acl, table *aclPartitionTa
 	type request struct {
 		labels []string
 		size   uint64
+		// derived requests are computed by IC rather than asked for by the user, so a computed
+		// size at or below the current size means "already big enough", not an error.
+		derived bool
 	}
 	var requests []request
 	if acl.Usr != nil {
@@ -327,6 +426,31 @@ func resolveAclRequestedSizes(acl *imagecustomizerapi.Acl, table *aclPartitionTa
 			labels: []string{aclPartLabelUsrA, aclPartLabelUsrB},
 			size:   uint64(acl.Usr.Size),
 		})
+
+		// On layouts with dedicated verity hash partitions, the hash tree must grow with the data
+		// it covers, so size the companion partitions from the requested /usr size rather than
+		// asking the user to compute it.
+		if aclHasDedicatedUsrHashPartitions(table) {
+			hashSize, err := aclUsrHashPartitionSize(uint64(acl.Usr.Size))
+			if err != nil {
+				return nil, err
+			}
+
+			var hashLabels []string
+			for _, usrLabel := range []string{aclPartLabelUsrA, aclPartLabelUsrB} {
+				hashLabel := aclUsrHashPartLabels[usrLabel]
+				if _, ok := currentSizes[hashLabel]; ok {
+					hashLabels = append(hashLabels, hashLabel)
+				}
+			}
+
+			if len(hashLabels) > 0 {
+				logger.Log.Infof("Sizing /usr verity hash partitions to %s for a %s /usr",
+					imagecustomizerapi.DiskSize(hashSize).HumanReadable(),
+					imagecustomizerapi.DiskSize(acl.Usr.Size).HumanReadable())
+				requests = append(requests, request{labels: hashLabels, size: hashSize, derived: true})
+			}
+		}
 	}
 	if acl.Esp != nil {
 		requests = append(requests, request{
@@ -343,6 +467,10 @@ func resolveAclRequestedSizes(acl *imagecustomizerapi.Acl, table *aclPartitionTa
 				return nil, fmt.Errorf("%w: partition '%s' not found", ErrAclGrowUnexpectedLayout, label)
 			}
 			if req.size < current {
+				if req.derived {
+					// Already larger than required; leave it untouched (grow-only).
+					continue
+				}
 				return nil, fmt.Errorf("%w: partition '%s' current size is %s, requested %s",
 					ErrAclGrowShrinkRequested, label,
 					imagecustomizerapi.DiskSize(current).HumanReadable(),
@@ -473,7 +601,14 @@ func cloneAclPartitionContents(oldPartitions []diskutils.PartitionInfo,
 	oldByLabel := partitionsByLabel(oldPartitions)
 	newByLabel := partitionsByLabel(newPartitions)
 
-	for _, label := range aclStandardPartLabelsInOrder {
+	// Iterate the partitions actually present on the base disk rather than a fixed list, so that
+	// partitions outside the known ACL layout (e.g. verity hash or hash signature partitions) are
+	// carried over instead of being silently left empty in the grown image.
+	for _, oldPart := range oldPartitions {
+		label := oldPart.PartLabel
+		if oldPart.Type != "part" || label == "" {
+			continue
+		}
 		if label == aclPartLabelEsp && espRecreated {
 			// The ESP is preserved via recreateAclEspFilesystem instead of a raw copy.
 			continue
@@ -485,7 +620,7 @@ func cloneAclPartitionContents(oldPartitions []diskutils.PartitionInfo,
 		}
 		newPart, ok := newByLabel[label]
 		if !ok {
-			return fmt.Errorf("%w: new partition '%s' not found", ErrAclGrowClone, label)
+			return fmt.Errorf("%w: grown image has no partition '%s' to copy into", ErrAclGrowClone, label)
 		}
 
 		err := shell.NewExecBuilder("dd", "if="+oldPart.Path, "of="+newPart.Path,
@@ -604,11 +739,14 @@ func readVfatIdentity(partitionPath string) (volumeId string, label string, err 
 	return volumeId, label, nil
 }
 
-// growAclUsrFilesystem grows the active /usr btrfs filesystem to the inline-verity data size that
-// fits within the enlarged USR partition (leaving room for the re-generated verity hash tree). It
-// must run after the image is connected (so /usr is mounted read-write) and before package
-// installs. Only the active /usr (the mounted one) is grown; the A/B second copy (USR-B) keeps its
-// original, self-consistent verity seal.
+// growAclUsrFilesystem grows the active /usr btrfs filesystem into its enlarged partition. It must
+// run after the image is connected (so /usr is mounted read-write) and before package installs.
+// Only the active /usr (the mounted one) is grown; the A/B second copy keeps its original,
+// self-consistent verity seal.
+//
+// How much of the partition the filesystem may use depends on where the verity hash tree lives: on
+// layouts with a dedicated hash partition the filesystem fills the partition, while with inline
+// verity it must stop short to leave room for the hash tree written after it.
 func growAclUsrFilesystem(imageConnection *imageconnection.ImageConnection) error {
 	usrDir := filepath.Join(imageConnection.Chroot().RootDir(), "usr")
 
@@ -622,14 +760,21 @@ func growAclUsrFilesystem(imageConnection *imageconnection.ImageConnection) erro
 		return fmt.Errorf("%w: could not find mounted /usr partition", ErrAclGrowFilesystem)
 	}
 
-	newDataSize, err := imagecustomizerapi.CalculateInlineVerityDataSize(usrPart.SizeInBytes)
+	newDataSize, inlineVerity, err := aclUsrFilesystemSize(partitions, usrPart)
 	if err != nil {
-		return fmt.Errorf("%w: failed to compute /usr inline verity data size:\n%w", ErrAclGrowFilesystem, err)
+		return err
 	}
 
-	logger.Log.Infof("Growing /usr btrfs filesystem to %s (partition %s, leaving room for verity hash tree)",
-		imagecustomizerapi.DiskSize(newDataSize).HumanReadable(),
-		imagecustomizerapi.DiskSize(usrPart.SizeInBytes).HumanReadable())
+	if inlineVerity {
+		logger.Log.Infof("Growing /usr btrfs filesystem to %s (partition %s, leaving room for the "+
+			"inline verity hash tree)",
+			imagecustomizerapi.DiskSize(newDataSize).HumanReadable(),
+			imagecustomizerapi.DiskSize(usrPart.SizeInBytes).HumanReadable())
+	} else {
+		logger.Log.Infof("Growing /usr btrfs filesystem to %s (fills the partition; the verity hash "+
+			"tree has its own partition)",
+			imagecustomizerapi.DiskSize(newDataSize).HumanReadable())
+	}
 
 	err = shell.NewExecBuilder("btrfs", "filesystem", "resize", strconv.FormatUint(newDataSize, 10), usrDir).
 		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
@@ -642,19 +787,19 @@ func growAclUsrFilesystem(imageConnection *imageconnection.ImageConnection) erro
 	return nil
 }
 
-// aclUsrVerityDataSize returns the inline-verity data size that the grown USR partition should be
-// sealed at. Used to override the base-image verity metadata so verity is re-sealed at the new
-// offset and the UKI cmdline gets the new hash-offset.
-func aclUsrVerityDataSize(rawImageFile string) (uint64, error) {
+// aclUsrVerityDataSize returns the data size the grown USR partition should be sealed at, and
+// whether the image uses inline verity. Used to override the base-image verity metadata so verity
+// is re-sealed to match the grown partition.
+func aclUsrVerityDataSize(rawImageFile string) (uint64, bool, error) {
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	defer loopback.Close()
 
 	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	usrPart, ok := findAclUsrPartition(partitions)
@@ -663,21 +808,21 @@ func aclUsrVerityDataSize(rawImageFile string) (uint64, error) {
 		byLabel := partitionsByLabel(partitions)
 		usrPart, ok = byLabel[aclPartLabelUsrA]
 		if !ok {
-			return 0, fmt.Errorf("%w: could not find USR partition", ErrAclGrowFilesystem)
+			return 0, false, fmt.Errorf("%w: could not find USR partition", ErrAclGrowFilesystem)
 		}
 	}
 
-	dataSize, err := imagecustomizerapi.CalculateInlineVerityDataSize(usrPart.SizeInBytes)
+	dataSize, inlineVerity, err := aclUsrFilesystemSize(partitions, usrPart)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
-	return dataSize, nil
+	return dataSize, inlineVerity, nil
 }
 
 // findAclUsrPartition returns the USR partition that is mounted at (or under) /usr, falling back to
@@ -694,11 +839,15 @@ func findAclUsrPartition(partitions []diskutils.PartitionInfo) (diskutils.Partit
 	return diskutils.PartitionInfo{}, false
 }
 
-// overrideAclUsrVerityMetadata rewrites the USR verity device's inline data size and hash offset to
-// match the grown /usr partition, so the subsequent verity re-seal formats the hash tree at the new
-// offset and the rebuilt UKI cmdline carries the matching hash-offset.
+// overrideAclUsrVerityMetadata rewrites the USR verity device's data size to match the grown /usr
+// partition, so the subsequent re-seal covers the whole grown filesystem. The metadata read from
+// the base image describes the original, smaller /usr.
+//
+// With inline verity the hash offset moves with the data and must be rewritten too. With a
+// dedicated hash partition there is no offset, and it is left at zero so no hash-offset reaches the
+// rebuilt UKI command line.
 func overrideAclUsrVerityMetadata(rawImageFile string, verityMetadata []verityDeviceMetadata) error {
-	dataSize, err := aclUsrVerityDataSize(rawImageFile)
+	dataSize, inlineVerity, err := aclUsrVerityDataSize(rawImageFile)
 	if err != nil {
 		return err
 	}
@@ -707,7 +856,9 @@ func overrideAclUsrVerityMetadata(rawImageFile string, verityMetadata []verityDe
 	for i := range verityMetadata {
 		if verityMetadata[i].name == imagecustomizerapi.VerityUsrDeviceName {
 			verityMetadata[i].formatSettings.dataSizeBytes = dataSize
-			verityMetadata[i].formatSettings.hashOffsetBytes = dataSize
+			if inlineVerity {
+				verityMetadata[i].formatSettings.hashOffsetBytes = dataSize
+			}
 			found = true
 		}
 	}
@@ -717,4 +868,66 @@ func overrideAclUsrVerityMetadata(rawImageFile string, verityMetadata []verityDe
 	}
 
 	return nil
+}
+
+// aclUsrHashPartitionSize returns the partition size needed to hold the dm-verity hash tree for a
+// /usr filesystem of the given size, rounded up to a whole MiB.
+//
+// The returned size is derived with the same calculation veritysetup uses (and includes the verity
+// superblock), then aligned up to 1 MiB because partitions are MiB-aligned and a hash tree that
+// overflows its partition produces an image that fails to boot rather than failing to build.
+func aclUsrHashPartitionSize(usrPartitionSize uint64) (uint64, error) {
+	dataBlockSize := uint64(imagecustomizerapi.DefaultVerityDataBlockSize)
+	hashBlockSize := uint32(imagecustomizerapi.DefaultVerityHashBlockSize)
+
+	if usrPartitionSize%dataBlockSize != 0 {
+		return 0, fmt.Errorf("%w: /usr size %s is not a multiple of the verity data block size (%d)",
+			ErrAclGrowUnexpectedLayout, imagecustomizerapi.DiskSize(usrPartitionSize).HumanReadable(),
+			dataBlockSize)
+	}
+
+	hashSize, err := verityutils.CalculateHashSizeInBytes(usrPartitionSize/dataBlockSize, hashBlockSize,
+		imagecustomizerapi.DefaultVerityHashAlgorithm)
+	if err != nil {
+		return 0, fmt.Errorf("%w: failed to compute /usr verity hash tree size:\n%w", ErrAclGrowFilesystem, err)
+	}
+
+	return mathutils.RoundUp(hashSize, uint64(diskutils.MiB)), nil
+}
+
+// aclUsrFilesystemSize returns the size the /usr filesystem should be grown to, and whether the
+// image seals /usr with inline verity.
+//
+// With a dedicated hash partition the filesystem fills its partition. With inline verity the hash
+// tree is written after the data inside the same partition, so the filesystem must stop short of
+// the partition end.
+func aclUsrFilesystemSize(partitions []diskutils.PartitionInfo, usrPart diskutils.PartitionInfo,
+) (uint64, bool, error) {
+	if aclUsrHasDedicatedHashPartition(partitions, usrPart) {
+		return usrPart.SizeInBytes, false, nil
+	}
+
+	dataSize, err := imagecustomizerapi.CalculateInlineVerityDataSize(usrPart.SizeInBytes)
+	if err != nil {
+		return 0, true, fmt.Errorf("%w: failed to compute /usr inline verity data size:\n%w",
+			ErrAclGrowFilesystem, err)
+	}
+
+	return dataSize, true, nil
+}
+
+// aclUsrHasDedicatedHashPartition reports whether the given /usr partition has a companion verity
+// hash partition on the same disk.
+func aclUsrHasDedicatedHashPartition(partitions []diskutils.PartitionInfo,
+	usrPart diskutils.PartitionInfo,
+) bool {
+	hashLabel, ok := aclUsrHashPartLabels[usrPart.PartLabel]
+	if !ok {
+		// An unlabelled or unexpected /usr: fall back to detecting any hash partition on the disk.
+		_, hasA := partitionsByLabel(partitions)[aclPartLabelHashA]
+		return hasA
+	}
+
+	_, ok = partitionsByLabel(partitions)[hashLabel]
+	return ok
 }
