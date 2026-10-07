@@ -28,7 +28,7 @@ func (c *Config) IsValid() (err error) {
 		return fmt.Errorf("invalid 'input' field:\n%w", err)
 	}
 
-	err = c.Storage.IsValid()
+	err = c.Storage.IsValidWithAclBoot(slices.Contains(c.PreviewFeatures, PreviewFeatureUnlockAcl))
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,8 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
-	if c.CustomizePartitions() && !hasResetBootLoader {
+	if c.CustomizePartitions() && !hasResetBootLoader &&
+		!slices.Contains(c.PreviewFeatures, PreviewFeatureUnlockAcl) {
 		return fmt.Errorf("'os.bootloader.resetType' must be specified if 'storage.disks' is specified")
 	}
 

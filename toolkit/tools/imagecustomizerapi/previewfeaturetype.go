@@ -57,6 +57,9 @@ const (
 	// PreviewFeaturePackageManifest enables support for the '.os.packages.manifest' and
 	// '.output.packageManifest' APIs.
 	PreviewFeaturePackageManifest PreviewFeature = "package-manifest"
+
+	// PreviewFeatureUnlockAcl enables experimental ACL root-verity repartitioning.
+	PreviewFeatureUnlockAcl PreviewFeature = "unlock-acl"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -65,7 +68,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest:
+		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest, PreviewFeatureUnlockAcl:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

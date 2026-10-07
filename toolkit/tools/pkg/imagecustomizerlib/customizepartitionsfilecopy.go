@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -36,7 +37,14 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, stor
 	diskConfig := storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
-		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
+		err := copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
+		if err != nil {
+			return err
+		}
+		if aclHandler, ok := distroHandler.(*aclDistroHandler); ok && aclHandler.rootVerityLayout {
+			return migrateAclEtcToRoot(imageChroot.RootDir())
+		}
+		return nil
 	}
 
 	partIdToPartUuid, err := CreateNewImage(distroHandler, newBuildImageFile, diskConfig, storage.FileSystems,
@@ -51,6 +59,21 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, stor
 	}
 
 	return partIdToPartUuid, nil
+}
+
+func migrateAclEtcToRoot(rootDir string) error {
+	baseline := filepath.Join(rootDir, aclEtcBaselineDir)
+	etc := filepath.Join(rootDir, "etc")
+	if _, err := os.Stat(baseline); err != nil {
+		return fmt.Errorf("ACL /etc baseline missing (%s): %w", baseline, err)
+	}
+	if err := copyPartitionFilesWithOptions(baseline+"/.", etc, true); err != nil {
+		return fmt.Errorf("failed to migrate ACL /etc into root filesystem: %w", err)
+	}
+	if err := os.RemoveAll(baseline); err != nil {
+		return fmt.Errorf("failed to remove old ACL /etc baseline: %w", err)
+	}
+	return nil
 }
 
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {

@@ -91,7 +91,7 @@ func CreateImage(ctx context.Context, baseConfigPath string, config imagecustomi
 	}
 
 	// Validate distro specific settings.
-	err = distroHandler.ValidateConfig(rc)
+	err = validateDistroConfig(distroHandler, rc)
 	if err != nil {
 		return fmt.Errorf("invalid config for image distro:\n%w", err)
 	}

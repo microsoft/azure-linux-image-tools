@@ -13,7 +13,68 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestAclRootVerityLayoutRequiresUnlockAndUki(t *testing.T) {
+	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+	rc := &ResolvedConfig{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureDistroVersion},
+		Storage: imagecustomizerapi.Storage{
+			Disks: []imagecustomizerapi.Disk{{}},
+			Verity: []imagecustomizerapi.Verity{{
+				Name:  imagecustomizerapi.VerityRootDeviceName,
+				Mount: &imagecustomizerapi.VerityMount{MountPath: "/"},
+			}},
+		},
+	}
+	require.ErrorContains(t, handler.ValidateConfig(rc), "unlock-acl")
+	assert.False(t, handler.rootVerityLayout)
+
+	rc.PreviewFeatures = append(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnlockAcl)
+	require.ErrorContains(t, handler.ValidateConfig(rc), "os.uki.mode: create")
+
+	rc.Uki = &imagecustomizerapi.Uki{Mode: imagecustomizerapi.UkiModeCreate}
+	require.NoError(t, handler.ValidateConfig(rc))
+	assert.True(t, handler.rootVerityLayout)
+	assert.Equal(t, "etc/selinux/config", handler.GetSELinuxConfigFile())
+}
+
+func TestUnlockAclOnlyForAcl(t *testing.T) {
+	rc := &ResolvedConfig{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureUnlockAcl},
+	}
+
+	for _, targetOs := range []targetos.TargetOs{targetos.TargetOsAzureLinux3, targetos.TargetOsFedora42} {
+		handler, err := NewDistroHandler(targetOs)
+		require.NoError(t, err)
+		require.ErrorContains(t, validateDistroConfig(handler, rc), "only supported for Azure Container Linux")
+	}
+
+	acl := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+	rc.PreviewFeatures = append(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion)
+	require.NoError(t, validateDistroConfig(acl, rc))
+}
+
+func TestMigrateAclEtcToRoot(t *testing.T) {
+	rootDir := t.TempDir()
+	baseline := filepath.Join(rootDir, aclEtcBaselineDir)
+	etc := filepath.Join(rootDir, "etc")
+	require.NoError(t, os.MkdirAll(baseline, 0o755))
+	require.NoError(t, os.MkdirAll(etc, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(baseline, "fstab"), []byte("old"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(baseline, "passwd"), []byte("factory"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(etc, "fstab"), []byte("new"), 0o644))
+
+	require.NoError(t, migrateAclEtcToRoot(rootDir))
+	fstab, err := os.ReadFile(filepath.Join(etc, "fstab"))
+	require.NoError(t, err)
+	assert.Equal(t, "new", string(fstab))
+	passwd, err := os.ReadFile(filepath.Join(etc, "passwd"))
+	require.NoError(t, err)
+	assert.Equal(t, "factory", string(passwd))
+	assert.NoDirExists(t, baseline)
+}
 
 // Ensure the ACL package list is populated as an empty (non-nil) list when the
 // rpm database can't be read, so the COSI metadata's osPackages field

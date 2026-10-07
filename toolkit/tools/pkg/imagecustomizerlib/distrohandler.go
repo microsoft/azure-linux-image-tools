@@ -227,6 +227,16 @@ func NewDistroHandler(targetOs targetos.TargetOs) (DistroHandler, error) {
 	}
 }
 
+func validateDistroConfig(distroHandler DistroHandler, rc *ResolvedConfig) error {
+	if slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnlockAcl) &&
+		distroHandler.GetTargetOs().Distro != targetos.AzureContainerLinux {
+		return fmt.Errorf("preview feature '%s' is only supported for Azure Container Linux (distro='%s')",
+			imagecustomizerapi.PreviewFeatureUnlockAcl, distroHandler.GetTargetOs().Distro)
+	}
+
+	return distroHandler.ValidateConfig(rc)
+}
+
 // NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
 func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
 	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())

@@ -27,8 +27,9 @@ import (
 // aclDistroHandler implements DistroHandler for Azure Container Linux (ACL).
 // ACL uses systemd-boot + UKI (no GRUB) and has an immutable /usr with dm-verity.
 type aclDistroHandler struct {
-	targetOs       targetos.TargetOs
-	packageManager rpmPackageManagerHandler
+	targetOs         targetos.TargetOs
+	packageManager   rpmPackageManagerHandler
+	rootVerityLayout bool
 }
 
 func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
@@ -66,12 +67,29 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 			d.targetOs.VersionId, err)
 	}
 
+	d.rootVerityLayout = rc.Storage.CustomizePartitions()
+
 	return nil
 }
 
 func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.Storage.CustomizePartitions() {
-		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnlockAcl) {
+			return fmt.Errorf("storage repartitioning requires the unlock-acl preview feature")
+		}
+		if rc.Uki == nil || rc.Uki.Mode != imagecustomizerapi.UkiModeCreate {
+			return fmt.Errorf("ACL repartitioning requires os.uki.mode: create")
+		}
+		if rc.BootLoader.ResetType != imagecustomizerapi.ResetBootLoaderTypeDefault {
+			return fmt.Errorf("ACL repartitioning does not support a bootloader reset")
+		}
+		if len(rc.Storage.Verity) != 1 || rc.Storage.Verity[0].Name != imagecustomizerapi.VerityRootDeviceName ||
+			rc.Storage.Verity[0].Mount == nil || rc.Storage.Verity[0].Mount.MountPath != "/" {
+			return fmt.Errorf("ACL repartitioning requires a single root dm-verity filesystem")
+		}
+		if rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			return fmt.Errorf("ACL repartitioning cannot reinitialize the old verity layout")
+		}
 	}
 
 	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
@@ -202,6 +220,9 @@ func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (str
 }
 
 func (d *aclDistroHandler) GetSELinuxConfigFile() string {
+	if d.rootVerityLayout {
+		return "etc/selinux/config"
+	}
 	// ACL uses overlayfs for /etc. At runtime, /etc is composed from the
 	// immutable lowerdir and a writable upperdir on the ROOT ext4 partition.
 	// When IC mounts the partitions individually (no overlay), /etc/selinux/
@@ -213,6 +234,9 @@ func (d *aclDistroHandler) GetSELinuxConfigFile() string {
 func (d *aclDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
 	imageChroot safechroot.ChrootInterface,
 ) error {
+	if d.rootVerityLayout {
+		return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, d.GetSELinuxConfigFile())
+	}
 	// ACL's /usr is a btrfs+dm-verity volume and is always mounted read-only.
 	// The SELinux mode is applied solely via the kernel command line; skip the file update.
 	logger.Log.Debugf("Skipping SELinux config file update: /usr is read-only on ACL")
@@ -225,6 +249,9 @@ func (d *aclDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerap
 func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
 	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
 ) (*AclEtcOverlay, error) {
+	if d.rootVerityLayout {
+		return nil, nil
+	}
 	return newAclEtcOverlay(ctx, imageChroot.RootDir(), reinitializeVerity)
 }
 

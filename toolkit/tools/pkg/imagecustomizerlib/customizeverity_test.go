@@ -15,14 +15,95 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
+
+func TestUpdateFstabForVeritySkipsFilesystemCheck(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "etc"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "etc", "fstab"),
+		[]byte("PARTUUID=root / ext4 ro 0 1\nPARTUUID=state /var ext4 defaults 0 2\n"), 0o644))
+
+	verity := []imagecustomizerapi.Verity{{
+		Name:  imagecustomizerapi.VerityRootDeviceName,
+		Mount: &imagecustomizerapi.VerityMount{MountPath: "/"},
+	}}
+	require.NoError(t, updateFstabForVerity(verity, safechroot.NewChroot(root, true)))
+	entries, err := diskutils.ReadFstabFile(filepath.Join(root, "etc", "fstab"))
+	require.NoError(t, err)
+	assert.Equal(t, "/dev/mapper/root", entries[0].Source)
+	assert.Zero(t, entries[0].PassNo)
+	assert.Equal(t, 2, entries[1].PassNo)
+}
+
+func TestUpdateUkiKernelArgsForAclRootVerity(t *testing.T) {
+	metadata := []verityDeviceMetadata{{
+		name:             imagecustomizerapi.VerityRootDeviceName,
+		rootHash:         "newhash",
+		dataPartUuid:     "data",
+		hashPartUuid:     "hash",
+		corruptionOption: imagecustomizerapi.CorruptionOptionPanic,
+	}}
+	partitions := []diskutils.PartitionInfo{
+		{PartUuid: "data"},
+		{PartUuid: "hash"},
+	}
+	inherited := "console=ttyS0 flatcar.oem.id=azure flatcar.first_boot=detected " +
+		"root=PARTUUID=old rw rootflags=ro mount.usr=PARTUUID=usr mount.usrflags=ro " +
+		"usrhash=oldhash rd.systemd.verity=1"
+	verityArgs := "rd.systemd.verity=1 roothash=newhash " +
+		"systemd.verity_root_data=PARTUUID=data systemd.verity_root_hash=PARTUUID=hash " +
+		"systemd.verity_root_options=panic-on-corruption"
+
+	for _, test := range []struct {
+		name     string
+		handler  DistroHandler
+		expected string
+	}{
+		{
+			name:     "ACL preview",
+			handler:  &aclDistroHandler{rootVerityLayout: true},
+			expected: "console=ttyS0 " + verityArgs + " root=/dev/mapper/root ro",
+		},
+		{
+			name:    "other distro",
+			handler: &azureLinuxDistroHandler{},
+			expected: "console=ttyS0 flatcar.oem.id=azure flatcar.first_boot=detected " +
+				"root=PARTUUID=old rw rootflags=ro mount.usr=PARTUUID=usr mount.usrflags=ro " + verityArgs,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			buildDir := t.TempDir()
+			infoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+			require.NoError(t, os.MkdirAll(filepath.Dir(infoPath), 0o755))
+			require.NoError(t, writeUkiKernelInfoFile(infoPath, map[string]UkiKernelInfo{
+				"kernel": {Cmdline: inherited, Initramfs: "initrd"},
+			}))
+
+			require.NoError(t, updateUkiKernelArgsForVerity(metadata, partitions, buildDir, "", test.handler))
+			info, err := readUkiKernelInfoFile(infoPath)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, info["kernel"].Cmdline)
+			assert.Equal(t, "initrd", info["kernel"].Initramfs)
+
+			if test.name == "ACL preview" {
+				addons, err := aclGetUkiAddonSpecs("kernel", info["kernel"].Cmdline)
+				require.NoError(t, err)
+				require.Len(t, addons, 1)
+				assert.Equal(t, ukiAddonFileName("kernel"), addons[0].FileName)
+				assert.Equal(t, test.expected, addons[0].Cmdline)
+			}
+		})
+	}
+}
 
 func TestCustomizeImageVerity(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {

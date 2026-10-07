@@ -962,7 +962,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		return nil, err
 	}
 
-	err = distroHandler.ValidateConfig(rc)
+	err = validateDistroConfig(distroHandler, rc)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config for image distro:\n%w", err)
 	}

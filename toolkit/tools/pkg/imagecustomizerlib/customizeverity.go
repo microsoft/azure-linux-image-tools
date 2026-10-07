@@ -135,6 +135,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 			if entry.Target == verity.Mount.MountPath {
 				// Replace mount's source with verity device.
 				entry.Source = verityDevicePath(verity)
+				entry.PassNo = 0
 
 				// Update subvol= option if this is a BTRFS subvolume mount.
 				if verity.Mount.SubvolumePath != "" {
@@ -508,7 +509,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot, toolsChroot *saf
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string, distroHandler DistroHandler,
 ) error {
 	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
@@ -518,6 +519,26 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to append verity args to UKI cmdline:\n%w", err)
+	}
+
+	if aclHandler, ok := distroHandler.(*aclDistroHandler); ok && aclHandler.rootVerityLayout {
+		for _, metadata := range verityMetadata {
+			if metadata.name != imagecustomizerapi.VerityRootDeviceName {
+				continue
+			}
+			bootCustomizer := &BootCustomizer{
+				ukiKernelInfoPath: filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson),
+			}
+			// The preview rebuilds ACL's UKI for systemd-boot auto-discovery; it
+			// does not invoke the generic bootloader hard-reset path.
+			argsToRemove := []string{"root", "ro", "rw", "mount.usr", "mount.usrflags",
+				"rootflags", "flatcar.oem.id", "flatcar.first_boot"}
+			if err := bootCustomizer.updateUkiCmdlineFile(argsToRemove,
+				[]string{"root=" + imagecustomizerapi.VerityRootDevicePath, "ro"}); err != nil {
+				return fmt.Errorf("failed to set UKI root device to dm-verity: %w", err)
+			}
+			break
+		}
 	}
 
 	logger.Log.Infof("Applied verity args to UKI cmdline for all kernels")
@@ -922,7 +943,8 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 
 	if isUki {
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid,
+			distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
 		}

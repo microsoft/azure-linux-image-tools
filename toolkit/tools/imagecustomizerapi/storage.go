@@ -35,6 +35,10 @@ type Storage struct {
 }
 
 func (s *Storage) IsValid() error {
+	return s.IsValidWithAclBoot(false)
+}
+
+func (s *Storage) IsValidWithAclBoot(allowAclBoot bool) error {
 	var err error
 
 	err = s.ResetPartitionsUuidsType.IsValid()
@@ -161,7 +165,9 @@ func (s *Storage) IsValid() error {
 					return fmt.Errorf("ESP partition (%s) must have 'fat32' or 'vfat' filesystem type", partition.Id)
 				}
 
-				if fileSystem.MountPoint == nil || fileSystem.MountPoint.Path != "/boot/efi" {
+				if fileSystem.MountPoint == nil ||
+					(fileSystem.MountPoint.Path != "/boot/efi" &&
+						!(allowAclBoot && fileSystem.MountPoint.Path == "/boot")) {
 					return fmt.Errorf("ESP partition (%s) must be mounted at /boot/efi", partition.Id)
 				}
 
