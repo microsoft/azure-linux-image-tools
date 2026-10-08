@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -84,6 +85,27 @@ func TestRootDirShouldReturnRootDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
 	chroot := NewChroot(dir, false)
 	assert.Equal(t, dir, chroot.RootDir())
+}
+
+func TestCleanCloseRejectsBusyMount(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source")
+	require.NoError(t, os.Mkdir(source, 0o755))
+	chroot := NewChroot(filepath.Join(dir, "root"), false)
+	require.NoError(t, chroot.Initialize("", nil,
+		[]*MountPoint{NewMountPoint(source, "usr", "", BindMountPointFlags, "")}, false))
+	defer chroot.Close()
+
+	openDirectory, err := os.Open(filepath.Join(chroot.RootDir(), "usr"))
+	require.NoError(t, err)
+	defer openDirectory.Close()
+	require.ErrorContains(t, chroot.CleanClose(), "failed to unmount")
+	require.DirExists(t, chroot.RootDir())
+
+	require.NoError(t, openDirectory.Close())
+	require.NoError(t, chroot.CleanClose())
+	require.NoError(t, chroot.CleanClose())
+	require.NoDirExists(t, chroot.RootDir())
 }
 
 func TestInitializeShouldExtractTar(t *testing.T) {

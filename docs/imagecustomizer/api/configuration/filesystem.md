@@ -61,3 +61,26 @@ BTRFS-specific configuration options.
 This can only be set when [.type](./filesystem.md#type-string) is `btrfs`.
 
 Added in v1.2.
+
+## Customizing existing sealed filesystems
+
+Existing ext4 filesystems using the native `read-only` feature are temporarily
+unsealed for writable customization with checksum-aware e2fsprogs operations,
+then checked and resealed before verity is regenerated. Their partition geometry
+is preserved during COSI export.
+Finalization requires a clean unmount; a busy mount fails customization instead
+of lazily detaching a filesystem that might still be in use.
+
+Existing block-backed EROFS `/usr` partitions are copied, with metadata, into
+writable build-directory staging and repacked after customization. This requires
+`erofs-utils` and sufficient build-directory capacity for the unpacked tree and
+the repacked image. Repacking preserves the filesystem UUID and label, emits
+uncompressed single-device EROFS with 4096-byte blocks, and fails before writing
+the partition if the new image does not fit. EROFS is not a supported `type`
+for creating or repartitioning filesystems through this API.
+
+Verity-backed partitions remain read-only unless `storage.reinitializeVerity:
+all` is explicitly requested with the corresponding preview feature. EROFS
+customization supports separate hash partitions covering the whole data
+partition, not inline verity. Regenerated root hashes require new signatures;
+the caller must sign the finalized output rather than reuse an old signature.

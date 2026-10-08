@@ -747,13 +747,15 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		imageMountPoint = filepath.Join(rc.Options.ToolsDir, toolsRootImageDir)
 	}
 
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint, true, false, readOnlyVerity, false, distroHandler)
+	imageConnection := imageconnection.NewImageConnection()
+	defer imageConnection.Close()
+	sealedEdits := &sealedFilesystemEdits{}
+	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImageHelper(
+		imageConnection, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint, true, false, readOnlyVerity,
+		false, distroHandler, sealedEdits)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	defer imageConnection.Close()
-
 	// Clear btrfs read-only subvolume properties so that IC can write to
 	// partitions that were sealed at build time (e.g. ACL's USR-A).
 	// The property will be restored later when verity is recalculated.
@@ -798,6 +800,18 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
+	if len(sealedEdits.ext4) != 0 || len(sealedEdits.erofs) != 0 {
+		err = imageConnection.Chroot().CleanClose()
+	} else {
+		err = imageConnection.Chroot().Close()
+	}
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+	err = sealedEdits.finalize()
+	if err != nil {
+		return nil, nil, nil, "", fmt.Errorf("failed to finalize sealed filesystems:\n%w", err)
+	}
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, nil, nil, "", err

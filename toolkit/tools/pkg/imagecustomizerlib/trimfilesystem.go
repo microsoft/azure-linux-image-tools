@@ -24,8 +24,8 @@ func trimFileSystems(imageConnection *imageconnection.ImageConnection) error {
 	logger.Log.Infof("Trimming filesystems")
 
 	for _, mountPoint := range getNonSpecialChrootMountPoints(imageConnection.Chroot()) {
-		if (mountPoint.GetFlags() & unix.MS_RDONLY) != 0 {
-			// Skip read-only filesystems.
+		if (mountPoint.GetFlags() & (unix.MS_RDONLY | unix.MS_BIND)) != 0 {
+			// Bind mounts can point to staging on the host filesystem; never trim the host.
 			continue
 		}
 

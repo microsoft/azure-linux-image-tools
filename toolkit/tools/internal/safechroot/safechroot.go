@@ -386,6 +386,16 @@ func (c *Chroot) ChrootDir() string {
 // This call will block until the chroot cleanup runs.
 // Only one Chroot will close at a given time.
 func (c *Chroot) Close() (err error) {
+	return c.close(true)
+}
+
+// CleanClose rejects busy mounts instead of lazily detaching them, so callers
+// can safely modify the backing filesystems after it succeeds.
+func (c *Chroot) CleanClose() error {
+	return c.close(false)
+}
+
+func (c *Chroot) close(allowLazyUnmount bool) (err error) {
 	// Acquire a lock on the global activeChrootsMutex to ensure SIGTERM
 	// teardown doesn't happen mid-close.
 	activeChrootsMutex.Lock()
@@ -414,7 +424,7 @@ func (c *Chroot) Close() (err error) {
 
 	// mount is only supported in regular pipeline
 	err = c.unmountAndRemove(unmountTypeNormal)
-	if err != nil {
+	if err != nil && allowLazyUnmount {
 		logger.Log.Warnf("Chroot cleanup failed, will retry with lazy unmount. Error: %s", err)
 		err = c.unmountAndRemove(unmountTypeLazy)
 	}

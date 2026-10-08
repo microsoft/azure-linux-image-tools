@@ -20,6 +20,7 @@ var (
 	ErrFilesystemE2fsckCheck    = NewImageCustomizerError("FilesystemCheck:E2fsck", "failed to check filesystem with e2fsck")
 	ErrFilesystemXfsRepairCheck = NewImageCustomizerError("FilesystemCheck:XfsRepair", "failed to check filesystem with xfs_repair")
 	ErrFilesystemBtrfsCheck     = NewImageCustomizerError("FilesystemCheck:Btrfs", "failed to check filesystem with btrfs check")
+	ErrFilesystemErofsCheck     = NewImageCustomizerError("FilesystemCheck:Erofs", "failed to check filesystem with fsck.erofs")
 	ErrFilesystemFsckCheck      = NewImageCustomizerError("FilesystemCheck:Fsck", "failed to check filesystem with fsck")
 )
 
@@ -131,6 +132,11 @@ func checkFileSystem(fileSystemType string, path string) error {
 		err := shell.ExecuteLive(true /*squashErrors*/, "btrfs", "check", "--readonly", path)
 		if err != nil {
 			return fmt.Errorf("%w (path='%s'):\n%w", ErrFilesystemBtrfsCheck, path, err)
+		}
+
+	case "erofs":
+		if err := shell.ExecuteLive(true, "fsck.erofs", path); err != nil {
+			return fmt.Errorf("%w (path='%s'):\n%w", ErrFilesystemErofsCheck, path, err)
 		}
 
 	default:

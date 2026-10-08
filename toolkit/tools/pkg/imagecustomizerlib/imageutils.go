@@ -42,7 +42,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 
 	partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, err := connectToExistingImageHelper(imageConnection,
 		imageFilePath, buildDir, mountPath, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
-		distroHandler)
+		distroHandler, nil)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
@@ -53,7 +53,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, mountPath string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
-	ignoreOverlays bool, distroHandler DistroHandler,
+	ignoreOverlays bool, distroHandler DistroHandler, sealedEdits *sealedFilesystemEdits,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -116,6 +116,12 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	}
 
 	imageConnection.AddOwnedDirectories(tempDirectories...)
+
+	if sealedEdits != nil {
+		if err := sealedEdits.prepare(imageConnection, mountPoints, partitions, buildDir, verityMetadata); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to prepare sealed filesystems:\n%w", err)
+		}
+	}
 
 	// Create chroot environment.
 	err = imageConnection.ConnectChroot(mountPath, false, []string(nil), mountPoints, includeDefaultMounts)

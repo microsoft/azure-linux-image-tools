@@ -101,6 +101,14 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verit
 		// do not support shrinking or require more complex handling.
 		switch fstype {
 		case "ext2", "ext3", "ext4":
+			nativeReadonly, err := extFilesystemReadOnly(partitionLoopDevice)
+			if err != nil {
+				return nil, err
+			}
+			if nativeReadonly {
+				logger.Log.Infof("Shrinking partition (%s): preserving sealed ext filesystem geometry", partitionLoopDevice)
+				continue
+			}
 			// For external images, only shrink if filesystem completely covers the partition.
 			// A gap between the filesystem and partition end may indicate the image was created
 			// with specific requirements that we should respect.
