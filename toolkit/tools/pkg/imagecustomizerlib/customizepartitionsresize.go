@@ -4,10 +4,14 @@
 package imagecustomizerlib
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -16,26 +20,32 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sys/unix"
 )
 
 var (
-	ErrResizePartMultiSpecified              = NewImageCustomizerError("Partitions:ResizePartMultiSpecified", "partition specified multiple times for resize")
-	ErrResizeLastPartition                   = NewImageCustomizerError("Partitions:ResizeLastPartition", "failed to resize last partition in disk")
-	ErrDiskSizeNotMultipleOfSectorSize       = NewImageCustomizerError("Partitions:DiskSizeNotMultipleOfSectorSize", "disk file size is not a multiple of the sector size")
-	ErrDiskFileResizeFailed                  = NewImageCustomizerError("Partitions:DiskFileResizeFailed", "failed to resize the disk file")
-	ErrPartitionResizeFailed                 = NewImageCustomizerError("Partitions:PartitionResizeFailed", "failed to resize partition")
-	ErrAdvancedPartitionResizeNotImplemented = NewImageCustomizerError("Partitions:AdvancedPartitionResizeNotImplemented", "cannot yet resize partitions other than the last partition")
-	ErrFileSystemResizeNotSupported          = NewImageCustomizerError("Partitions:FileSystemResizeNotSupported", "resizing filesystem is not supported")
-	ErrResizeShrinkPartitionsNotSupported    = NewImageCustomizerError("Partitions:ResizeShrinkPartitionsNotSupported", "shrinking partitions during disk resize is not supported")
-	ErrResizeShrinkDiskNotSupported          = NewImageCustomizerError("Partitions:ResizeShrinkDiskNotSupported", "shrinking disk during disk resize is not supported")
-	ErrReadFileSystemSizeFailed              = NewImageCustomizerError("Partitions:ReadFileSystemSizeFailed", "failed to read filesystem size")
+	ErrResizePartMultiSpecified               = NewImageCustomizerError("Partitions:ResizePartMultiSpecified", "partition specified multiple times for resize")
+	ErrResizeLastPartition                    = NewImageCustomizerError("Partitions:ResizeLastPartition", "failed to resize last partition in disk")
+	ErrDiskSizeNotMultipleOfSectorSize        = NewImageCustomizerError("Partitions:DiskSizeNotMultipleOfSectorSize", "disk file size is not a multiple of the sector size")
+	ErrDiskFileResizeFailed                   = NewImageCustomizerError("Partitions:DiskFileResizeFailed", "failed to resize the disk file")
+	ErrPartitionResizeFailed                  = NewImageCustomizerError("Partitions:PartitionResizeFailed", "failed to resize partition")
+	ErrAdvancedPartitionResizeNotImplemented  = NewImageCustomizerError("Partitions:AdvancedPartitionResizeNotImplemented", "cannot yet resize partitions other than the last partition")
+	ErrFileSystemResizeNotSupported           = NewImageCustomizerError("Partitions:FileSystemResizeNotSupported", "resizing filesystem is not supported")
+	ErrResizeShrinkPartitionsNotSupported     = NewImageCustomizerError("Partitions:ResizeShrinkPartitionsNotSupported", "shrinking partitions during disk resize is not supported")
+	ErrResizeShrinkDiskNotSupported           = NewImageCustomizerError("Partitions:ResizeShrinkDiskNotSupported", "shrinking disk during disk resize is not supported")
+	ErrReadFileSystemSizeFailed               = NewImageCustomizerError("Partitions:ReadFileSystemSizeFailed", "failed to read filesystem size")
+	ErrDiskResizeResolveFailed                = NewImageCustomizerError("Partitions:ResizeResolveFailed", "failed to resolve disk resize operation")
+	ErrDiskResizeFindPartitionFailed          = NewImageCustomizerError("Partitions:ResizeFindPartitionFailed", "failed to find partition")
+	ErrDiskResizeFindTooManyPartitions        = NewImageCustomizerError("Partitions:ResizeFindTooManyPartitions", "partition reference matches more than 1 partition")
+	ErrDiskResizeFailedToCreatePartitionTable = NewImageCustomizerError("Partitions:DiskResizeFailedToCreatePartitionTable", "failed to create partition table")
+	ErrDiskResizePartitionCopyFailed          = NewImageCustomizerError("Partitions:DiskResizePartitionCopyFailed", "failed to copy partition to the new disk")
 )
 
 func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDir string,
 	resizeConfig imagecustomizerapi.ResizeDisk,
-) error {
+) (string, error) {
 	logger.Log.Infof("Resize disk and partitions")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "resize_disk")
@@ -43,57 +53,61 @@ func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDi
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer loopback.Close()
 
 	imageFile, err := os.OpenFile(buildImageFile, os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	err = resizeDiskAndPartitionsHelper(loopback, imageFile, buildDir, resizeConfig)
+	newImageFilePath, err := resizeDiskAndPartitionsHelper(loopback, imageFile, buildDir, resizeConfig)
 	if err != nil {
-		return err
+		return "", err
+	}
+
+	if newImageFilePath == "" {
+		newImageFilePath = buildImageFile
 	}
 
 	err = imageFile.Close()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return newImageFilePath, nil
 }
 
 func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *os.File,
 	buildDir string, resizeConfig imagecustomizerapi.ResizeDisk,
-) error {
+) (string, error) {
 	imageFileInfo, err := imageFile.Stat()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	diskSize := imageFileInfo.Size()
 
 	partitionTablePtr, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrGptExtractReadTable, loopback.DevicePath(), err)
+		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrGptExtractReadTable, loopback.DevicePath(), err)
 	}
 
 	if partitionTablePtr == nil {
-		return fmt.Errorf("%w (file='%s')", ErrGptExtractNoTable, loopback.DiskFilePath())
+		return "", fmt.Errorf("%w (file='%s')", ErrGptExtractNoTable, loopback.DiskFilePath())
 	}
 
 	partitionTable := *partitionTablePtr
 
 	gptHeaderSize, err := readGptHeaderSize(loopback.DevicePath(), partitionTable.SectorSize)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Subtract the MBR header sector.
@@ -101,13 +115,13 @@ func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *o
 
 	diskSizeInSectors := diskSize / int64(partitionTable.SectorSize)
 	if diskSize%int64(partitionTable.SectorSize) != 0 {
-		return fmt.Errorf("%w (file='%s', diskSize=%d, sectorSize=%d)", ErrDiskSizeNotMultipleOfSectorSize,
+		return "", fmt.Errorf("%w (file='%s', diskSize=%d, sectorSize=%d)", ErrDiskSizeNotMultipleOfSectorSize,
 			loopback.DiskFilePath(), diskSize, partitionTable.SectorSize)
 	}
 
 	lastPartIndex, _, err := findLastPartition(partitionTable)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Calculate the resize operation.
@@ -117,24 +131,24 @@ func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *o
 	case len(resizeConfig.Partitions) > 0:
 		newPartSizes, err = resolveResizeWithPartitions(resizeConfig, partitionTable, lastPartIndex, buildDir)
 		if err != nil {
-			return err
+			return "", fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
 		}
 
 	case resizeConfig.DiskSize != nil:
 		newPartSizes, err = resolveResizeWithDiskSize(uint64(*resizeConfig.DiskSize), partitionTable, lastPartIndex,
 			diskSize, gptFooterSize)
 		if err != nil {
-			return err
+			return "", fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
 		}
 
 	default:
 		// Not possible, since it should be pre-checked by ResizeConfig.IsValid().
-		return fmt.Errorf("empty diskResize config")
+		return "", fmt.Errorf("empty diskResize config")
 	}
 
 	if len(newPartSizes) == 0 {
 		// Nothing to do.
-		return nil
+		return "", nil
 	}
 
 	// Do the resize operation.
@@ -145,14 +159,19 @@ func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *o
 			err := resizeDiskLastPartition(loopback, imageFile, diskSizeInSectors, newPartSize, lastPartIndex,
 				partitionTable, gptFooterSize, buildDir)
 			if err != nil {
-				return fmt.Errorf("%w:\n%w", ErrResizeLastPartition, err)
+				return "", fmt.Errorf("%w:\n%w", ErrResizeLastPartition, err)
 			}
 
-			return nil
+			return "", nil
 		}
 	}
 
-	return ErrAdvancedPartitionResizeNotImplemented
+	newImageFilePath, err := resizeDiskAdvanced(loopback, partitionTable, newPartSizes, gptFooterSize, buildDir)
+	if err != nil {
+		return "", err
+	}
+
+	return newImageFilePath, nil
 }
 
 // Calculate the disk resize that expands expands the last partition and the disk size to contain the last partition.
@@ -275,6 +294,168 @@ func resizeDiskLastPartition(loopback *safeloopback.Loopback, imageFile *os.File
 	return nil
 }
 
+// Resize the disk and partitions, where any partition can be resized so partitions may need to be moved around.
+func resizeDiskAdvanced(loopback *safeloopback.Loopback, partitionTable diskutils.PartitionTable,
+	newPartSizes map[int]uint64, gptFooterSize uint64, buildDir string,
+) (string, error) {
+	newImageFilePath := filepath.Join(buildDir, PartitionCustomizedImageName)
+
+	newPartitionTable, newDiskSize, err := resolveResizeDiskAdvanced(partitionTable, newPartSizes, gptFooterSize)
+	if err != nil {
+		return "", err
+	}
+
+	err = diskutils.CreateSparseDisk(newImageFilePath, newDiskSize, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+
+	newDiskLoopback, err := safeloopback.NewLoopback(newImageFilePath)
+	if err != nil {
+		return "", err
+	}
+	defer loopback.Close()
+
+	err = setNewDevicePathOnPartitionTable(newDiskLoopback.DevicePath(), &newPartitionTable)
+	if err != nil {
+		return "", err
+	}
+
+	err = formatDiskPartitionTable(newDiskLoopback.DevicePath(), newPartitionTable)
+	if err != nil {
+		return "", fmt.Errorf("%w:\n%w", ErrDiskResizeFailedToCreatePartitionTable, err)
+	}
+
+	err = copyAndGrowPartitions(loopback.DevicePath(), newDiskLoopback.DevicePath(), partitionTable, newPartitionTable,
+		buildDir)
+	if err != nil {
+		return "", err
+	}
+
+	err = newDiskLoopback.CleanClose()
+	if err != nil {
+		return "", err
+	}
+
+	return newImageFilePath, nil
+}
+
+// Copies the partitions from the old disk to the new disk and then expands the filesystems to fill the new partition
+// sizes.
+func copyAndGrowPartitions(oldDiskDevice string, newDiskDevice string, oldPartitionTable diskutils.PartitionTable,
+	newPartitionTable diskutils.PartitionTable, buildDir string,
+) error {
+	for i := range oldPartitionTable.Partitions {
+		oldPart := oldPartitionTable.Partitions[i]
+		newPart := newPartitionTable.Partitions[i]
+
+		if oldPart.Size > newPart.Size {
+			// Shouldn't happen since this is checked while calculating the new layout.
+			return fmt.Errorf("old partition size is larger than the new partition size")
+		}
+
+		err := copyPartitionFile(oldPart.Path, newPart.Path)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrDiskResizePartitionCopyFailed, err)
+		}
+
+		if oldPart.Size != newPart.Size {
+			// Resize the filesystem to match the new filesystem size.
+			err = growFileSystem(newDiskDevice, newPart.Path, newPart.FileSystemType, buildDir)
+			if err != nil {
+				return fmt.Errorf("%w:\n%w", ErrPartitionResizeFailed, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func copyPartitionFile(oldPartPath string, newPartPath string) error {
+	oldPartFile, err := os.Open(oldPartPath)
+	if err != nil {
+		return err
+	}
+	defer oldPartFile.Close()
+
+	newPartFile, err := os.OpenFile(newPartPath, os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer newPartFile.Close()
+
+	// Note: io.Copy uses the sendfile syscall where appropriate.
+	_, err = io.Copy(newPartFile, oldPartFile)
+	if err != nil {
+		return err
+	}
+
+	// Ensure all the data is successfully written.
+	err = newPartFile.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Calculate the new partition layout.
+func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartSizes map[int]uint64,
+	gptFooterSize uint64,
+) (diskutils.PartitionTable, uint64, error) {
+	// Some distros (e.g. Ubuntu) have a physical disk order that is different from the table order.
+	sortedPartitions := slices.SortedFunc(slices.Values(partitionTable.Partitions),
+		func(a, b diskutils.PartitionTablePartition) int {
+			return cmp.Compare(a.Start, b.Start)
+		})
+
+	// Sector 0 is the MBR.
+	nextSector := int64(1)
+
+	partitionTableSize := mathutils.RoundUp(gptFooterSize, imagecustomizerapi.DefaultPartitionAlignment)
+	partitionTableSizeInSectors := int64(partitionTableSize) / int64(partitionTable.SectorSize)
+
+	// GPT header.
+	nextSector += partitionTableSizeInSectors
+
+	newPartitions := []diskutils.PartitionTablePartition(nil)
+	for i, partition := range sortedPartitions {
+		newPartition := partition
+
+		// Note: The new partition layout intentionally collapses any existing gaps between partitions.
+		newPartition.Start = nextSector
+
+		if newSize, hasNewSize := newPartSizes[i]; hasNewSize {
+			newPartSizeInSectors := newSize / uint64(partitionTable.SectorSize)
+			if newSize%uint64(partitionTable.SectorSize) != 0 {
+				// Shouldn't happen, since the size should be rounded up to DefaultPartitionAlignment, which should be a
+				// multiple of the sector size.
+				err := fmt.Errorf("new partition size is not a multiple of the sector size (partSize=%d, sectorSize=%d)",
+					newSize, partitionTable.SectorSize)
+				return diskutils.PartitionTable{}, 0, err
+			}
+
+			newPartition.Size = int64(newPartSizeInSectors)
+		}
+
+		nextSector = newPartition.Start + newPartition.Size
+
+		// Ensure all partitions are aligned.
+		nextSector = mathutils.RoundUp(nextSector, imagecustomizerapi.DefaultPartitionAlignment)
+
+		newPartitions = append(newPartitions, newPartition)
+	}
+
+	// GPT footer.
+	nextSector += partitionTableSizeInSectors
+	newDiskSize := uint64(nextSector) * uint64(partitionTable.SectorSize)
+
+	newPartitionTable := partitionTable
+	newPartitionTable.Partitions = newPartitions
+
+	return newPartitionTable, newDiskSize, nil
+}
+
 // Grow the size of a partition and the filesystem on that partition.
 func growPartitionSize(devicePath string, partPath string, newPartSizeInSectors uint64, partFileSystemType string,
 	buildDir string,
@@ -386,9 +567,43 @@ func growBtrfs(diskDevicePath string, partitionPath string, buildDir string) err
 func resolvePartitionForResizeOp(resizePartConfig imagecustomizerapi.ResizePartition,
 	partitionTable diskutils.PartitionTable, lastPartIndex int,
 ) (int, error) {
-	switch {
-	case resizePartConfig.Ref == imagecustomizerapi.ResizePartitionRefLast:
+	switch resizePartConfig.Ref.IdType {
+	case imagecustomizerapi.ResizePartitionRefTypeLast:
 		return lastPartIndex, nil
+
+	case imagecustomizerapi.ResizePartitionRefTypePartLabel, imagecustomizerapi.ResizePartitionRefTypeLabel,
+		imagecustomizerapi.ResizePartitionRefTypePartUuid:
+
+		matches := []int(nil)
+		for i, partInfo := range partitionTable.Partitions {
+			match := false
+			switch resizePartConfig.Ref.IdType {
+			case imagecustomizerapi.ResizePartitionRefTypePartLabel:
+				match = partInfo.PartLabel == resizePartConfig.Ref.Id
+
+			case imagecustomizerapi.ResizePartitionRefTypeLabel:
+				match = partInfo.FileSystemLabel == resizePartConfig.Ref.Id
+
+			case imagecustomizerapi.ResizePartitionRefTypePartUuid:
+				match = partInfo.PartUuid == resizePartConfig.Ref.Id
+			}
+
+			if match {
+				matches = append(matches, i)
+			}
+		}
+
+		if len(matches) <= 0 {
+			return 0, fmt.Errorf("%w (idType='%s', id='%s')", ErrDiskResizeFindPartitionFailed,
+				resizePartConfig.Ref.IdType, resizePartConfig.Ref.Id)
+		}
+
+		if len(matches) > 1 {
+			return 0, fmt.Errorf("%w (idType='%s', id='%s')", ErrDiskResizeFindTooManyPartitions,
+				resizePartConfig.Ref.IdType, resizePartConfig.Ref.Id)
+		}
+
+		return matches[0], nil
 
 	default:
 		// This should be prevented by ResizePartition.IsValid().
@@ -501,4 +716,49 @@ func calcNewPartitionSizeWithSize(newSize uint64, partSize uint64) (bool, uint64
 	}
 
 	return true, newSize, nil
+}
+
+func setNewDevicePathOnPartitionTable(diskDevice string, partitionTable *diskutils.PartitionTable) error {
+	partitionTable.Device = diskDevice
+
+	for _, part := range partitionTable.Partitions {
+		partNum, err := diskutils.GetPartitionNum(part.Path)
+		if err != nil {
+			return err
+		}
+
+		part.Path = fmt.Sprintf("%sp%d", diskDevice, partNum)
+	}
+
+	return nil
+}
+
+func formatDiskPartitionTable(diskDevice string, partitionTable diskutils.PartitionTable) error {
+	// Build the sfdisk script.
+	var sb strings.Builder
+	sb.WriteString("label: gpt\n")
+	sb.WriteString(fmt.Sprintf("label-id: %s\n", partitionTable.Id))
+	sb.WriteString("unit: sectors\n")
+	sb.WriteString(fmt.Sprintf("first-lba: %d\n", partitionTable.FirstLba))
+	sb.WriteString(fmt.Sprintf("sector-size: %d\n", partitionTable.SectorSize))
+	sb.WriteString("\n")
+
+	for _, part := range partitionTable.Partitions {
+		sb.WriteString(fmt.Sprintf("%s : start=%d, size=%d, type=%s, uuid=%s, name=%s\n", part.Path, part.Start,
+			part.Size, part.PartTypeUuid, part.PartUuid, part.PartLabel))
+	}
+
+	sfdiskScript := sb.String()
+
+	// Format partition table.
+	err := shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no", diskDevice).
+		Stdin(sfdiskScript).
+		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("sfdisk failed:\n%w", err)
+	}
+
+	return nil
 }
