@@ -217,8 +217,19 @@ func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *ubuntuDistroHandler) PreservesUkiLayout() bool {
+	return false
+}
+
+func (d *ubuntuDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout,
+) (UkiLayout, error) {
+	return defaultGetUkiLayout(kernel, cmdline)
+}
+
+func (d *ubuntuDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
+	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
 }
 
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

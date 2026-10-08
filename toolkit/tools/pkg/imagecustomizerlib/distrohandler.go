@@ -109,11 +109,19 @@ type DistroHandler interface {
 	// empty string; all other distros return an error.
 	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
 
-	// GetUkiAddonSpecs returns the cmdline addon files to write for a kernel in UKI
-	// create mode. Most distros emit a single addon holding the full command
-	// line; distros with a first-boot addon contract (e.g. ACL) split the
-	// command line across multiple addons.
-	GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error)
+	// PreservesUkiLayout reports whether UKI create mode rebuilds the UKIs with the base image's layout (which part of
+	// the command line the main UKI and each addon holds, and the other files of the addon directory). Only then is
+	// that layout recorded and passed to GetUkiLayout.
+	PreservesUkiLayout() bool
+
+	// GetUkiLayout returns how to split the command line of a kernel's UKI across the main UKI and its addons in UKI
+	// create mode, and which of the base image's other addon directory files to keep. baseLayout is the layout of the
+	// base image's UKI, or nil. Most distros emit a single addon holding the full command line; ACL keeps the base
+	// image's layout.
+	GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout) (UkiLayout, error)
+
+	// FinalizeUkis updates distro-specific files on the ESP after the UKIs are built in UKI create mode.
+	FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo, buildDir string) error
 
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only

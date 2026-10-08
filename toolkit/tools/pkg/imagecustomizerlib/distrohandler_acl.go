@@ -242,9 +242,20 @@ func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir
 	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
-// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons.
-func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return aclGetUkiAddonSpecs(kernel, cmdline)
+func (d *aclDistroHandler) PreservesUkiLayout() bool {
+	return true
+}
+
+// GetUkiLayout keeps the base image's UKI layout: each arg stays in the main UKI or the addon it came from.
+func (d *aclDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
+	return aclGetUkiLayout(cmdline, baseLayout)
+}
+
+// FinalizeUkis updates the root hash in ACL's A/B slot addon templates.
+func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
+) error {
+	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

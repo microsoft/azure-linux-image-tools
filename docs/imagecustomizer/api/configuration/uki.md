@@ -47,6 +47,15 @@ Supported values:
   its own to carry forward. It inherits the command line that the image's other kernels share. Customization fails if
   those kernels have divergent command lines, since there is then no single correct value to inherit.
 
+  On Azure Container Linux, the new UKIs keep the base image's UKI layout. Each kernel argument stays in the main UKI
+  or in the addon it came from (for example `oem.addon.efi` or `slot-a.addon.efi`), and a changed value, such as the
+  root hash after `storage.reinitializeVerity`, stays in place. A new argument goes into the main UKI, unless an addon
+  has an argument of the same name: then it goes at the end of the last such addon, so that it still overrides that
+  argument. `flatcar.first_boot=detected` stays in `firstboot.addon.efi`. Other files in `<uki-name>.extra.d/`, such
+  as credentials, are kept, and the root hash in the A/B slot addon templates under `acl/uki-addons/` is updated.
+  Since `<uki-name>.extra.d/` is rebuilt from the base image's layout, customization fails if it is changed during
+  the run.
+
 - `passthrough`: Preserve existing UKI files without modification.
 
 - `modify`: Modify only the UKI addon to append or update kernel command-line arguments.

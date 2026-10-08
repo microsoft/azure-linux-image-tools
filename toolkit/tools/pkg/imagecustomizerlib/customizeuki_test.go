@@ -1296,10 +1296,197 @@ func TestGetFallbackKernelArgs(t *testing.T) {
 	}
 }
 
-func TestDefaultGetUkiAddonSpecs(t *testing.T) {
-	specs, err := defaultGetUkiAddonSpecs("vmlinuz-6.6.92.2-2.azl3", "console=tty0 rw")
+func TestDefaultGetUkiLayout(t *testing.T) {
+	layout, err := defaultGetUkiLayout("vmlinuz-6.6.92.2-2.azl3", "console=tty0 rw")
 	assert.NoError(t, err)
-	assert.Equal(t, []UkiAddonSpec{
-		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 rw"},
-	}, specs)
+	assert.Equal(t, UkiLayout{
+		Addons: map[string]string{"vmlinuz-6.6.92.2-2.azl3.addon.efi": "console=tty0 rw"},
+	}, layout)
+}
+
+func TestMergeUkiCmdlineParts(t *testing.T) {
+	tests := []struct {
+		name          string
+		mainCmdline   string
+		addonCmdlines map[string]string
+		expected      string
+		expectError   bool
+	}{
+		{
+			name:        "main UKI first, then addons in file-name order",
+			mainCmdline: "root=/dev/sda",
+			addonCmdlines: map[string]string{
+				"oem.addon.efi":       "flatcar.oem.id=azure",
+				"firstboot.addon.efi": "flatcar.first_boot=detected",
+			},
+			expected: "root=/dev/sda flatcar.first_boot=detected flatcar.oem.id=azure",
+		},
+		{
+			name:          "empty main UKI and empty addons skipped",
+			addonCmdlines: map[string]string{"a.addon.efi": "", "b.addon.efi": "console=tty0"},
+			expected:      "console=tty0",
+		},
+		{
+			name:          "main UKI cmdline of only whitespace",
+			mainCmdline:   "\n",
+			addonCmdlines: map[string]string{},
+			expected:      "",
+		},
+		{
+			name:        "no cmdline anywhere",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmdline, err := mergeUkiCmdlineParts(tt.mainCmdline, tt.addonCmdlines)
+			if tt.expectError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, cmdline)
+		})
+	}
+}
+
+func TestGetFallbackUkiLayout(t *testing.T) {
+	sharedLayout := UkiLayout{
+		MainCmdline: "root=/dev/sda",
+		Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
+		ExtraFiles:  map[string]string{"policy.cred": "abc"},
+	}
+
+	tests := []struct {
+		name           string
+		existingUkis   map[string]UkiKernelInfo
+		expectedLayout *UkiLayout
+		expectError    bool
+	}{
+		{
+			name: "shared layout",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {BaseLayout: &sharedLayout},
+				"vmlinuz-2": {BaseLayout: &sharedLayout},
+			},
+			expectedLayout: &sharedLayout,
+		},
+		{
+			name: "each UKI's own Image Customizer addon is renamed for the new kernel",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {BaseLayout: &UkiLayout{Addons: map[string]string{"vmlinuz-1.addon.efi": "rw"}}},
+				"vmlinuz-2": {BaseLayout: &UkiLayout{Addons: map[string]string{"vmlinuz-2.addon.efi": "rw"}}},
+			},
+			expectedLayout: &UkiLayout{Addons: map[string]string{"vmlinuz-3.addon.efi": "rw"}},
+		},
+		{
+			name:         "no existing UKIs",
+			existingUkis: map[string]UkiKernelInfo{},
+		},
+		{
+			name: "existing UKIs without layouts",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {Cmdline: "rw"},
+			},
+		},
+		{
+			name: "divergent layouts",
+			existingUkis: map[string]UkiKernelInfo{
+				"vmlinuz-1": {BaseLayout: &sharedLayout},
+				"vmlinuz-2": {BaseLayout: &UkiLayout{MainCmdline: "root=/dev/sdb"}},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			layout, err := getFallbackUkiLayout(tt.existingUkis, "vmlinuz-3")
+			if tt.expectError {
+				assert.ErrorContains(t, err, "divergent UKI layouts")
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedLayout, layout)
+		})
+	}
+}
+
+// TestUkiKernelInfoWritersKeepBaseLayout verifies that the steps that edit the saved command line keep the base
+// UKI layout saved with it.
+func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
+	buildDir := t.TempDir()
+	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err := os.MkdirAll(filepath.Dir(ukiKernelInfoPath), os.ModePerm)
+	assert.NoError(t, err)
+
+	baseLayout := &UkiLayout{
+		MainCmdline: "root=/dev/sda usrhash=old",
+		Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
+		ExtraFiles:  map[string]string{"policy.cred": "abc"},
+	}
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "root=/dev/sda usrhash=old flatcar.oem.id=azure", Initramfs: "initramfs-1.img",
+			BaseLayout: baseLayout},
+	})
+	assert.NoError(t, err)
+
+	b := &BootCustomizer{ukiKernelInfoPath: ukiKernelInfoPath}
+	err = b.appendToUkiCmdlineFile("rd.info")
+	assert.NoError(t, err)
+
+	err = b.updateUkiCmdlineFile([]string{"selinux"}, []string{"selinux=1"})
+	assert.NoError(t, err)
+
+	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"usrhash=new"})
+	assert.NoError(t, err)
+
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info selinux=1 usrhash=new",
+			Initramfs: "initramfs-1.img", BaseLayout: baseLayout},
+	}, kernelInfo)
+}
+
+func TestSaveAndRestoreUkiExtraFiles(t *testing.T) {
+	buildDir := t.TempDir()
+	baseEspDir := t.TempDir()
+	espDir := t.TempDir()
+
+	ukiFile := filepath.Join(baseEspDir, "vmlinuz-1.efi")
+	err := os.MkdirAll(ukiFile+".extra.d", os.ModePerm)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(ukiFile+".extra.d", "acl-ipe-policy.p7b.cred"), []byte("signed policy"), 0o644)
+	assert.NoError(t, err)
+
+	hash := "f6beb7e304acf870002837dd7d5983e9ad98354bbcc77332702a7ce050c924ce"
+	layout := UkiLayout{ExtraFiles: map[string]string{"acl-ipe-policy.p7b.cred": hash}}
+	err = saveUkiExtraFiles(ukiFile, layout, buildDir)
+	assert.NoError(t, err)
+
+	err = restoreUkiExtraFile("vmlinuz-2", "acl-ipe-policy.p7b.cred", hash, buildDir, espDir)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(espDir, UkiOutputDir, "vmlinuz-2.efi.extra.d",
+		"acl-ipe-policy.p7b.cred"))
+	assert.NoError(t, err)
+	assert.Equal(t, "signed policy", string(content))
+}
+
+func TestUkiLayoutsEqual(t *testing.T) {
+	layout := &UkiLayout{MainCmdline: "rw", Addons: map[string]string{"oem.addon.efi": "console=tty0"}}
+
+	assert.True(t, ukiLayoutsEqual(nil, nil))
+	assert.False(t, ukiLayoutsEqual(layout, nil))
+	assert.True(t, ukiLayoutsEqual(&UkiLayout{MainCmdline: "rw"}, &UkiLayout{MainCmdline: "rw",
+		Addons: map[string]string{}, ExtraFiles: map[string]string{}}))
+	assert.True(t, ukiLayoutsEqual(layout, &UkiLayout{MainCmdline: "rw",
+		Addons: map[string]string{"oem.addon.efi": "console=tty0"}}))
+	assert.False(t, ukiLayoutsEqual(layout, &UkiLayout{MainCmdline: "rw",
+		Addons: map[string]string{"oem.addon.efi": "console=tty1"}}))
 }
