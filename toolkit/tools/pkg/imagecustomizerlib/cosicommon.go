@@ -211,6 +211,22 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
 				imageDataEntry.VeritySource = veritySourcePath
+
+				// If the verity device's root hash signature is stored on its own
+				// dedicated partition (rather than embedded as a file in the image),
+				// find it and attach its metadata too. If the signature is not
+				// partition-backed (e.g. it is a file path), there is nothing to
+				// attach here.
+				sigPartition, found := resolveVeritySignaturePartition(verity.hashSignaturePath, partitions)
+				if found {
+					sigPartitionImageFile, exists := partitionImageFiles[sigPartition.PartitionNum]
+					if !exists {
+						return fmt.Errorf("missing metadata for signature partition UUID:\n%s", sigPartition.PartUuid)
+					}
+
+					metadataImage.Verity.Signature = &sigPartitionImageFile
+				}
+
 				break
 			}
 		}
@@ -234,7 +250,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := cosiapi.MetadataJson{
-		Version:    "1.2",
+		Version:    "1.3",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Disk:       diskInfo,
@@ -315,6 +331,43 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	logger.Log.Infof("Finished building COSI: %s", outputFile)
 	return nil
+}
+
+// resolveVeritySignaturePartition checks whether a verity device's root hash
+// signature is stored on its own dedicated partition, rather than as a file
+// embedded in the image (e.g. under /boot). The signature path comes from the
+// `root-hash-signature=<path>` systemd verity option, and is treated as a
+// partition identifier when it uses one of the standard disk-partition source
+// formats (UUID=, PARTUUID=, PARTLABEL=); any other value (e.g. a plain file
+// path) is assumed to be a file, and (nil, false) is returned.
+func resolveVeritySignaturePartition(signaturePath string, partitions []outputPartitionMetadata,
+) (outputPartitionMetadata, bool) {
+	if signaturePath == "" {
+		return outputPartitionMetadata{}, false
+	}
+
+	idType, id, err := parseExtendedSourcePartition(signaturePath)
+	if err != nil {
+		return outputPartitionMetadata{}, false
+	}
+
+	for _, partition := range partitions {
+		matches := false
+		switch idType {
+		case imagecustomizerapi.MountIdentifierTypeUuid:
+			matches = partition.Uuid == id
+		case imagecustomizerapi.MountIdentifierTypePartUuid:
+			matches = partition.PartUuid == id
+		case imagecustomizerapi.MountIdentifierTypePartLabel:
+			matches = partition.PartLabel == id
+		}
+
+		if matches {
+			return partition, true
+		}
+	}
+
+	return outputPartitionMetadata{}, false
 }
 
 func addFileToCosi(tw *tar.Writer, source string, image cosiapi.ImageFile) error {

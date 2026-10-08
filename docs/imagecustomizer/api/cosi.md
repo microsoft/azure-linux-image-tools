@@ -10,6 +10,7 @@ nav_order: 3
 
 | Revision | Spec Date   |
 |----------|-------------|
+| 1.3      | TBD         |
 | 1.1      | TBD         |
 | 1.0      | 2024-10-09  |
 
@@ -105,10 +106,11 @@ _Notes:_
 The `VerityConfig` object contains information required to set up a verity
 device on top of a data device.
 
-| Field      | Type                           | Added in | Required        | Description                                              |
-| ---------- | ------------------------------ | -------- | --------------- | -------------------------------------------------------- |
-| `image`    | [ImageFile](#imagefile-object) | 1.0      | Yes (since 1.0) | Details of the hash partition image file in the tarball. |
-| `roothash` | string                         | 1.0      | Yes (since 1.0) | Verity root hash.                                        |
+| Field      | Type                            | Added in | Required        | Description                                                              |
+| ---------- | -------------------------------- | -------- | --------------- | ------------------------------------------------------------------------ |
+| `image`     | [ImageFile](#imagefile-object)  | 1.0      | Yes (since 1.0) | Details of the hash partition image file in the tarball.                 |
+| `roothash`  | string                          | 1.0      | Yes (since 1.0) | Verity root hash.                                                        |
+| `signature` | [ImageFile](#imagefile-object)  | 1.3      | No              | Details of the root hash signature partition image file in the tarball, if the verity device's root hash is signed and the signature is stored on its own dedicated partition. MUST be omitted OR set to `null` if there is no such partition. |
 
 ##### `ImageFile` Object
 
@@ -264,7 +266,7 @@ A string that represents the type of the systemd-boot entry.
 
 ```json
 {
-    "version": "1.1",
+    "version": "1.3",
     "images": [
         {
             "image": {
@@ -284,7 +286,13 @@ A string that represents the type of the systemd-boot entry.
                     "uncompressedSize": 524288000,
                     "sha384": "51356c53fbdd5c196395ccd389116f2e7769443cb4e945bc9b6bc3c805cf857c375df010469f8f45ef0c5b07456b023d"
                 },
-                "roothash": "646c82fa4c3f97e6cddc3996315c7f04b2beb721fb24fa38835136492a84eb19"
+                "roothash": "646c82fa4c3f97e6cddc3996315c7f04b2beb721fb24fa38835136492a84eb19",
+                "signature": {
+                    "path": "images/root-verity-sig.rawzst",
+                    "compressedSize": 4096,
+                    "uncompressedSize": 1048576,
+                    "sha384": "3e6392b5e8936b0a4061ec8911a8d4e5f3c90e2c29c4baf59c8b5d8d59f1a7f4f8a8f9f0e2f6c1e8c6cf1b45c3b2c8aa"
+                }
             }
         },
         // More images...
