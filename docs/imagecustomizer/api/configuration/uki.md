@@ -51,10 +51,12 @@ Supported values:
   or in the addon it came from (for example `oem.addon.efi` or `slot-a.addon.efi`), and a changed value, such as the
   root hash after `storage.reinitializeVerity`, stays in place. A new argument goes into the main UKI, unless an addon
   has an argument of the same name: then it goes at the end of the last such addon, so that it still overrides that
-  argument. `flatcar.first_boot=detected` stays in `firstboot.addon.efi`. Other files in `<uki-name>.extra.d/`, such
-  as credentials, are kept, and the root hash in the A/B slot addon templates under `acl/uki-addons/` is updated.
-  Since `<uki-name>.extra.d/` is rebuilt from the base image's layout, customization fails if it is changed during
-  the run.
+  argument. The A/B slot addon is the exception: Trident replaces it with its template from `acl/uki-addons/` when it
+  switches slots, so customization fails if its arguments change other than the root hash. `flatcar.first_boot=detected`
+  stays in `firstboot.addon.efi`. Other files in `<uki-name>.extra.d/`, such as credentials, are kept, and the root
+  hash in the slot addon templates is updated. Like the UKIs and their addons, the rebuilt templates are unsigned.
+  Since the UKIs are rebuilt from the base image's layout, customization fails if a UKI's command line or its
+  `<uki-name>.extra.d/` is changed during the run; use `os.kernelCommandLine.extraCommandLine` to add kernel arguments.
 
 - `passthrough`: Preserve existing UKI files without modification.
 

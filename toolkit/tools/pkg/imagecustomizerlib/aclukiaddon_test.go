@@ -4,9 +4,18 @@
 package imagecustomizerlib
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -110,6 +119,18 @@ func TestAclGetUkiLayout(t *testing.T) {
 			expectedLayout: UkiLayout{
 				MainCmdline: testAclAbMainCmdline + " security=selinux selinux=1 rw",
 				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline + " console=ttyS1"},
+			},
+		},
+		{
+			name:    "a new arg with the name of a main UKI arg goes after it",
+			cmdline: testAclAbMainCmdline + " " + testAclOemCmdline + " rootflags=ro",
+			baseLayout: &UkiLayout{
+				MainCmdline: testAclAbMainCmdline,
+				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline},
+			},
+			expectedLayout: UkiLayout{
+				MainCmdline: testAclAbMainCmdline + " rootflags=ro",
+				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline},
 			},
 		},
 		{
@@ -248,19 +269,29 @@ func TestAclGetUkiLayoutRoundTrip(t *testing.T) {
 		},
 	}
 
-	cmdline, err := mergeUkiCmdlineParts(baseLayout.MainCmdline, baseLayout.Addons)
+	baseCmdline, err := mergeUkiCmdlineParts(baseLayout.MainCmdline, baseLayout.Addons)
 	assert.NoError(t, err)
 
-	layout, err := aclGetUkiLayout(cmdline, &baseLayout)
+	layout, err := aclGetUkiLayout(baseCmdline, &baseLayout)
 	assert.NoError(t, err)
 	assert.Equal(t, baseLayout, layout)
 
-	cmdline, err = mergeUkiCmdlineParts(layout.MainCmdline, layout.Addons)
-	assert.NoError(t, err)
+	// The base command line as is, and after a verity refresh changed the root hash.
+	cmdlines := []string{
+		baseCmdline,
+		strings.ReplaceAll(baseCmdline, "usrhash=oldhash", "usrhash=newhash") + " rd.systemd.verity=1",
+	}
+	for _, cmdline := range cmdlines {
+		layout, err := aclGetUkiLayout(cmdline, &baseLayout)
+		assert.NoError(t, err)
 
-	relayout, err := aclGetUkiLayout(cmdline, &layout)
-	assert.NoError(t, err)
-	assert.Equal(t, layout, relayout)
+		rebuiltCmdline, err := mergeUkiCmdlineParts(layout.MainCmdline, layout.Addons)
+		assert.NoError(t, err)
+
+		relayout, err := aclGetUkiLayout(rebuiltCmdline, &layout)
+		assert.NoError(t, err)
+		assert.Equal(t, layout, relayout)
+	}
 }
 
 func TestAclGetUsrHash(t *testing.T) {
@@ -382,14 +413,14 @@ func TestAclPlanSlotAddonTemplate(t *testing.T) {
 			templateCmdline:     testAclSlotACmdline,
 			activeAddonCmdlines: []string{newSlotACmdline + " extra=1"},
 			usrHash:             "newhash",
-			expectedErr:         "rebuilt addon does not match its template",
+			expectedErr:         "rebuilt A/B slot addon differs from its template in more than the root hash",
 		},
 		{
 			name:                "addons of several UKIs differ",
 			templateCmdline:     testAclSlotACmdline,
 			activeAddonCmdlines: []string{newSlotACmdline, strings.ReplaceAll(newSlotACmdline, "a2", "a3")},
 			usrHash:             "newhash",
-			expectedErr:         "rebuilt addon does not match its template",
+			expectedErr:         "rebuilt A/B slot addon differs from its template in more than the root hash",
 		},
 		{
 			name:            "rebuilt UKIs without a root hash",
@@ -430,4 +461,246 @@ func TestAclSetArgValue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, changed)
 	assert.Equal(t, "fips=1", cmdline)
+}
+
+// TestAclRebuildUkiOnEsp builds a stock ACL ESP with ukify (a main UKI with an IPE policy token, first-boot, OEM and A/B
+// slot addons, the policy credential and the addon templates) and runs the create-mode steps that keep its layout:
+// record the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates.
+func TestAclRebuildUkiOnEsp(t *testing.T) {
+	stubPath, addonStubPath := checkSkipForUkiStubs(t)
+
+	kernel := "vmlinuz-6.6.157.1-1.azl3"
+	buildDir := t.TempDir()
+	espDir := t.TempDir()
+	ukiFile := filepath.Join(espDir, UkiOutputDir, kernel+".efi")
+	addonDir := ukiFile + ".extra.d"
+	templateDir := filepath.Join(espDir, aclUkiAddonTemplatesDir)
+	credPath := filepath.Join(addonDir, "acl-ipe-policy.p7b.cred")
+	osReleasePath := filepath.Join(buildDir, "os-release")
+
+	cred := []byte("signed policy")
+	credHash := fmt.Sprintf("%x", sha256.Sum256(cred))
+	mainCmdline := testAclAbMainCmdline + " acl.ipe.policy_sha256=" + credHash
+	slotBCmdline := "systemd.verity_usr_data=PARTUUID=b1 systemd.verity_usr_hash=PARTUUID=b2 " +
+		"systemd.verity_usr_options=panic-on-corruption usrhash=oldhash acl.slot=b"
+	baseAddons := map[string]string{
+		aclFirstBootAddonName: aclFirstBootArg,
+		"oem.addon.efi":       testAclOemCmdline,
+		"slot-a.addon.efi":    testAclSlotACmdline,
+	}
+
+	for _, dir := range []string{filepath.Join(buildDir, UkiBuildDir), filepath.Dir(ukiFile), templateDir} {
+		err := os.MkdirAll(dir, os.ModePerm)
+		if !assert.NoError(t, err) {
+			return
+		}
+	}
+
+	// The main UKI's inputs. Any PE file can stand in for the kernel, since ukify only embeds it.
+	err := file.Copy(stubPath, filepath.Join(buildDir, UkiBuildDir, kernel))
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = os.WriteFile(filepath.Join(buildDir, UkiBuildDir, "initramfs.img"), []byte("initramfs"), 0o644)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = os.WriteFile(osReleasePath, []byte("ID=azurelinux\n"), 0o644)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// The base image's ESP. ACL writes its command lines with echo, so they end with a newline.
+	err = buildMainUki(kernel, "initramfs.img", mainCmdline+"\n", osReleasePath, stubPath, buildDir, espDir,
+		"6.6.157.1-1.azl3")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(baseAddons)) {
+		err = buildUkiAddon(kernel, name, baseAddons[name]+"\n", addonStubPath, espDir)
+		if !assert.NoError(t, err) {
+			return
+		}
+	}
+
+	err = os.WriteFile(credPath, cred, 0o644)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = buildUkiAddonFile(filepath.Join(templateDir, aclFirstBootAddonName), aclFirstBootArg+"\n", addonStubPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = file.Copy(filepath.Join(addonDir, "slot-a.addon.efi"), filepath.Join(templateDir, "slot-a.addon.efi"))
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = buildUkiAddonFile(filepath.Join(templateDir, "slot-b.addon.efi"), slotBCmdline+"\n", addonStubPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Record the base layout, and check that it did not change.
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, &UkiLayout{
+		MainCmdline: mainCmdline,
+		Addons:      baseAddons,
+		ExtraFiles:  map[string]string{"acl-ipe-policy.p7b.cred": credHash},
+	}, kernelInfo[kernel].BaseLayout)
+
+	err = checkUkiLayoutsUnchanged(espDir, kernelInfo, buildDir)
+	assert.NoError(t, err)
+
+	kdumpAddonPath := filepath.Join(addonDir, "kdump.addon.efi")
+	err = buildUkiAddonFile(kdumpAddonPath, "crashkernel=256M", addonStubPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = checkUkiLayoutsUnchanged(espDir, kernelInfo, buildDir)
+	assert.ErrorIs(t, err, ErrUKIAddonDirChanged)
+	assert.ErrorContains(t, err, "changes='added kdump.addon.efi'")
+
+	err = os.Remove(kdumpAddonPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Rebuild the UKI with a new root hash, the way storage.reinitializeVerity does.
+	kernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err = writeUkiKernelInfoFile(kernelInfoPath, kernelInfo)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"rd.systemd.verity=1", "usrhash=newhash",
+		"systemd.verity_usr_data=PARTUUID=a1", "systemd.verity_usr_hash=PARTUUID=a2",
+		"systemd.verity_usr_options=panic-on-corruption"})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	kernelInfo, err = readUkiKernelInfoFile(kernelInfoPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	info := kernelInfo[kernel]
+	info.Initramfs = "initramfs.img"
+
+	err = cleanUkiDirectory(filepath.Dir(ukiFile))
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	distroHandler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+	err = buildUki(kernel, info, osReleasePath, stubPath, addonStubPath, buildDir, espDir, distroHandler)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// The policy token stays in the main UKI, the new root hash takes the old one's place in the slot addon, and the
+	// credential is put back.
+	expectedCmdlines := map[string]string{
+		ukiFile: mainCmdline + " rd.systemd.verity=1",
+		filepath.Join(addonDir, aclFirstBootAddonName): aclFirstBootArg,
+		filepath.Join(addonDir, "oem.addon.efi"):       testAclOemCmdline,
+		filepath.Join(addonDir, "slot-a.addon.efi"): strings.ReplaceAll(testAclSlotACmdline, "usrhash=oldhash",
+			"usrhash=newhash"),
+	}
+	for _, path := range slices.Sorted(maps.Keys(expectedCmdlines)) {
+		cmdline, err := extractCmdlineFromSinglePE(path, buildDir)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedCmdlines[path], cmdline, path)
+	}
+
+	entries, err := os.ReadDir(addonDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	names := []string(nil)
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+
+	assert.Equal(t, []string{"acl-ipe-policy.p7b.cred", aclFirstBootAddonName, "oem.addon.efi", "slot-a.addon.efi"},
+		names)
+
+	content, err := os.ReadFile(credPath)
+	assert.NoError(t, err)
+	assert.Equal(t, cred, content)
+
+	// The active slot addon's template gets its bytes, the other slot's template gets the new root hash, and the
+	// first-boot template is left alone.
+	firstBootTemplate, err := os.ReadFile(filepath.Join(templateDir, aclFirstBootAddonName))
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = distroHandler.FinalizeUkis(espDir, addonStubPath, kernelInfo, buildDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	activeSlotAddon, err := os.ReadFile(filepath.Join(addonDir, "slot-a.addon.efi"))
+	assert.NoError(t, err)
+
+	slotATemplate, err := os.ReadFile(filepath.Join(templateDir, "slot-a.addon.efi"))
+	assert.NoError(t, err)
+	assert.Equal(t, activeSlotAddon, slotATemplate)
+
+	cmdline, err := extractCmdlineFromSinglePE(filepath.Join(templateDir, "slot-b.addon.efi"), buildDir)
+	assert.NoError(t, err)
+	assert.Equal(t, strings.ReplaceAll(slotBCmdline, "usrhash=oldhash", "usrhash=newhash"), cmdline)
+
+	content, err = os.ReadFile(filepath.Join(templateDir, aclFirstBootAddonName))
+	assert.NoError(t, err)
+	assert.Equal(t, firstBootTemplate, content)
+}
+
+// checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available, and returns
+// the paths of the UKI stub and the addon stub.
+func checkSkipForUkiStubs(t *testing.T) (string, string) {
+	for _, command := range []string{"ukify", "objcopy"} {
+		exists, err := file.CommandExists(command)
+		assert.NoError(t, err)
+		if !exists {
+			t.Skipf("The '%s' command is not available", command)
+		}
+	}
+
+	var stubNames []string
+	switch runtime.GOARCH {
+	case "amd64":
+		stubNames = []string{ukiEfiStubx64Binary, ukiAddonStubx64Binary}
+	case "arm64":
+		stubNames = []string{ukiEfiStubAA64Binary, ukiAddonStubAA64Binary}
+	default:
+		t.Skipf("No UKI stubs for architecture (%s)", runtime.GOARCH)
+	}
+
+	stubPaths := []string(nil)
+	for _, stubName := range stubNames {
+		stubPath := filepath.Join(ukiEfiStubDir, stubName)
+		exists, err := file.PathExists(stubPath)
+		assert.NoError(t, err)
+		if !exists {
+			t.Skipf("The systemd-boot stub (%s) is not available", stubPath)
+		}
+
+		stubPaths = append(stubPaths, stubPath)
+	}
+
+	return stubPaths[0], stubPaths[1]
 }

@@ -333,8 +333,9 @@ func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []stri
 
 	for _, activeAddonCmdline := range activeAddonCmdlines {
 		if activeAddonCmdline != newCmdline {
-			return "", false, false, fmt.Errorf("rebuilt addon does not match its template with the new root hash "+
-				"(addon='%s', template='%s')", activeAddonCmdline, newCmdline)
+			return "", false, false, fmt.Errorf("rebuilt A/B slot addon differs from its template in more than "+
+				"the root hash; customization can't change the args of a slot addon (addon='%s', template='%s')",
+				activeAddonCmdline, newCmdline)
 		}
 	}
 

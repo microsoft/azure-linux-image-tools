@@ -83,9 +83,10 @@ jobs:
         sudo apt list --installed
         sudo apt update -y
 
+        # systemd-boot-efi provides the UKI stubs for the tests that build UKIs on the host.
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
+          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify systemd-boot-efi
 
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 

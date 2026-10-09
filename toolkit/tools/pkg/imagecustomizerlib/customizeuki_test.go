@@ -1490,3 +1490,22 @@ func TestUkiLayoutsEqual(t *testing.T) {
 	assert.False(t, ukiLayoutsEqual(layout, &UkiLayout{MainCmdline: "rw",
 		Addons: map[string]string{"oem.addon.efi": "console=tty1"}}))
 }
+
+func TestUkiLayoutChanges(t *testing.T) {
+	baseLayout := &UkiLayout{
+		MainCmdline: "rw",
+		Addons:      map[string]string{"oem.addon.efi": "console=tty0", "slot-a.addon.efi": "usrhash=a"},
+		ExtraFiles:  map[string]string{"policy.cred": "hash1"},
+	}
+
+	assert.Empty(t, ukiLayoutChanges(baseLayout, baseLayout))
+	assert.Equal(t, []string{"main UKI command line", "added kdump.addon.efi", "changed slot-a.addon.efi",
+		"removed oem.addon.efi", "changed policy.cred"},
+		ukiLayoutChanges(baseLayout, &UkiLayout{
+			MainCmdline: "ro",
+			Addons:      map[string]string{"kdump.addon.efi": "crashkernel=256M", "slot-a.addon.efi": "usrhash=b"},
+			ExtraFiles:  map[string]string{"policy.cred": "hash2"},
+		}))
+	assert.Equal(t, []string{"removed policy.cred"},
+		ukiLayoutChanges(baseLayout, &UkiLayout{MainCmdline: "rw", Addons: baseLayout.Addons}))
+}

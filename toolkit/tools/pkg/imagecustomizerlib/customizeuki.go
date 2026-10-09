@@ -44,7 +44,8 @@ var (
 	ErrUKICleanOldFiles               = NewImageCustomizerError("UKI:CleanOldFiles", "failed to clean old UKI files")
 	ErrUKICleanBootDir                = NewImageCustomizerError("UKI:CleanBootDir", "failed to clean /boot directory")
 	ErrUKIAddonDirChanged             = NewImageCustomizerError("UKI:AddonDirChanged",
-		"UKI addon directory changed during customization, but create mode rebuilds it from the base image's UKI")
+		"UKI command line or addon directory changed during customization, but create mode rebuilds them from the "+
+			"base image's UKI; add kernel args with os.kernelCommandLine.extraCommandLine instead")
 )
 
 const (
@@ -393,8 +394,8 @@ func saveUkiExtraFiles(ukiFile string, layout UkiLayout, buildDir string) error 
 	return nil
 }
 
-// checkUkiLayoutsUnchanged returns an error if the addon directory of a base UKI changed since its layout was
-// recorded.
+// checkUkiLayoutsUnchanged returns an error if the command line or the addon directory of a base UKI changed since its
+// layout was recorded.
 func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo, buildDir string) error {
 	for _, kernel := range slices.Sorted(maps.Keys(kernelInfo)) {
 		info := kernelInfo[kernel]
@@ -414,8 +415,10 @@ func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo
 			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
 
-		if !ukiLayoutsEqual(&layout, info.BaseLayout) {
-			return fmt.Errorf("%w (uki='%s')", ErrUKIAddonDirChanged, ukiFile)
+		changes := ukiLayoutChanges(info.BaseLayout, &layout)
+		if len(changes) > 0 {
+			return fmt.Errorf("%w (uki='%s', changes='%s')", ErrUKIAddonDirChanged, ukiFile,
+				strings.Join(changes, ", "))
 		}
 	}
 
@@ -428,7 +431,42 @@ func ukiLayoutsEqual(a *UkiLayout, b *UkiLayout) bool {
 		return a == b
 	}
 
-	return a.MainCmdline == b.MainCmdline && maps.Equal(a.Addons, b.Addons) && maps.Equal(a.ExtraFiles, b.ExtraFiles)
+	return len(ukiLayoutChanges(a, b)) == 0
+}
+
+// ukiLayoutChanges lists how a UKI layout differs from its base: the main UKI's command line, and each addon or other
+// file that was added, removed or changed.
+func ukiLayoutChanges(base *UkiLayout, layout *UkiLayout) []string {
+	changes := []string(nil)
+	if layout.MainCmdline != base.MainCmdline {
+		changes = append(changes, "main UKI command line")
+	}
+
+	changes = append(changes, ukiFileChanges(base.Addons, layout.Addons)...)
+	changes = append(changes, ukiFileChanges(base.ExtraFiles, layout.ExtraFiles)...)
+	return changes
+}
+
+// ukiFileChanges lists the files that were added, removed or changed between two maps of file name to content.
+func ukiFileChanges(base map[string]string, files map[string]string) []string {
+	changes := []string(nil)
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		baseContent, found := base[name]
+		switch {
+		case !found:
+			changes = append(changes, "added "+name)
+		case baseContent != files[name]:
+			changes = append(changes, "changed "+name)
+		}
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(base)) {
+		if _, found := files[name]; !found {
+			changes = append(changes, "removed "+name)
+		}
+	}
+
+	return changes
 }
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
