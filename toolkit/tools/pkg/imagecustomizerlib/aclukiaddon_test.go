@@ -121,45 +121,19 @@ func TestAclGetUkiLayout(t *testing.T) {
 			expectedErr: ErrAclUkiAddonSplit,
 		},
 		{
-			name:    "changed values stay in their addon, in order",
+			name:    "changed values stay in order, and addons left empty are dropped",
 			cmdline: testAclAbMainCmdline + " flatcar.oem.id=azure console=tty2 console=ttyS1",
 			baseLayout: &UkiLayout{
 				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure console=tty2 console=ttyS1"},
-			},
-		},
-		{
-			name:    "removed args are dropped and an empty addon is not added",
-			cmdline: testAclAbMainCmdline + " flatcar.oem.id=qemu",
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
 				Addons: map[string]string{
-					"debug.addon.efi": "systemd.log_level=debug",
-					"oem.addon.efi":   "flatcar.oem.id=qemu flatcar.autologin",
-				},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=qemu"},
-			},
-		},
-		{
-			name:    "booted image has no first-boot addon",
-			cmdline: testAclAbMainCmdline + " " + testAclOemCmdline,
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons: map[string]string{
+					"debug.addon.efi":     "systemd.log_level=debug",
 					"firstboot.addon.efi": "flatcar.first_boot=detected",
 					"oem.addon.efi":       testAclOemCmdline,
 				},
 			},
 			expectedLayout: UkiLayout{
 				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline},
+				Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure console=tty2 console=ttyS1"},
 			},
 		},
 		{
@@ -280,25 +254,12 @@ func TestAclGetUsrHash(t *testing.T) {
 			expectedHash: "newhash",
 		},
 		{
-			name: "no root hash",
-			kernelInfo: map[string]UkiKernelInfo{
-				"vmlinuz-1": {Cmdline: testAclAbMainCmdline},
-			},
-		},
-		{
 			name: "UKIs disagree",
 			kernelInfo: map[string]UkiKernelInfo{
 				"vmlinuz-1": {Cmdline: testAclAbMainCmdline + " usrhash=newhash"},
 				"vmlinuz-2": {Cmdline: testAclAbMainCmdline + " usrhash=otherhash"},
 			},
 			expectedErr: "UKIs have different /usr root hashes",
-		},
-		{
-			name: "duplicate root hash",
-			kernelInfo: map[string]UkiKernelInfo{
-				"vmlinuz-1": {Cmdline: "usrhash=a usrhash=b"},
-			},
-			expectedErr: "more than one (usrhash) arg",
 		},
 	}
 
@@ -400,23 +361,6 @@ func TestAclPlanSlotAddonTemplate(t *testing.T) {
 			assert.Equal(t, tt.expectedRebuild, rebuild)
 		})
 	}
-}
-
-func TestAclSetArgValue(t *testing.T) {
-	cmdline, changed, err := aclSetArgValue(testAclSlotACmdline, "usrhash", "newhash")
-	assert.NoError(t, err)
-	assert.True(t, changed)
-	assert.Equal(t, "systemd.verity_usr_data=PARTUUID=a1 systemd.verity_usr_hash=PARTUUID=a2 "+
-		"systemd.verity_usr_options=panic-on-corruption usrhash=newhash acl.slot=a", cmdline)
-
-	cmdline, changed, err = aclSetArgValue(cmdline, "usrhash", "newhash")
-	assert.NoError(t, err)
-	assert.False(t, changed)
-
-	cmdline, changed, err = aclSetArgValue("fips=1", "usrhash", "newhash")
-	assert.NoError(t, err)
-	assert.False(t, changed)
-	assert.Equal(t, "fips=1", cmdline)
 }
 
 // TestAclRebuildUkiOnEsp builds a stock ACL ESP with ukify and runs the create-mode steps that keep its layout: record

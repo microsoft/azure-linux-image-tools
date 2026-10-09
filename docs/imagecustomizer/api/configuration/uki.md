@@ -53,7 +53,8 @@ Supported values:
   addon's arguments can't change apart from the root hash, which is also updated in its templates under
   `acl/uki-addons/` (rebuilt unsigned, like the UKIs). Other files in `<uki-name>.extra.d/` are kept. Since the UKIs
   are rebuilt from that layout, customization fails if they change during the run; add kernel arguments with
-  `os.kernelCommandLine.extraCommandLine`.
+  `os.kernelCommandLine.extraCommandLine`. Added in v1.8. Prior to v1.8, the whole command line except
+  `flatcar.first_boot=detected` went into `<uki-name>.extra.d/<kernel>.addon.efi`.
 
 - `passthrough`: Preserve existing UKI files without modification.
 

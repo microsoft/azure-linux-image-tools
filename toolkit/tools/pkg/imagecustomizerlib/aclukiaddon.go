@@ -92,6 +92,7 @@ func aclGetUkiLayout(cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
 		}
 	}
 
+	// First, each argument identical to a base argument takes that argument's place.
 	hasFirstBootArg := false
 	placed := make([]bool, len(args))
 	for i, arg := range args {
@@ -106,6 +107,8 @@ func aclGetUkiLayout(cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
 		})
 	}
 
+	// Then each other argument takes the place of an unused base argument of the same name, or is appended to the
+	// last file that has that name (the main UKI if none does), so that it still overrides it.
 	newArgs := make([][]string, len(fileNames))
 	for i, arg := range args {
 		if placed[i] {
@@ -126,6 +129,7 @@ func aclGetUkiLayout(cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
 				}
 			}
 		}
+		// Unused base arguments of that name in more than one file: no way to tell which one this replaces.
 		if len(fileIndexes) > 1 {
 			return UkiLayout{}, fmt.Errorf("%w (arg='%s')", ErrAclUkiAddonAmbiguousArg, arg.Arg)
 		}

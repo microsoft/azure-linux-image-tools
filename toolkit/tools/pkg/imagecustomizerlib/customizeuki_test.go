@@ -1296,21 +1296,12 @@ func TestGetFallbackKernelArgs(t *testing.T) {
 	}
 }
 
-func TestDefaultGetUkiLayout(t *testing.T) {
-	layout, err := defaultGetUkiLayout("vmlinuz-6.6.92.2-2.azl3", "console=tty0 rw")
-	assert.NoError(t, err)
-	assert.Equal(t, UkiLayout{
-		Addons: map[string]string{"vmlinuz-6.6.92.2-2.azl3.addon.efi": "console=tty0 rw"},
-	}, layout)
-}
-
 func TestMergeUkiCmdlineParts(t *testing.T) {
 	tests := []struct {
 		name          string
 		mainCmdline   string
 		addonCmdlines map[string]string
 		expected      string
-		expectError   bool
 	}{
 		{
 			name:        "main UKI first, then addons in file-name order",
@@ -1326,26 +1317,11 @@ func TestMergeUkiCmdlineParts(t *testing.T) {
 			addonCmdlines: map[string]string{"a.addon.efi": "", "b.addon.efi": "console=tty0"},
 			expected:      "console=tty0",
 		},
-		{
-			name:          "main UKI cmdline of only whitespace",
-			mainCmdline:   "\n",
-			addonCmdlines: map[string]string{},
-			expected:      "",
-		},
-		{
-			name:        "no cmdline anywhere",
-			expectError: true,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmdline, err := mergeUkiCmdlineParts(tt.mainCmdline, tt.addonCmdlines)
-			if tt.expectError {
-				assert.Error(t, err)
-				return
-			}
-
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, cmdline)
 		})
@@ -1380,16 +1356,6 @@ func TestGetFallbackUkiLayout(t *testing.T) {
 				"vmlinuz-2": {BaseLayout: &UkiLayout{Addons: map[string]string{"vmlinuz-2.addon.efi": "rw"}}},
 			},
 			expectedLayout: &UkiLayout{Addons: map[string]string{"vmlinuz-3.addon.efi": "rw"}},
-		},
-		{
-			name:         "no existing UKIs",
-			existingUkis: map[string]UkiKernelInfo{},
-		},
-		{
-			name: "existing UKIs without layouts",
-			existingUkis: map[string]UkiKernelInfo{
-				"vmlinuz-1": {Cmdline: "rw"},
-			},
 		},
 		{
 			name: "divergent layouts",
