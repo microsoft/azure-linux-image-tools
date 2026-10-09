@@ -9,8 +9,8 @@ github.com/alecthomas/repr v0.5.2 h1:SU73FTI9D1P5UNtvseffFSGmdNci/O6RsqzeXJtP0Qs
 github.com/alecthomas/repr v0.5.2/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa h1:LHTHcTQiSGT7VVbI0o4wBRNQIgn917usHWOd6VAffYI=
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa/go.mod h1:cEWa1LVoE5KvSD9ONXsZrj0z6KqySlCCNKHlLzbqAt4=
-github.com/anchore/go-rpmdb v0.2.0 h1:ixcyMg/guhBL9XjBVwhTv9CG48xO07Qkg2uDX2+zx/c=
-github.com/anchore/go-rpmdb v0.2.0/go.mod h1:ATsRlpCXstnoYfzqBfhwGw0U2dolx1BBQ9rAU8jWBAw=
+github.com/anchore/go-rpmdb v0.2.1 h1:BB+8usTkB1ajJ8i1xuzV7TGSTtjqn3/dDi1EuPsxO9w=
+github.com/anchore/go-rpmdb v0.2.1/go.mod h1:Y64EbetdqhryMjtk8IzXkdCQw/aNDx+feZCT9aj6rjs=
 github.com/anchore/go-struct-converter v0.1.0 h1:2rDRssAl6mgKBSLNiVCMADgZRhoqtw9dedlWa0OhD30=
 github.com/anchore/go-struct-converter v0.1.0/go.mod h1:rYqSE9HbjzpHTI74vwPvae4ZVYZd1lue2ta6xHPdblA=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
