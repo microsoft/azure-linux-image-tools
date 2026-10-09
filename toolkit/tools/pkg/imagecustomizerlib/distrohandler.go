@@ -109,15 +109,12 @@ type DistroHandler interface {
 	// empty string; all other distros return an error.
 	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
 
-	// PreservesUkiLayout reports whether UKI create mode rebuilds the UKIs with the base image's layout (which part of
-	// the command line the main UKI and each addon holds, and the other files of the addon directory). Only then is
-	// that layout recorded and passed to GetUkiLayout.
+	// PreservesUkiLayout reports whether UKI create mode keeps the base image's UKI layout. Only then is the layout
+	// recorded and passed to GetUkiLayout.
 	PreservesUkiLayout() bool
 
-	// GetUkiLayout returns how to split the command line of a kernel's UKI across the main UKI and its addons in UKI
-	// create mode, and which of the base image's other addon directory files to keep. baseLayout is the layout of the
-	// base image's UKI, or nil. Most distros emit a single addon holding the full command line; ACL keeps the base
-	// image's layout.
+	// GetUkiLayout returns how UKI create mode splits a kernel's command line across the main UKI and its addons,
+	// given the base image's UKI layout (or nil).
 	GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout) (UkiLayout, error)
 
 	// FinalizeUkis updates distro-specific files on the ESP after the UKIs are built in UKI create mode.

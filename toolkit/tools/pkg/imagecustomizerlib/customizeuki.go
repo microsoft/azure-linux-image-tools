@@ -44,8 +44,7 @@ var (
 	ErrUKICleanOldFiles               = NewImageCustomizerError("UKI:CleanOldFiles", "failed to clean old UKI files")
 	ErrUKICleanBootDir                = NewImageCustomizerError("UKI:CleanBootDir", "failed to clean /boot directory")
 	ErrUKIAddonDirChanged             = NewImageCustomizerError("UKI:AddonDirChanged",
-		"UKI command line or addon directory changed during customization, but create mode rebuilds them from the "+
-			"base image's UKI; add kernel args with os.kernelCommandLine.extraCommandLine instead")
+		"UKI or its addon directory changed during customization, but create mode rebuilds them from the base image")
 )
 
 const (
@@ -66,7 +65,7 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 type UkiKernelInfo struct {
 	Cmdline   string `json:"cmdline"`
 	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
-	// Optional: the layout of the base image's UKI, so that distros can rebuild the UKI the same way.
+	// Optional: the base image's UKI layout, for distros that keep it.
 	BaseLayout *UkiLayout `json:"baseLayout,omitempty"`
 }
 
@@ -434,8 +433,7 @@ func ukiLayoutsEqual(a *UkiLayout, b *UkiLayout) bool {
 	return len(ukiLayoutChanges(a, b)) == 0
 }
 
-// ukiLayoutChanges lists how a UKI layout differs from its base: the main UKI's command line, and each addon or other
-// file that was added, removed or changed.
+// ukiLayoutChanges lists what differs between a UKI layout and its base.
 func ukiLayoutChanges(base *UkiLayout, layout *UkiLayout) []string {
 	changes := []string(nil)
 	if layout.MainCmdline != base.MainCmdline {
@@ -447,7 +445,7 @@ func ukiLayoutChanges(base *UkiLayout, layout *UkiLayout) []string {
 	return changes
 }
 
-// ukiFileChanges lists the files that were added, removed or changed between two maps of file name to content.
+// ukiFileChanges lists the files added, removed or changed between two maps of file name to content.
 func ukiFileChanges(base map[string]string, files map[string]string) []string {
 	changes := []string(nil)
 	for _, name := range slices.Sorted(maps.Keys(files)) {
@@ -693,10 +691,8 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 	return cmdlines[0], nil
 }
 
-// getFallbackUkiLayout returns the base UKI layout that a kernel with no UKI of its own should inherit: the layout
-// that the image's existing UKIs share, with each UKI's own IC-managed addon (<kernel>.addon.efi) renamed for the new
-// kernel. Like getFallbackKernelArgs, it refuses to guess when the existing UKIs disagree. Returns nil when the
-// existing UKIs have no layout.
+// getFallbackUkiLayout returns the layout that a kernel with no UKI of its own inherits: the one the existing UKIs
+// share, with <kernel>.addon.efi renamed. Like getFallbackKernelArgs, it fails if they disagree. Nil if none.
 func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, error) {
 	var fallback *UkiLayout
 	found := false
@@ -1058,8 +1054,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 		return err
 	}
 
-	// The UKIs are rebuilt from the layouts recorded before customization, so changes made to their addon
-	// directories since then would be lost.
+	// The UKIs are rebuilt from their recorded layouts, so later changes would be lost.
 	if distroHandler.PreservesUkiLayout() {
 		err = checkUkiLayoutsUnchanged(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
 		if err != nil {

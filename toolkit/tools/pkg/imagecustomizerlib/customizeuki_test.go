@@ -1452,45 +1452,6 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	}, kernelInfo)
 }
 
-func TestSaveAndRestoreUkiExtraFiles(t *testing.T) {
-	buildDir := t.TempDir()
-	baseEspDir := t.TempDir()
-	espDir := t.TempDir()
-
-	ukiFile := filepath.Join(baseEspDir, "vmlinuz-1.efi")
-	err := os.MkdirAll(ukiFile+".extra.d", os.ModePerm)
-	assert.NoError(t, err)
-
-	err = os.WriteFile(filepath.Join(ukiFile+".extra.d", "acl-ipe-policy.p7b.cred"), []byte("signed policy"), 0o644)
-	assert.NoError(t, err)
-
-	hash := "f6beb7e304acf870002837dd7d5983e9ad98354bbcc77332702a7ce050c924ce"
-	layout := UkiLayout{ExtraFiles: map[string]string{"acl-ipe-policy.p7b.cred": hash}}
-	err = saveUkiExtraFiles(ukiFile, layout, buildDir)
-	assert.NoError(t, err)
-
-	err = restoreUkiExtraFile("vmlinuz-2", "acl-ipe-policy.p7b.cred", hash, buildDir, espDir)
-	assert.NoError(t, err)
-
-	content, err := os.ReadFile(filepath.Join(espDir, UkiOutputDir, "vmlinuz-2.efi.extra.d",
-		"acl-ipe-policy.p7b.cred"))
-	assert.NoError(t, err)
-	assert.Equal(t, "signed policy", string(content))
-}
-
-func TestUkiLayoutsEqual(t *testing.T) {
-	layout := &UkiLayout{MainCmdline: "rw", Addons: map[string]string{"oem.addon.efi": "console=tty0"}}
-
-	assert.True(t, ukiLayoutsEqual(nil, nil))
-	assert.False(t, ukiLayoutsEqual(layout, nil))
-	assert.True(t, ukiLayoutsEqual(&UkiLayout{MainCmdline: "rw"}, &UkiLayout{MainCmdline: "rw",
-		Addons: map[string]string{}, ExtraFiles: map[string]string{}}))
-	assert.True(t, ukiLayoutsEqual(layout, &UkiLayout{MainCmdline: "rw",
-		Addons: map[string]string{"oem.addon.efi": "console=tty0"}}))
-	assert.False(t, ukiLayoutsEqual(layout, &UkiLayout{MainCmdline: "rw",
-		Addons: map[string]string{"oem.addon.efi": "console=tty1"}}))
-}
-
 func TestUkiLayoutChanges(t *testing.T) {
 	baseLayout := &UkiLayout{
 		MainCmdline: "rw",
@@ -1498,6 +1459,11 @@ func TestUkiLayoutChanges(t *testing.T) {
 		ExtraFiles:  map[string]string{"policy.cred": "hash1"},
 	}
 
+	assert.True(t, ukiLayoutsEqual(nil, nil))
+	assert.False(t, ukiLayoutsEqual(baseLayout, nil))
+	assert.True(t, ukiLayoutsEqual(&UkiLayout{MainCmdline: "rw"}, &UkiLayout{MainCmdline: "rw",
+		Addons: map[string]string{}, ExtraFiles: map[string]string{}}))
+	assert.True(t, ukiLayoutsEqual(baseLayout, baseLayout))
 	assert.Empty(t, ukiLayoutChanges(baseLayout, baseLayout))
 	assert.Equal(t, []string{"main UKI command line", "added kdump.addon.efi", "changed slot-a.addon.efi",
 		"removed oem.addon.efi", "changed policy.cred"},

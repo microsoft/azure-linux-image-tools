@@ -1086,9 +1086,7 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 	return mergeUkiCmdlineParts(mainUkiCmdline, addonCmdlines)
 }
 
-// extractUkiCmdlineParts extracts the .cmdline section of a UKI (may be empty if using addon architecture) and of
-// each addon in its <uki-file>.extra.d/ directory, keyed by addon file name. The addon command lines are trimmed; the
-// main UKI's is returned as found.
+// extractUkiCmdlineParts returns the main UKI's .cmdline as found and each addon's .cmdline, trimmed, by file name.
 func extractUkiCmdlineParts(ukiFile string, buildDir string) (string, map[string]string, error) {
 	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
 	if err != nil {

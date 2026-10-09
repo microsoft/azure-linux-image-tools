@@ -51,12 +51,10 @@ type aclBaseArg struct {
 	used   bool
 }
 
-// aclGetUkiLayout splits the command line of an ACL UKI the way the base image's UKI did: an argument identical to a
-// base argument stays where that argument was, an argument that changes the value of a base argument takes its
-// place, and a new argument goes into the main UKI, where the UKI's signature covers it. A new argument with the name
-// of an addon's argument goes after it instead, at the end of the last file that has that name, so that it still
-// overrides the base value. aclFirstBootArg always goes into the transient firstboot.addon.efi. An addon left with no
-// arguments is dropped. The other files of the base image's addon directory are kept.
+// aclGetUkiLayout splits the command line of an ACL UKI the way the base image's UKI did: an argument stays in the file
+// it came from, a changed value takes the old one's place, and a new argument goes into the main UKI, or after the last
+// same-named addon argument so that it still overrides it. aclFirstBootArg goes into firstboot.addon.efi, and an addon
+// left with no arguments is dropped.
 func aclGetUkiLayout(cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
 	args, err := aclParseCmdlineArgs(cmdline)
 	if err != nil {
@@ -209,8 +207,7 @@ func aclParseCmdlineArgs(cmdline string) ([]grubConfigLinuxArg, error) {
 
 	for _, arg := range args {
 		if arg.ValueHasVarExpansion {
-			// The parsed form of an arg with a variable expansion is truncated at the expansion, so the arg cannot
-			// be rewritten faithfully.
+			// The parsed arg is truncated at a variable expansion, so it can't be rewritten.
 			return nil, fmt.Errorf("kernel command-line arg (%s) contains a variable expansion", arg.Arg)
 		}
 	}
@@ -218,10 +215,9 @@ func aclParseCmdlineArgs(cmdline string) ([]grubConfigLinuxArg, error) {
 	return args, nil
 }
 
-// aclUpdateSlotAddonTemplates gives the rebuilt UKIs' /usr root hash to the addon templates that carry a root hash:
-// the A/B slot addons, which Trident copies into the UKI's addon directory when it switches slots. A template with a
-// same-named addon in the UKI's addon directory gets that addon's bytes, so that both copies stay identical; any other
-// template is rebuilt with the new root hash. Templates without a root hash are left alone.
+// aclUpdateSlotAddonTemplates gives the rebuilt UKIs' /usr root hash to the addon templates that carry one: the A/B
+// slot addons, which Trident copies into a UKI's addon directory to switch slots. The active slot's template becomes a
+// copy of its rebuilt addon.
 func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
 	buildDir string,
 ) error {
@@ -317,9 +313,8 @@ func aclUpdateSlotAddonTemplate(espDir string, templatePath string, usrHash stri
 	return nil
 }
 
-// aclPlanSlotAddonTemplate decides how an addon template that carries a root hash gets usrHash: from the same-named
-// addons of the rebuilt UKIs (copyActiveAddon), whose command lines must all be the template's with the new root hash,
-// or by rebuilding it with newCmdline (rebuild) when no UKI has that addon and the root hash changed.
+// aclPlanSlotAddonTemplate decides how a slot addon template gets usrHash: copied from the rebuilt UKIs' same-named
+// addons, which must match it apart from the root hash, or rebuilt with newCmdline if no UKI has that addon.
 func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []string, usrHash string,
 ) (newCmdline string, copyActiveAddon bool, rebuild bool, err error) {
 	if usrHash == "" {
@@ -333,9 +328,8 @@ func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []stri
 
 	for _, activeAddonCmdline := range activeAddonCmdlines {
 		if activeAddonCmdline != newCmdline {
-			return "", false, false, fmt.Errorf("rebuilt A/B slot addon differs from its template in more than "+
-				"the root hash; customization can't change the args of a slot addon (addon='%s', template='%s')",
-				activeAddonCmdline, newCmdline)
+			return "", false, false, fmt.Errorf("A/B slot addon args can't change apart from the root hash "+
+				"(addon='%s', template='%s')", activeAddonCmdline, newCmdline)
 		}
 	}
 

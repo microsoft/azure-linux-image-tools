@@ -250,8 +250,8 @@ func (d *aclDistroHandler) PreservesUkiLayout() bool {
 func (d *aclDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
 	if baseLayout != nil {
 		if _, found := baseLayout.Addons[ukiAddonFileName(kernel)]; found {
-			logger.Log.Infof("Base image's UKI has the addon (%s) of an earlier Image Customizer version; "+
-				"its args stay in that addon", ukiAddonFileName(kernel))
+			logger.Log.Infof("Keeping the UKI addon of an earlier Image Customizer version (%s)",
+				ukiAddonFileName(kernel))
 		}
 	}
 
