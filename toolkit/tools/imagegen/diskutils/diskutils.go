@@ -852,6 +852,18 @@ func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
 	return output.PartitionTable, nil
 }
 
+// ReadFileSystemType reads the filesystem type of a block device directly from disk. Returns an
+// empty string when the device holds no recognized filesystem.
+func ReadFileSystemType(devPath string) (string, error) {
+	stdout, _, err := shell.Execute("flock", "--timeout", "5", "--shared", devPath,
+		"blkid", "--probe", "-s", "TYPE", "-o", "value", devPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get filesystem type of device (%s):\n%w", devPath, err)
+	}
+
+	return strings.TrimSpace(stdout), nil
+}
+
 func createExtendedPartition(diskDevPath string, partitionTableType configuration.PartitionTableType,
 	partitions []configuration.Partition, partIDToFsTypeMap, partDevPathMap map[string]string,
 ) (err error) {
