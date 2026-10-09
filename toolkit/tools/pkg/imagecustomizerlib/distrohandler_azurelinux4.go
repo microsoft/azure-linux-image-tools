@@ -251,8 +251,19 @@ func (d *azureLinux4DistroHandler) ExtractUkiAddonCmdline(addonFilePath string, 
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *azureLinux4DistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *azureLinux4DistroHandler) PreservesUkiLayout() bool {
+	return false
+}
+
+func (d *azureLinux4DistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout,
+) (UkiLayout, error) {
+	return defaultGetUkiLayout(kernel, cmdline)
+}
+
+func (d *azureLinux4DistroHandler) FinalizeUkis(espDir string, addonStubPath string,
+	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
 }
 
 func (d *azureLinux4DistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

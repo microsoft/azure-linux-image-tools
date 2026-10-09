@@ -381,11 +381,8 @@ func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
 
 	// Append args to each kernel's cmdline
 	for kernel, info := range kernelInfo {
-		updatedCmdline := strings.TrimSpace(info.Cmdline) + " " + args
-		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
-		}
+		info.Cmdline = strings.TrimSpace(info.Cmdline) + " " + args
+		kernelInfo[kernel] = info
 	}
 
 	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
@@ -437,13 +434,9 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 		// Append new args
 		argStrings = append(argStrings, newArgs...)
 
-		updatedCmdline := GrubArgsToString(argStrings)
-
 		// Update kernel info
-		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
-		}
+		info.Cmdline = GrubArgsToString(argStrings)
+		kernelInfo[kernel] = info
 	}
 
 	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
