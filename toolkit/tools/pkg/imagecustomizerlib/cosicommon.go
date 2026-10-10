@@ -218,7 +218,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				// find it and attach its metadata too. If the signature is not
 				// partition-backed (e.g. it is a file path), there is nothing to
 				// attach here.
-				sigPartition, found := resolveVeritySignaturePartition(verity.hashSignaturePath, partitions)
+				sigPartition, found, err := resolveVeritySignaturePartition(verity.hashSignaturePath, partitions)
+				if err != nil {
+					return fmt.Errorf("failed to resolve verity signature partition:\n%w", err)
+				}
 				if found {
 					sigPartitionImageFile, exists := partitionImageFiles[sigPartition.PartitionNum]
 					if !exists {
@@ -349,12 +352,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 // `/dev/disk/by-partlabel/<id>` paths. Any other absolute path is assumed to
 // be a plain signature file (e.g. embedded under /boot), and a `base64:`
 // value is obviously not partition-backed either; both cases return
-// (nil, false).
+// the zero metadata value, false, and no error. A recognized partition path
+// that cannot be resolved returns an error.
 func resolveVeritySignaturePartition(signaturePath string, partitions []outputPartitionMetadata,
-) (outputPartitionMetadata, bool) {
+) (outputPartitionMetadata, bool, error) {
 	idType, id, ok := parseVerityDiskByPath(signaturePath)
 	if !ok {
-		return outputPartitionMetadata{}, false
+		return outputPartitionMetadata{}, false, nil
 	}
 
 	for _, partition := range partitions {
@@ -369,11 +373,11 @@ func resolveVeritySignaturePartition(signaturePath string, partitions []outputPa
 		}
 
 		if matches {
-			return partition, true
+			return partition, true, nil
 		}
 	}
 
-	return outputPartitionMetadata{}, false
+	return outputPartitionMetadata{}, false, fmt.Errorf("signature partition not found for path %q", signaturePath)
 }
 
 // parseVerityDiskByPath recognizes the static `/dev/disk/by-uuid/<id>`,
