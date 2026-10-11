@@ -406,6 +406,14 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 
 	// Update each kernel's cmdline
 	for kernel, info := range kernelInfo {
+		// Modify mode only rebuilds <kernel>.addon.efi, which can override the other files' args but not remove them.
+		if b.ukiMode == imagecustomizerapi.UkiModeModify && info.BaseLayout != nil {
+			err := checkUkiArgsRemovable(kernel, *info.BaseLayout, argsToRemove, newArgs)
+			if err != nil {
+				return err
+			}
+		}
+
 		currentCmdline := strings.TrimSpace(info.Cmdline)
 		tokens, err := grub.TokenizeConfig(currentCmdline)
 		if err != nil {

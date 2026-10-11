@@ -253,9 +253,7 @@ func (d *azureLinux4DistroHandler) FinalizeUkis(espDir string, addonStubPath str
 	return nil
 }
 
-func (d *azureLinux4DistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
-	buildDir string,
-) error {
+func (d *azureLinux4DistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
 	return nil
 }
 

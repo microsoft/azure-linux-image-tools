@@ -67,7 +67,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -82,7 +82,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums, nil)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums)
 }
 
 func TestCustomizeImageUkiCreateNoBootloaderReset(t *testing.T) {
@@ -229,7 +229,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	}
 
 	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
-		[]string{"systemd.log_level=debug"}, nil, nil)
+		[]string{"systemd.log_level=debug"}, nil)
 	if !ok {
 		return
 	}
@@ -246,7 +246,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	}
 
 	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.debug"}, []string{"rd.info"}, nil, nil)
+		[]string{"rd.debug"}, []string{"rd.info"}, nil)
 	if !ok {
 		return
 	}
@@ -289,7 +289,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		return
 	}
 
-	ukiFilesChecksums0, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums0, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -304,7 +304,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
-		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -335,7 +335,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -395,7 +395,7 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -411,7 +411,7 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	}
 
 	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil,
-		ukiFilesChecksums, nil)
+		ukiFilesChecksums)
 	if !ok {
 		return
 	}
@@ -509,7 +509,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 		return
 	}
 
-	ukiFilesChecksums1, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums1, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -525,7 +525,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -621,7 +621,7 @@ func verifyUkiCmdline(t *testing.T, buildDir string, imageFilePath string, extra
 }
 
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraCommandLine []string, absentCommandLine []string,
-	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
+	expectedUkiFilesChecksums map[string]string,
 ) (map[string]string, map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
@@ -754,10 +754,6 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraComma
 	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
 	if addonFilesChecksums == nil {
 		return nil, nil, false
-	}
-
-	if expectedAddonFilesChecksums != nil {
-		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
 	}
 
 	err = imageConnection.CleanClose()
@@ -1347,8 +1343,7 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	}, kernelInfo)
 }
 
-// TestModifyUkiAddon verifies that modify mode starts with an empty command line for a UKI without an addon of its
-// own, and adds the addon only when there are args for it.
+// TestModifyUkiAddon verifies that modify mode adds an addon to a UKI without one only when there are args for it.
 func TestModifyUkiAddon(t *testing.T) {
 	_, addonStubPath := checkSkipForUkiStubs(t)
 
@@ -1357,10 +1352,6 @@ func TestModifyUkiAddon(t *testing.T) {
 	ukiFile := filepath.Join(t.TempDir(), kernel+".efi")
 	addonPath := filepath.Join(ukiFile+".extra.d", ukiAddonFileName(kernel))
 
-	cmdline, err := extractUkiAddonCmdline(addonPath, buildDir)
-	assert.NoError(t, err)
-	assert.Equal(t, "", cmdline)
-
 	assert.NoError(t, modifyUkiAddon(ukiFile, map[string]UkiKernelInfo{kernel: {}}, addonStubPath))
 	exists, err := file.PathExists(addonPath)
 	assert.NoError(t, err)
@@ -1368,9 +1359,68 @@ func TestModifyUkiAddon(t *testing.T) {
 
 	assert.NoError(t, modifyUkiAddon(ukiFile, map[string]UkiKernelInfo{kernel: {Cmdline: "console=ttyS1"}},
 		addonStubPath))
-	cmdline, err = extractUkiAddonCmdline(addonPath, buildDir)
+	cmdline, err := extractCmdlineFromSinglePE(addonPath, buildDir)
 	assert.NoError(t, err)
 	assert.Equal(t, "console=ttyS1", cmdline)
+}
+
+// TestUpdateUkiCmdlineFileInModifyMode verifies that modify mode fails rather than leave an arg it should remove in the
+// main UKI or another addon, which it doesn't rebuild.
+func TestUpdateUkiCmdlineFileInModifyMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		baseLayout  UkiLayout
+		newArgs     []string
+		expectedErr string
+	}{
+		{
+			name:        "an arg in the main UKI that no new arg overrides",
+			baseLayout:  UkiLayout{MainCmdline: "root=/dev/sda security=selinux selinux=1 enforcing=1"},
+			newArgs:     []string{"security=selinux", "selinux=1"},
+			expectedErr: "(arg='enforcing=1', file='main UKI')",
+		},
+		{
+			name:       "new args override the main UKI's",
+			baseLayout: UkiLayout{MainCmdline: "root=/dev/sda security=selinux selinux=1 enforcing=1"},
+			newArgs:    []string{"security=selinux", "selinux=1", "enforcing=1"},
+		},
+		{
+			name: "args in the UKI's own addon are removed",
+			baseLayout: UkiLayout{
+				Addons: map[string]string{"vmlinuz-1.addon.efi": "root=/dev/sda security=selinux selinux=1 enforcing=1"},
+			},
+			newArgs: []string{"security=selinux", "selinux=1"},
+		},
+		{
+			name: "an arg in another addon that no new arg overrides",
+			baseLayout: UkiLayout{
+				MainCmdline: "root=/dev/sda",
+				Addons:      map[string]string{"debug.addon.efi": "enforcing=0"},
+			},
+			newArgs:     []string{"security=selinux", "selinux=1"},
+			expectedErr: "(arg='enforcing=0', file='debug.addon.efi')",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ukiKernelInfoPath := filepath.Join(t.TempDir(), UkiKernelInfoJson)
+			err := writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
+				"vmlinuz-1": {Cmdline: tt.baseLayout.Addons["vmlinuz-1.addon.efi"], BaseLayout: &tt.baseLayout},
+			})
+			require.NoError(t, err)
+
+			b := &BootCustomizer{ukiMode: imagecustomizerapi.UkiModeModify, ukiKernelInfoPath: ukiKernelInfoPath}
+			err = b.updateUkiCmdlineFile(selinuxArgNames, tt.newArgs)
+			if tt.expectedErr != "" {
+				assert.ErrorIs(t, err, ErrUKIModifyArgKept)
+				assert.ErrorContains(t, err, tt.expectedErr)
+				return
+			}
+
+			assert.NoError(t, err)
+		})
+	}
 }
 
 // checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available. It returns

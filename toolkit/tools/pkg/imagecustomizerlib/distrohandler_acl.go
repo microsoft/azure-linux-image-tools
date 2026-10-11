@@ -235,10 +235,8 @@ func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, ker
 }
 
 // ValidateUkiModify rejects a new /usr root hash on an A/B image, whose A/B slot addon holds it.
-func (d *aclDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
-	buildDir string,
-) error {
-	return aclValidateUkiModify(espDir, kernelInfo, buildDir)
+func (d *aclDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
+	return aclValidateUkiModify(kernelInfo)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

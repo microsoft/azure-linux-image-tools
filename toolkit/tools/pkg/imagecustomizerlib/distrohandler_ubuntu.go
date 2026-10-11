@@ -219,9 +219,7 @@ func (d *ubuntuDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	return nil
 }
 
-func (d *ubuntuDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
-	buildDir string,
-) error {
+func (d *ubuntuDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
 	return nil
 }
 

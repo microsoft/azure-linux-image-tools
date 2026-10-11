@@ -155,9 +155,25 @@ func TestAclPlanSlotAddonTemplate(t *testing.T) {
 	}
 }
 
+func TestAclValidateUkiModify(t *testing.T) {
+	abLayout := UkiLayout{
+		MainCmdline: testAclAbMainCmdline,
+		Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline, "slot-a.addon.efi": testAclSlotACmdline},
+	}
+	layout := UkiLayout{MainCmdline: testAclMainCmdline, Addons: map[string]string{"oem.addon.efi": testAclOemCmdline}}
+	verityCmdline := "rd.systemd.verity=1 usrhash=newhash"
+
+	assert.ErrorIs(t, aclValidateUkiModify(map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: verityCmdline, BaseLayout: &abLayout},
+	}), ErrAclUkiModifyRootHash)
+	assert.NoError(t, aclValidateUkiModify(map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "console=ttyS1", BaseLayout: &abLayout},
+		"vmlinuz-2": {Cmdline: verityCmdline, BaseLayout: &layout},
+	}))
+}
+
 // TestAclRebuildUkiOnEsp builds a stock ACL ESP with ukify and runs the create-mode steps that keep its layout: record
-// the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates. It also
-// checks that modify mode can't put a new root hash into the UKI's own addon, which would override the slot addon.
+// the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates.
 func TestAclRebuildUkiOnEsp(t *testing.T) {
 	stubPath, addonStubPath := checkSkipForUkiStubs(t)
 
@@ -222,15 +238,6 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	assert.ErrorContains(t, err, "changes='added kdump.addon.efi'")
 	require.NoError(t, os.Remove(kdumpAddonPath))
 
-	distroHandler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
-	err = distroHandler.ValidateUkiModify(espDir, map[string]UkiKernelInfo{
-		kernel: {Cmdline: "rd.systemd.verity=1 usrhash=newhash"},
-	}, buildDir)
-	assert.ErrorIs(t, err, ErrAclUkiModifyRootHash)
-	assert.NoError(t, distroHandler.ValidateUkiModify(espDir, map[string]UkiKernelInfo{
-		kernel: {Cmdline: "console=ttyS1"},
-	}, buildDir))
-
 	// Rebuild the UKI with a new root hash, the way storage.reinitializeVerity does.
 	kernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 	require.NoError(t, writeUkiKernelInfoFile(kernelInfoPath, kernelInfo))
@@ -242,6 +249,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 
 	info := kernelInfo[kernel]
 	info.Initramfs = "initramfs.img"
+	distroHandler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
 	require.NoError(t, cleanUkiDirectory(filepath.Dir(ukiFile)))
 	require.NoError(t, buildUki(kernel, info, osReleasePath, stubPath, addonStubPath, buildDir, espDir))
 	require.NoError(t, distroHandler.FinalizeUkis(espDir, addonStubPath, kernelInfo, buildDir))

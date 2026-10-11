@@ -49,6 +49,8 @@ var (
 		"failed to split kernel command line across the UKI and its addons")
 	ErrUKIAmbiguousArg = NewImageCustomizerError("UKI:AmbiguousArg",
 		"changed kernel command-line arg is in more than one file of the base image's UKI")
+	ErrUKIModifyArgKept = NewImageCustomizerError("UKI:ModifyArgKept",
+		"UKI modify mode can't remove a kernel arg that the main UKI or another addon holds: use 'mode: create'")
 )
 
 const (
@@ -139,22 +141,8 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 	return nil
 }
 
-// extractUkiAddonCmdline returns the kernel command line of the IC-managed UKI addon, or "" if the UKI has none yet.
-func extractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	exists, err := file.PathExists(addonFilePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to check for addon file (%s):\n%w", addonFilePath, err)
-	}
-
-	if !exists {
-		logger.Log.Infof("No UKI addon at (%s): starting with an empty kernel command line", addonFilePath)
-		return "", nil
-	}
-
-	return extractCmdlineFromSinglePE(addonFilePath, buildDir)
-}
-
-// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
+// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json,
+// with each UKI's layout. A UKI without an addon of its own (<kernel>.addon.efi) starts with an empty cmdline.
 func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	ukiFiles, err := getUkiFiles(espDir)
@@ -171,18 +159,22 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	for _, ukiFile := range ukiFiles {
 		ukiFileName := filepath.Base(ukiFile)
 		kernelName := strings.TrimSuffix(ukiFileName, ".efi")
-		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
-		addonFilePath := filepath.Join(addonDirPath, ukiAddonFileName(kernelName))
 
-		cmdline, err := extractUkiAddonCmdline(addonFilePath, buildDir)
+		layout, err := readUkiLayout(ukiFile, buildDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
+		}
+
+		cmdline, found := layout.Addons[ukiAddonFileName(kernelName)]
+		if !found {
+			logger.Log.Infof("UKI (%s) has no addon of its own: starting with an empty kernel cmdline", ukiFileName)
 		}
 
 		// In modify mode, we don't have initramfs info, so leave it empty
 		kernelInfo[kernelName] = UkiKernelInfo{
-			Cmdline:   cmdline,
-			Initramfs: "", // Empty for modify mode
+			Cmdline:    cmdline,
+			Initramfs:  "", // Empty for modify mode
+			BaseLayout: &layout,
 		}
 
 		logger.Log.Debugf("Extracted cmdline from UKI (%s): %s", ukiFileName, cmdline)
@@ -196,6 +188,38 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	}
 
 	logger.Log.Debugf("Extracted and saved UKI cmdlines to: %s", ukiKernelInfoPath)
+	return nil
+}
+
+// checkUkiArgsRemovable returns an error if an arg named in argsToRemove is in the main UKI or an addon other than
+// <kernel>.addon.efi, which modify mode doesn't rebuild, and no arg of newArgs has that name to override it.
+func checkUkiArgsRemovable(kernel string, baseLayout UkiLayout, argsToRemove []string, newArgs []string) error {
+	overridden := map[string]bool{}
+	for _, newArg := range newArgs {
+		name, _, _ := strings.Cut(newArg, "=")
+		overridden[name] = true
+	}
+
+	fileCmdlines := map[string]string{"main UKI": baseLayout.MainCmdline}
+	for addon, addonCmdline := range baseLayout.Addons {
+		if addon != ukiAddonFileName(kernel) {
+			fileCmdlines[addon] = addonCmdline
+		}
+	}
+
+	for _, fileName := range slices.Sorted(maps.Keys(fileCmdlines)) {
+		args, err := parseKernelCmdlineArgs(fileCmdlines[fileName])
+		if err != nil {
+			return fmt.Errorf("failed to parse the kernel cmdline of (%s):\n%w", fileName, err)
+		}
+
+		for _, arg := range args {
+			if slices.Contains(argsToRemove, arg.Name) && !overridden[arg.Name] {
+				return fmt.Errorf("%w (arg='%s', file='%s')", ErrUKIModifyArgKept, arg.Arg, fileName)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -641,7 +665,7 @@ func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig, distroHandle
 		return fmt.Errorf("failed to read UKI kernel info:\n%w", err)
 	}
 
-	err = distroHandler.ValidateUkiModify(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
+	err = distroHandler.ValidateUkiModify(kernelInfo)
 	if err != nil {
 		return err
 	}

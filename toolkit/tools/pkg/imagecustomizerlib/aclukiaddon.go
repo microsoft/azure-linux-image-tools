@@ -159,35 +159,30 @@ func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []stri
 
 // aclValidateUkiModify returns an error if modify mode would put a /usr root hash into a UKI's own addon while another
 // of its addons holds one: the A/B slot addon, which the UKI's own addon would override even after Trident swaps it.
-func aclValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo, buildDir string) error {
+func aclValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
 	for _, kernel := range slices.Sorted(maps.Keys(kernelInfo)) {
-		usrHash, err := aclGetArgValue(kernelInfo[kernel].Cmdline, aclUsrHashArgName)
+		info := kernelInfo[kernel]
+		usrHash, err := aclGetArgValue(info.Cmdline, aclUsrHashArgName)
 		if err != nil {
 			return fmt.Errorf("failed to read the root hash of kernel (%s):\n%w", kernel, err)
 		}
 
-		if usrHash == "" {
+		if usrHash == "" || info.BaseLayout == nil {
 			continue
 		}
 
-		ukiFile := filepath.Join(espDir, UkiOutputDir, kernel+".efi")
-		_, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
-		if err != nil {
-			return err
-		}
-
-		for _, addon := range slices.Sorted(maps.Keys(addonCmdlines)) {
+		for _, addon := range slices.Sorted(maps.Keys(info.BaseLayout.Addons)) {
 			if addon == ukiAddonFileName(kernel) {
 				continue
 			}
 
-			addonUsrHash, err := aclGetArgValue(addonCmdlines[addon], aclUsrHashArgName)
+			addonUsrHash, err := aclGetArgValue(info.BaseLayout.Addons[addon], aclUsrHashArgName)
 			if err != nil {
 				return fmt.Errorf("failed to read the root hash of addon (%s):\n%w", addon, err)
 			}
 
 			if addonUsrHash != "" {
-				return fmt.Errorf("%w (uki='%s', addon='%s')", ErrAclUkiModifyRootHash, ukiFile, addon)
+				return fmt.Errorf("%w (kernel='%s', addon='%s')", ErrAclUkiModifyRootHash, kernel, addon)
 			}
 		}
 	}

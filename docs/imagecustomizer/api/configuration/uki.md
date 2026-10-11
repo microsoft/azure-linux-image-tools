@@ -67,8 +67,8 @@ Supported values:
   command-line arguments. The main UKI file (kernel, initramfs, os-release, systemd-stub, kernel command line) and the
   other addons remain unchanged. If the UKI has no such addon, one is created with just the new arguments.
   systemd-stub appends the addon's command line to the main UKI's, so an argument in the addon overrides the main
-  UKI's value, but the main UKI's arguments can't be removed. For example, `selinux.mode` can't change from
-  `force-enforcing`, since `enforcing=1` stays.
+  UKI's value. A change that would remove an argument of the main UKI or another addon fails instead, such as
+  `selinux.mode` from `force-enforcing` to `enforcing`, which drops `enforcing=1`; use `create` mode for it.
 
   **Restrictions for modify mode:**
   - Kernel and initramfs cannot be modified (package updates that change kernel/initramfs are not allowed)

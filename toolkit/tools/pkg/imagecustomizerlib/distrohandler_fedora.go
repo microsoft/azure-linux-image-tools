@@ -261,9 +261,7 @@ func (d *fedoraDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	return nil
 }
 
-func (d *fedoraDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
-	buildDir string,
-) error {
+func (d *fedoraDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
 	return nil
 }
 
