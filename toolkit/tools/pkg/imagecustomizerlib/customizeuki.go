@@ -45,6 +45,10 @@ var (
 	ErrUKICleanBootDir                = NewImageCustomizerError("UKI:CleanBootDir", "failed to clean /boot directory")
 	ErrUKIAddonDirChanged             = NewImageCustomizerError("UKI:AddonDirChanged",
 		"UKI or its addon directory changed during customization, but create mode rebuilds them from the base image")
+	ErrUKISplitCmdline = NewImageCustomizerError("UKI:SplitCmdline",
+		"failed to split kernel command line across the UKI and its addons")
+	ErrUKIAmbiguousArg = NewImageCustomizerError("UKI:AmbiguousArg",
+		"changed kernel command-line arg is in more than one file of the base image's UKI")
 )
 
 const (
@@ -53,9 +57,6 @@ const (
 	UkiKernelInfoJson = "uki-kernel-info.json"
 	UkiBuildDir       = "UkiBuildDir"
 	UkiOutputDir      = "EFI/Linux"
-
-	// Copies of the base image's non-addon files in UKI addon directories, under UkiBuildDir.
-	ukiExtraFilesDir = "extra-files"
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
@@ -65,18 +66,8 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 type UkiKernelInfo struct {
 	Cmdline   string `json:"cmdline"`
 	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
-	// Optional: the base image's UKI layout, for distros that keep it.
+	// Optional: the base image's UKI layout.
 	BaseLayout *UkiLayout `json:"baseLayout,omitempty"`
-}
-
-// UkiLayout describes how a UKI's kernel command line is split across the main UKI and the addons in its
-// <uki>.efi.extra.d/ directory, and which other files that directory holds.
-type UkiLayout struct {
-	MainCmdline string `json:"mainCmdline,omitempty"`
-	// Addon file name -> addon command line.
-	Addons map[string]string `json:"addons,omitempty"`
-	// Name of another file in the addon directory (e.g. a credential) -> SHA-256 of its copy in the build dir.
-	ExtraFiles map[string]string `json:"extraFiles,omitempty"`
 }
 
 // ukiAddonFileName returns the name of the IC-managed cmdline addon for a kernel.
@@ -93,33 +84,6 @@ func baseImageHasUkis(imageChroot *safechroot.Chroot, distroHandler DistroHandle
 	return len(ukiFiles) > 0, nil
 }
 
-func baseImageHasUkiAddons(espPath string) (bool, error) {
-	ukiFiles, err := getUkiFiles(espPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to get UKI files:\n%w", err)
-	}
-
-	if len(ukiFiles) == 0 {
-		return false, nil
-	}
-
-	// Check if at least one UKI has an addon directory
-	for _, ukiFile := range ukiFiles {
-		ukiFileName := filepath.Base(ukiFile)
-		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
-
-		if entries, err := os.ReadDir(addonDirPath); err == nil {
-			for _, entry := range entries {
-				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".addon.efi") {
-					return true, nil
-				}
-			}
-		}
-	}
-
-	return false, nil
-}
-
 // validateUkiMode validates the UKI mode against the base image state.
 // os.uki.mode is required whenever os.uki is present, so the mode is always one of the three values below.
 // Rules:
@@ -133,7 +97,7 @@ func baseImageHasUkiAddons(espPath string) (bool, error) {
 //   - os.uki omitted: FAIL (must explicitly specify mode)
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
-//   - mode: modify: Check for addon, modify addon only (preserve main UKI)
+//   - mode: modify: Rebuild <kernel>.addon.efi only (preserve main UKI)
 func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imagecustomizerapi.Uki, distroHandler DistroHandler) error {
 	hasUkis, err := baseImageHasUkis(imageConnection.Chroot(), distroHandler)
 	if err != nil {
@@ -172,42 +136,22 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 			"  - 'modify': modify UKI addons only to append kernel command-line arguments")
 	}
 
-	// For modify mode, validate that base image has UKI addons
-	if uki.Mode == imagecustomizerapi.UkiModeModify {
-		espDir := filepath.Join(imageConnection.Chroot().RootDir(), distroHandler.GetEspDir())
-		hasAddons, err := baseImageHasUkiAddons(espDir)
-		if err != nil {
-			return fmt.Errorf("failed to check for UKI addons:\n%w", err)
-		}
-		if !hasAddons {
-			return fmt.Errorf("base image has UKI without addons (combined architecture) but os.uki.mode is set to 'modify': " +
-				"modify mode requires UKI addon architecture where kernel cmdline is in addon file. " +
-				"Use mode: create to regenerate UKIs with addon architecture")
-		}
-	}
-
 	return nil
 }
 
-// defaultExtractUkiAddonCmdline extracts the cmdline from an IC-managed UKI addon.
-// Returns an error if the addon file does not exist — callers that support a
-// missing addon on first run should implement their own logic instead.
-func defaultExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	_, err := os.Stat(addonFilePath)
-	if os.IsNotExist(err) {
-		return "", fmt.Errorf("IC addon not found at (%s): expected addon file is missing", addonFilePath)
-	}
+// extractUkiAddonCmdline returns the kernel command line of the IC-managed UKI addon, or "" if the UKI has none yet.
+func extractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	exists, err := file.PathExists(addonFilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, err)
+		return "", fmt.Errorf("failed to check for addon file (%s):\n%w", addonFilePath, err)
 	}
-	return extractCmdlineFromSinglePE(addonFilePath, buildDir)
-}
 
-// defaultGetUkiLayout returns the standard layout: a single addon per kernel holding the full command line.
-func defaultGetUkiLayout(kernel string, cmdline string) (UkiLayout, error) {
-	return UkiLayout{
-		Addons: map[string]string{ukiAddonFileName(kernel): cmdline},
-	}, nil
+	if !exists {
+		logger.Log.Infof("No UKI addon at (%s): starting with an empty kernel command line", addonFilePath)
+		return "", nil
+	}
+
+	return extractCmdlineFromSinglePE(addonFilePath, buildDir)
 }
 
 // extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
@@ -230,7 +174,7 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
 		addonFilePath := filepath.Join(addonDirPath, ukiAddonFileName(kernelName))
 
-		cmdline, err := distroHandler.ExtractUkiAddonCmdline(addonFilePath, buildDir)
+		cmdline, err := extractUkiAddonCmdline(addonFilePath, buildDir)
 		if err != nil {
 			return err
 		}
@@ -255,22 +199,15 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 	return nil
 }
 
-// saveUkiBaseCmdlineForCreate extracts the current kernel command-line from each existing UKI
+// saveUkiBaseCmdlineForCreate extracts the current kernel command-line and layout of each existing UKI
 // (main UKI plus addons) and saves them to uki-kernel-info.json. A UKI base image has no
-// grub.cfg, so the cmdline is read directly from the UKIs. For distros that keep the base image's UKI layout, each
-// UKI's layout is saved too.
+// grub.cfg, so the cmdline is read directly from the UKIs.
 func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot,
 	distroHandler DistroHandler,
 ) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
-	var kernelInfo map[string]UkiKernelInfo
-	var err error
-	if distroHandler.PreservesUkiLayout() {
-		kernelInfo, err = readUkiBaseLayouts(espDir, buildDir)
-	} else {
-		kernelInfo, err = readUkiBaseCmdlines(espDir, buildDir)
-	}
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
 	if err != nil {
 		return err
 	}
@@ -282,189 +219,6 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 	}
 
 	return nil
-}
-
-// readUkiBaseCmdlines reads the kernel command line of each UKI.
-func readUkiBaseCmdlines(espDir string, buildDir string) (map[string]UkiKernelInfo, error) {
-	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract base kernel command-line from UKIs:\n%w", err)
-	}
-
-	kernelInfo := make(map[string]UkiKernelInfo, len(kernelToArgs))
-	for kernel, cmdline := range kernelToArgs {
-		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline}
-	}
-
-	return kernelInfo, nil
-}
-
-// readUkiBaseLayouts reads the kernel command line and the layout of each UKI, and saves a copy of the other files in
-// each UKI's addon directory so that they can be put back with the rebuilt UKI.
-func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInfo, error) {
-	ukiFiles, err := getUkiFiles(espDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get UKI files:\n%w", err)
-	}
-
-	kernelInfo := make(map[string]UkiKernelInfo, len(ukiFiles))
-	for _, ukiFile := range ukiFiles {
-		kernel, err := getKernelNameFromUki(ukiFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
-		}
-
-		layout, err := readUkiLayout(ukiFile, buildDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
-		}
-
-		err = saveUkiExtraFiles(ukiFile, layout, buildDir)
-		if err != nil {
-			return nil, err
-		}
-
-		cmdline, err := mergeUkiCmdlineParts(layout.MainCmdline, layout.Addons)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract base kernel command-line from UKI (%s):\n%w", ukiFile, err)
-		}
-
-		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline, BaseLayout: &layout}
-	}
-
-	return kernelInfo, nil
-}
-
-// readUkiLayout reads how a UKI's command line is split across the main UKI and its addons, and the SHA-256 of each
-// other file in its addon directory.
-func readUkiLayout(ukiFile string, buildDir string) (UkiLayout, error) {
-	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
-	if err != nil {
-		return UkiLayout{}, err
-	}
-
-	layout := UkiLayout{MainCmdline: strings.TrimSpace(mainCmdline), Addons: addonCmdlines}
-
-	addonDir := ukiFile + ".extra.d"
-	entries, err := os.ReadDir(addonDir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return layout, nil
-	}
-	if err != nil {
-		return UkiLayout{}, fmt.Errorf("failed to read UKI addon directory (%s):\n%w", addonDir, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".addon.efi") {
-			continue
-		}
-
-		filePath := filepath.Join(addonDir, entry.Name())
-		hash, err := file.GenerateSHA256(filePath)
-		if err != nil {
-			return UkiLayout{}, fmt.Errorf("failed to hash UKI addon directory file (%s):\n%w", filePath, err)
-		}
-
-		if layout.ExtraFiles == nil {
-			layout.ExtraFiles = map[string]string{}
-		}
-		layout.ExtraFiles[entry.Name()] = hash
-	}
-
-	return layout, nil
-}
-
-// saveUkiExtraFiles copies the other files of a UKI's addon directory into the build dir, named by their SHA-256.
-func saveUkiExtraFiles(ukiFile string, layout UkiLayout, buildDir string) error {
-	savedDir := filepath.Join(buildDir, UkiBuildDir, ukiExtraFilesDir)
-	for _, fileName := range slices.Sorted(maps.Keys(layout.ExtraFiles)) {
-		err := os.MkdirAll(savedDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create directory (%s):\n%w", savedDir, err)
-		}
-
-		filePath := filepath.Join(ukiFile+".extra.d", fileName)
-		err = file.Copy(filePath, filepath.Join(savedDir, layout.ExtraFiles[fileName]))
-		if err != nil {
-			return fmt.Errorf("failed to save UKI addon directory file (%s):\n%w", filePath, err)
-		}
-	}
-
-	return nil
-}
-
-// checkUkiLayoutsUnchanged returns an error if the command line or the addon directory of a base UKI changed since its
-// layout was recorded.
-func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo, buildDir string) error {
-	for _, kernel := range slices.Sorted(maps.Keys(kernelInfo)) {
-		info := kernelInfo[kernel]
-		ukiFile := filepath.Join(espDir, UkiOutputDir, kernel+".efi")
-		exists, err := file.PathExists(ukiFile)
-		if err != nil {
-			return fmt.Errorf("failed to check for UKI file (%s):\n%w", ukiFile, err)
-		}
-
-		// A kernel installed during customization has no UKI of its own yet.
-		if info.BaseLayout == nil || !exists {
-			continue
-		}
-
-		layout, err := readUkiLayout(ukiFile, buildDir)
-		if err != nil {
-			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
-		}
-
-		changes := ukiLayoutChanges(info.BaseLayout, &layout)
-		if len(changes) > 0 {
-			return fmt.Errorf("%w (uki='%s', changes='%s')", ErrUKIAddonDirChanged, ukiFile,
-				strings.Join(changes, ", "))
-		}
-	}
-
-	return nil
-}
-
-// ukiLayoutsEqual reports whether two layouts are the same; a nil map equals an empty one.
-func ukiLayoutsEqual(a *UkiLayout, b *UkiLayout) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-
-	return len(ukiLayoutChanges(a, b)) == 0
-}
-
-// ukiLayoutChanges lists what differs between a UKI layout and its base.
-func ukiLayoutChanges(base *UkiLayout, layout *UkiLayout) []string {
-	changes := []string(nil)
-	if layout.MainCmdline != base.MainCmdline {
-		changes = append(changes, "main UKI command line")
-	}
-
-	changes = append(changes, ukiFileChanges(base.Addons, layout.Addons)...)
-	changes = append(changes, ukiFileChanges(base.ExtraFiles, layout.ExtraFiles)...)
-	return changes
-}
-
-// ukiFileChanges lists the files added, removed or changed between two maps of file name to content.
-func ukiFileChanges(base map[string]string, files map[string]string) []string {
-	changes := []string(nil)
-	for _, name := range slices.Sorted(maps.Keys(files)) {
-		baseContent, found := base[name]
-		switch {
-		case !found:
-			changes = append(changes, "added "+name)
-		case baseContent != files[name]:
-			changes = append(changes, "changed "+name)
-		}
-	}
-
-	for _, name := range slices.Sorted(maps.Keys(base)) {
-		if _, found := files[name]; !found {
-			changes = append(changes, "removed "+name)
-		}
-	}
-
-	return changes
 }
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
@@ -617,12 +371,10 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			cmdline = fallbackArgs
 
 			// The kernel inherits the base UKI layout along with the command line.
-			if distroHandler.PreservesUkiLayout() {
-				baseLayout, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
-				if err != nil {
-					return fmt.Errorf("no UKI found for kernel (%s) and cannot determine the UKI layout to "+
-						"inherit:\n%w", kernel, err)
-				}
+			baseLayout, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
+			if err != nil {
+				return fmt.Errorf("no UKI found for kernel (%s) and cannot determine the UKI layout to inherit:\n%w",
+					kernel, err)
 			}
 
 			cmdlineSource = "fallback"
@@ -689,47 +441,6 @@ func getFallbackKernelArgs(existingUkiCmdlines map[string]string, grubKernelToAr
 			strings.Join(cmdlines, " | "))
 	}
 	return cmdlines[0], nil
-}
-
-// getFallbackUkiLayout returns the layout that a kernel with no UKI of its own inherits: the one the existing UKIs
-// share, with <kernel>.addon.efi renamed. Like getFallbackKernelArgs, it fails if they disagree. Nil if none.
-func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, error) {
-	var fallback *UkiLayout
-	found := false
-	for existingKernel, info := range existingUkiKernelInfo {
-		var layout *UkiLayout
-		if info.BaseLayout != nil {
-			renamed := renameUkiLayoutAddon(*info.BaseLayout, ukiAddonFileName(existingKernel),
-				ukiAddonFileName(kernel))
-			layout = &renamed
-		}
-
-		if !found {
-			fallback = layout
-			found = true
-			continue
-		}
-
-		if !ukiLayoutsEqual(fallback, layout) {
-			return nil, fmt.Errorf("cannot pick a fallback UKI layout: kernels have divergent UKI layouts")
-		}
-	}
-
-	return fallback, nil
-}
-
-// renameUkiLayoutAddon returns a copy of the layout with the addon oldName renamed to newName.
-func renameUkiLayoutAddon(layout UkiLayout, oldName string, newName string) UkiLayout {
-	cmdline, ok := layout.Addons[oldName]
-	if !ok || oldName == newName {
-		return layout
-	}
-
-	addons := maps.Clone(layout.Addons)
-	delete(addons, oldName)
-	addons[newName] = cmdline
-	layout.Addons = addons
-	return layout
 }
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
@@ -924,9 +635,20 @@ func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig, distroHandle
 
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiAddonStubBinary)
 
+	// Read the final cmdlines from uki-kernel-info.json (already modified by BootCustomizer)
+	kernelInfo, err := readUkiKernelInfoFile(filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson))
+	if err != nil {
+		return fmt.Errorf("failed to read UKI kernel info:\n%w", err)
+	}
+
+	err = distroHandler.ValidateUkiModify(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
+	if err != nil {
+		return err
+	}
+
 	// Process each UKI file - regenerate its addon with updated cmdline
 	for _, ukiFile := range ukiFiles {
-		err := modifyUkiAddon(ukiFile, stubPath, rc)
+		err := modifyUkiAddon(ukiFile, kernelInfo, stubPath)
 		if err != nil {
 			return fmt.Errorf("failed to modify UKI addon for (%s):\n%w", filepath.Base(ukiFile), err)
 		}
@@ -947,18 +669,11 @@ func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig, distroHandle
 
 // modifyUkiAddon regenerates a UKI addon with updated kernel command line arguments.
 // The cmdline has already been modified by BootCustomizer and saved to uki-kernel-info.json.
-func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) error {
+func modifyUkiAddon(ukiFilePath string, kernelInfo map[string]UkiKernelInfo, stubPath string) error {
 	ukiFileName := filepath.Base(ukiFilePath)
 
 	// Extract kernel name from UKI filename (e.g., "vmlinuz-6.6.x.x.efi" -> "vmlinuz-6.6.x.x")
 	kernelName := strings.TrimSuffix(ukiFileName, ".efi")
-
-	// Read the final cmdline from uki-kernel-info.json (already modified by BootCustomizer)
-	ukiKernelInfoPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
-	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
-	if err != nil {
-		return fmt.Errorf("failed to read UKI kernel info:\n%w", err)
-	}
 
 	info, exists := kernelInfo[kernelName]
 	if !exists {
@@ -970,21 +685,20 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFullPath := filepath.Join(addonDirPath, ukiAddonFileName(kernelName))
 
-	err = os.MkdirAll(addonDirPath, os.ModePerm)
+	// The UKI has no addon of its own and no args were added.
+	if modifiedCmdline == "" {
+		logger.Log.Infof("No kernel command-line args for UKI addon (%s); not adding it", addonFullPath)
+		return nil
+	}
+
+	err := os.MkdirAll(addonDirPath, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create addon directory (%s):\n%w", addonDirPath, err)
 	}
 
-	ukifyCmd := []string{
-		"build",
-		fmt.Sprintf("--cmdline=%s", modifiedCmdline),
-		fmt.Sprintf("--stub=%s", stubPath),
-		fmt.Sprintf("--output=%s", addonFullPath),
-	}
-
-	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
+	err = buildUkiAddonFile(addonFullPath, modifiedCmdline, stubPath)
 	if err != nil {
-		return fmt.Errorf("failed to rebuild UKI addon:\n%w", err)
+		return err
 	}
 
 	logger.Log.Infof("Successfully modified UKI addon: (%s)", addonFullPath)
@@ -1055,11 +769,9 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	}
 
 	// The UKIs are rebuilt from their recorded layouts, so later changes would be lost.
-	if distroHandler.PreservesUkiLayout() {
-		err = checkUkiLayoutsUnchanged(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
-		if err != nil {
-			return err
-		}
+	err = checkUkiLayoutsUnchanged(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
+	if err != nil {
+		return err
 	}
 
 	ukiOutputFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
@@ -1075,8 +787,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 
 	for kernel, info := range kernelInfo {
 		err := buildUki(kernel, info, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
-			systemBootPartitionTmpDir, distroHandler,
-		)
+			systemBootPartitionTmpDir)
 		if err != nil {
 			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
 		}
@@ -1200,14 +911,14 @@ func grubKernelArgsToStringMap(kernelToArgs map[string][]grubConfigLinuxArg) map
 }
 
 func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, stubPath string, addonStubPath string,
-	buildDir string, systemBootPartitionTmpDir string, distroHandler DistroHandler,
+	buildDir string, systemBootPartitionTmpDir string,
 ) error {
 	kernelVersion, err := getKernelVersion(kernel)
 	if err != nil {
 		return err
 	}
 
-	layout, err := distroHandler.GetUkiLayout(kernel, info.Cmdline, info.BaseLayout)
+	layout, err := getUkiLayout(info.Cmdline, info.BaseLayout)
 	if err != nil {
 		return fmt.Errorf("failed to get UKI layout:\n%w", err)
 	}
@@ -1236,26 +947,6 @@ func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, st
 		}
 	}
 
-	return nil
-}
-
-// restoreUkiExtraFile copies a file saved by saveUkiExtraFile into a UKI's addon directory.
-func restoreUkiExtraFile(kernel string, fileName string, hash string, buildDir string,
-	systemBootPartitionTmpDir string,
-) error {
-	addonDirPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.efi.extra.d", kernel))
-	err := os.MkdirAll(addonDirPath, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create addon directory (%s):\n%w", addonDirPath, err)
-	}
-
-	filePath := filepath.Join(addonDirPath, fileName)
-	err = file.Copy(filepath.Join(buildDir, UkiBuildDir, ukiExtraFilesDir, hash), filePath)
-	if err != nil {
-		return fmt.Errorf("failed to restore UKI addon directory file (%s):\n%w", filePath, err)
-	}
-
-	logger.Log.Infof("Kept UKI addon directory file: (%s)", filePath)
 	return nil
 }
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 
@@ -228,41 +227,18 @@ func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *saf
 	return newAclEtcOverlay(ctx, imageChroot.RootDir(), reinitializeVerity)
 }
 
-func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	_, statErr := os.Stat(addonFilePath)
-	if statErr == nil {
-		return extractCmdlineFromSinglePE(addonFilePath, buildDir)
-	}
-	if os.IsNotExist(statErr) {
-		// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
-		// Start with empty cmdline; modifyUkiAddon will create the addon.
-		logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
-		return "", nil
-	}
-	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
-}
-
-func (d *aclDistroHandler) PreservesUkiLayout() bool {
-	return true
-}
-
-// GetUkiLayout keeps the base image's UKI layout: each arg stays in the main UKI or the addon it came from.
-func (d *aclDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
-	if baseLayout != nil {
-		if _, found := baseLayout.Addons[ukiAddonFileName(kernel)]; found {
-			logger.Log.Infof("Keeping the UKI addon of an earlier Image Customizer version (%s)",
-				ukiAddonFileName(kernel))
-		}
-	}
-
-	return aclGetUkiLayout(cmdline, baseLayout)
-}
-
 // FinalizeUkis updates the root hash in ACL's A/B slot addon templates.
 func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
 	buildDir string,
 ) error {
 	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
+}
+
+// ValidateUkiModify rejects a new /usr root hash on an A/B image, whose A/B slot addon holds it.
+func (d *aclDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
+) error {
+	return aclValidateUkiModify(espDir, kernelInfo, buildDir)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

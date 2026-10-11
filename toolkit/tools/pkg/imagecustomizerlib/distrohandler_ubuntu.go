@@ -213,21 +213,14 @@ func (d *ubuntuDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *
 	return nil, nil
 }
 
-func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *ubuntuDistroHandler) PreservesUkiLayout() bool {
-	return false
-}
-
-func (d *ubuntuDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout,
-) (UkiLayout, error) {
-	return defaultGetUkiLayout(kernel, cmdline)
-}
-
 func (d *ubuntuDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
+}
+
+func (d *ubuntuDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
 ) error {
 	return nil
 }

@@ -247,21 +247,14 @@ func (d *azureLinux4DistroHandler) SetupEtcOverlay(ctx context.Context, imageChr
 	return nil, nil
 }
 
-func (d *azureLinux4DistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *azureLinux4DistroHandler) PreservesUkiLayout() bool {
-	return false
-}
-
-func (d *azureLinux4DistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout,
-) (UkiLayout, error) {
-	return defaultGetUkiLayout(kernel, cmdline)
-}
-
 func (d *azureLinux4DistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
+}
+
+func (d *azureLinux4DistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
 ) error {
 	return nil
 }

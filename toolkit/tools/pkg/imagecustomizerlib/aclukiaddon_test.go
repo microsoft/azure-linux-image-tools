@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -30,213 +29,6 @@ const (
 		"systemd.verity_usr_options=panic-on-corruption usrhash=oldhash acl.slot=a"
 	testAclOemCmdline = "flatcar.oem.id=azure console=tty1 console=ttyS0,115200n8"
 )
-
-func TestAclGetUkiLayout(t *testing.T) {
-	tests := []struct {
-		name           string
-		cmdline        string
-		baseLayout     *UkiLayout
-		expectedLayout UkiLayout
-		expectedErr    error
-	}{
-		{
-			name: "verity refresh keeps the args of a stock image in the main UKI",
-			// The command line after Image Customizer replaced the verity args.
-			cmdline: "mount.usr=/dev/mapper/usr mount.usrflags=ro root=LABEL=ROOT rootflags=rw consoleblank=0 " +
-				"flatcar.first_boot=detected " + testAclOemCmdline + " rd.systemd.verity=1 usrhash=newhash " +
-				"systemd.verity_usr_data=PARTUUID=a1 systemd.verity_usr_hash=PARTUUID=a1 " +
-				"systemd.verity_usr_options=panic-on-corruption,hash-offset=1065345024",
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclMainCmdline,
-				Addons: map[string]string{
-					"firstboot.addon.efi": "flatcar.first_boot=detected",
-					"oem.addon.efi":       testAclOemCmdline,
-				},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: "mount.usr=/dev/mapper/usr mount.usrflags=ro systemd.verity_usr_data=PARTUUID=a1 " +
-					"systemd.verity_usr_hash=PARTUUID=a1 " +
-					"systemd.verity_usr_options=panic-on-corruption,hash-offset=1065345024 usrhash=newhash " +
-					"root=LABEL=ROOT rootflags=rw consoleblank=0 rd.systemd.verity=1",
-				Addons: map[string]string{
-					"firstboot.addon.efi": "flatcar.first_boot=detected",
-					"oem.addon.efi":       testAclOemCmdline,
-				},
-			},
-		},
-		{
-			name: "verity refresh updates the A/B slot addon, and the IPE token and credential stay",
-			cmdline: testAclAbMainCmdline + " acl.ipe.policy_sha256=abc flatcar.first_boot=detected " +
-				testAclOemCmdline + " acl.slot=a rd.systemd.verity=1 usrhash=newhash " +
-				"systemd.verity_usr_data=PARTUUID=a1 systemd.verity_usr_hash=PARTUUID=a2 " +
-				"systemd.verity_usr_options=panic-on-corruption",
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline + " acl.ipe.policy_sha256=abc",
-				Addons: map[string]string{
-					"firstboot.addon.efi": "flatcar.first_boot=detected",
-					"oem.addon.efi":       testAclOemCmdline,
-					"slot-a.addon.efi":    testAclSlotACmdline,
-				},
-				ExtraFiles: map[string]string{"acl-ipe-policy.p7b.cred": "credhash"},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline + " acl.ipe.policy_sha256=abc rd.systemd.verity=1",
-				Addons: map[string]string{
-					"firstboot.addon.efi": "flatcar.first_boot=detected",
-					"oem.addon.efi":       testAclOemCmdline,
-					"slot-a.addon.efi": "systemd.verity_usr_data=PARTUUID=a1 systemd.verity_usr_hash=PARTUUID=a2 " +
-						"systemd.verity_usr_options=panic-on-corruption usrhash=newhash acl.slot=a",
-				},
-				ExtraFiles: map[string]string{"acl-ipe-policy.p7b.cred": "credhash"},
-			},
-		},
-		{
-			name: "new args go to the main UKI, or after the args of the same name they override",
-			cmdline: testAclAbMainCmdline + " " + testAclOemCmdline +
-				" console=ttyS1 security=selinux selinux=1 rw rootflags=ro",
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline + " security=selinux selinux=1 rw rootflags=ro",
-				Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline + " console=ttyS1"},
-			},
-		},
-		{
-			name:    "only the first-boot arg",
-			cmdline: "flatcar.first_boot=detected",
-			baseLayout: &UkiLayout{
-				Addons: map[string]string{"firstboot.addon.efi": "flatcar.first_boot=detected"},
-			},
-			expectedErr: ErrAclUkiAddonEmptyPersistentCmdline,
-		},
-		{
-			name:    "base addon without a command line",
-			cmdline: testAclAbMainCmdline,
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"devicetree.addon.efi": ""},
-			},
-			expectedErr: ErrAclUkiAddonSplit,
-		},
-		{
-			name:    "changed values stay in order, and addons left empty are dropped",
-			cmdline: testAclAbMainCmdline + " flatcar.oem.id=azure console=tty2 console=ttyS1",
-			baseLayout: &UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons: map[string]string{
-					"debug.addon.efi":     "systemd.log_level=debug",
-					"firstboot.addon.efi": "flatcar.first_boot=detected",
-					"oem.addon.efi":       testAclOemCmdline,
-				},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline,
-				Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure console=tty2 console=ttyS1"},
-			},
-		},
-		{
-			name: "first-boot arg always goes to the first-boot addon",
-			cmdline: "flatcar.first_boot=detected " + testAclAbMainCmdline + " flatcar.first_boot=detected " +
-				"flatcar.first_boot=1 myflatcar.first_boot=detected",
-			baseLayout: &UkiLayout{MainCmdline: testAclAbMainCmdline},
-			expectedLayout: UkiLayout{
-				MainCmdline: testAclAbMainCmdline + " flatcar.first_boot=1 myflatcar.first_boot=detected",
-				Addons:      map[string]string{"firstboot.addon.efi": "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "args of an image built by an older Image Customizer stay in its addon",
-			cmdline: "flatcar.first_boot=detected root=/dev/sda console=tty0 rd.info",
-			baseLayout: &UkiLayout{
-				Addons: map[string]string{
-					"firstboot.addon.efi":               "flatcar.first_boot=detected",
-					"vmlinuz-6.6.92.2-2.azl3.addon.efi": "root=/dev/sda console=tty0",
-				},
-			},
-			expectedLayout: UkiLayout{
-				MainCmdline: "rd.info",
-				Addons: map[string]string{
-					"firstboot.addon.efi":               "flatcar.first_boot=detected",
-					"vmlinuz-6.6.92.2-2.azl3.addon.efi": "root=/dev/sda console=tty0",
-				},
-			},
-		},
-		{
-			name:    "without a base layout the command line goes to the main UKI",
-			cmdline: "root=/dev/sda flatcar.first_boot=detected console=tty0",
-			expectedLayout: UkiLayout{
-				MainCmdline: "root=/dev/sda console=tty0",
-				Addons:      map[string]string{"firstboot.addon.efi": "flatcar.first_boot=detected"},
-			},
-		},
-		{
-			name:    "changed arg found in two files",
-			cmdline: "root=/dev/sda x=3",
-			baseLayout: &UkiLayout{
-				MainCmdline: "root=/dev/sda x=1",
-				Addons:      map[string]string{"y.addon.efi": "x=2"},
-			},
-			expectedErr: ErrAclUkiAddonAmbiguousArg,
-		},
-		{
-			name:        "variable expansion",
-			cmdline:     "root=/dev/sda console=$console",
-			expectedErr: ErrAclUkiAddonSplit,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			layout, err := aclGetUkiLayout(tt.cmdline, tt.baseLayout)
-			if tt.expectedErr != nil {
-				assert.ErrorIs(t, err, tt.expectedErr)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedLayout, layout)
-		})
-	}
-}
-
-// TestAclGetUkiLayoutRoundTrip verifies that re-customization converges: splitting the command line that a rebuilt
-// UKI boots with, using that UKI as the base, gives the same layout.
-func TestAclGetUkiLayoutRoundTrip(t *testing.T) {
-	baseLayout := UkiLayout{
-		MainCmdline: testAclAbMainCmdline + " acl.ipe.policy_sha256=abc",
-		Addons: map[string]string{
-			"firstboot.addon.efi": "flatcar.first_boot=detected",
-			"oem.addon.efi":       testAclOemCmdline,
-			"slot-a.addon.efi":    testAclSlotACmdline,
-		},
-	}
-
-	baseCmdline, err := mergeUkiCmdlineParts(baseLayout.MainCmdline, baseLayout.Addons)
-	assert.NoError(t, err)
-
-	layout, err := aclGetUkiLayout(baseCmdline, &baseLayout)
-	assert.NoError(t, err)
-	assert.Equal(t, baseLayout, layout)
-
-	// The base command line as is, and after a verity refresh changed the root hash.
-	cmdlines := []string{
-		baseCmdline,
-		strings.ReplaceAll(baseCmdline, "usrhash=oldhash", "usrhash=newhash") + " rd.systemd.verity=1",
-	}
-	for _, cmdline := range cmdlines {
-		layout, err := aclGetUkiLayout(cmdline, &baseLayout)
-		assert.NoError(t, err)
-
-		rebuiltCmdline, err := mergeUkiCmdlineParts(layout.MainCmdline, layout.Addons)
-		assert.NoError(t, err)
-
-		relayout, err := aclGetUkiLayout(rebuiltCmdline, &layout)
-		assert.NoError(t, err)
-		assert.Equal(t, layout, relayout)
-	}
-}
 
 func TestAclGetUsrHash(t *testing.T) {
 	tests := []struct {
@@ -364,7 +156,8 @@ func TestAclPlanSlotAddonTemplate(t *testing.T) {
 }
 
 // TestAclRebuildUkiOnEsp builds a stock ACL ESP with ukify and runs the create-mode steps that keep its layout: record
-// the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates.
+// the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates. It also
+// checks that modify mode can't put a new root hash into the UKI's own addon, which would override the slot addon.
 func TestAclRebuildUkiOnEsp(t *testing.T) {
 	stubPath, addonStubPath := checkSkipForUkiStubs(t)
 
@@ -382,7 +175,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	slotBCmdline := "systemd.verity_usr_data=PARTUUID=b1 systemd.verity_usr_hash=PARTUUID=b2 " +
 		"systemd.verity_usr_options=panic-on-corruption usrhash=oldhash acl.slot=b"
 	baseAddons := map[string]string{
-		aclFirstBootAddonName: aclFirstBootArg,
+		"firstboot.addon.efi": "flatcar.first_boot=detected",
 		"oem.addon.efi":       testAclOemCmdline,
 		"slot-a.addon.efi":    testAclSlotACmdline,
 	}
@@ -406,7 +199,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	for name, cmdline := range baseAddons {
 		buildAddon(filepath.Join(addonDir, name), cmdline)
 	}
-	buildAddon(filepath.Join(templateDir, aclFirstBootAddonName), aclFirstBootArg)
+	buildAddon(filepath.Join(templateDir, "firstboot.addon.efi"), "flatcar.first_boot=detected")
 	buildAddon(filepath.Join(templateDir, "slot-b.addon.efi"), slotBCmdline)
 	require.NoError(t, file.Copy(filepath.Join(addonDir, "slot-a.addon.efi"),
 		filepath.Join(templateDir, "slot-a.addon.efi")))
@@ -429,6 +222,15 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	assert.ErrorContains(t, err, "changes='added kdump.addon.efi'")
 	require.NoError(t, os.Remove(kdumpAddonPath))
 
+	distroHandler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
+	err = distroHandler.ValidateUkiModify(espDir, map[string]UkiKernelInfo{
+		kernel: {Cmdline: "rd.systemd.verity=1 usrhash=newhash"},
+	}, buildDir)
+	assert.ErrorIs(t, err, ErrAclUkiModifyRootHash)
+	assert.NoError(t, distroHandler.ValidateUkiModify(espDir, map[string]UkiKernelInfo{
+		kernel: {Cmdline: "console=ttyS1"},
+	}, buildDir))
+
 	// Rebuild the UKI with a new root hash, the way storage.reinitializeVerity does.
 	kernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 	require.NoError(t, writeUkiKernelInfoFile(kernelInfoPath, kernelInfo))
@@ -440,9 +242,8 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 
 	info := kernelInfo[kernel]
 	info.Initramfs = "initramfs.img"
-	distroHandler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
 	require.NoError(t, cleanUkiDirectory(filepath.Dir(ukiFile)))
-	require.NoError(t, buildUki(kernel, info, osReleasePath, stubPath, addonStubPath, buildDir, espDir, distroHandler))
+	require.NoError(t, buildUki(kernel, info, osReleasePath, stubPath, addonStubPath, buildDir, espDir))
 	require.NoError(t, distroHandler.FinalizeUkis(espDir, addonStubPath, kernelInfo, buildDir))
 
 	// The token stays in the main UKI, the new root hash takes the old one's place in the slot addon and its
@@ -451,10 +252,10 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	newSlotBCmdline := strings.ReplaceAll(slotBCmdline, "usrhash=oldhash", "usrhash=newhash")
 	expectedCmdlines := map[string]string{
 		ukiFile: mainCmdline + " rd.systemd.verity=1",
-		filepath.Join(addonDir, aclFirstBootAddonName):    aclFirstBootArg,
+		filepath.Join(addonDir, "firstboot.addon.efi"):    "flatcar.first_boot=detected",
 		filepath.Join(addonDir, "oem.addon.efi"):          testAclOemCmdline,
 		filepath.Join(addonDir, "slot-a.addon.efi"):       newSlotACmdline,
-		filepath.Join(templateDir, aclFirstBootAddonName): aclFirstBootArg + "\n",
+		filepath.Join(templateDir, "firstboot.addon.efi"): "flatcar.first_boot=detected\n",
 		filepath.Join(templateDir, "slot-b.addon.efi"):    newSlotBCmdline,
 	}
 	for path, expectedCmdline := range expectedCmdlines {
@@ -469,7 +270,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	for _, entry := range entries {
 		names = append(names, entry.Name())
 	}
-	assert.Equal(t, []string{"acl-ipe-policy.p7b.cred", aclFirstBootAddonName, "oem.addon.efi", "slot-a.addon.efi"},
+	assert.Equal(t, []string{"acl-ipe-policy.p7b.cred", "firstboot.addon.efi", "oem.addon.efi", "slot-a.addon.efi"},
 		names)
 
 	content, err := os.ReadFile(filepath.Join(addonDir, "acl-ipe-policy.p7b.cred"))
@@ -481,33 +282,4 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	slotATemplate, err := os.ReadFile(filepath.Join(templateDir, "slot-a.addon.efi"))
 	assert.NoError(t, err)
 	assert.Equal(t, activeSlotAddon, slotATemplate)
-}
-
-// checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available. It returns
-// the UKI stub and addon stub paths.
-func checkSkipForUkiStubs(t *testing.T) (string, string) {
-	for _, command := range []string{"ukify", "objcopy"} {
-		exists, err := file.CommandExists(command)
-		require.NoError(t, err)
-		if !exists {
-			t.Skipf("The '%s' command is not available", command)
-		}
-	}
-
-	stubPath := filepath.Join(ukiEfiStubDir, ukiEfiStubx64Binary)
-	addonStubPath := filepath.Join(ukiEfiStubDir, ukiAddonStubx64Binary)
-	if runtime.GOARCH == "arm64" {
-		stubPath = filepath.Join(ukiEfiStubDir, ukiEfiStubAA64Binary)
-		addonStubPath = filepath.Join(ukiEfiStubDir, ukiAddonStubAA64Binary)
-	}
-
-	for _, path := range []string{stubPath, addonStubPath} {
-		exists, err := file.PathExists(path)
-		require.NoError(t, err)
-		if !exists {
-			t.Skipf("The systemd-boot stub (%s) is not available", path)
-		}
-	}
-
-	return stubPath, addonStubPath
 }

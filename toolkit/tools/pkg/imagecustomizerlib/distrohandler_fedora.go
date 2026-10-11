@@ -255,21 +255,14 @@ func (d *fedoraDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *
 	return nil, nil
 }
 
-func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *fedoraDistroHandler) PreservesUkiLayout() bool {
-	return false
-}
-
-func (d *fedoraDistroHandler) GetUkiLayout(kernel string, cmdline string, baseLayout *UkiLayout,
-) (UkiLayout, error) {
-	return defaultGetUkiLayout(kernel, cmdline)
-}
-
 func (d *fedoraDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
+}
+
+func (d *fedoraDistroHandler) ValidateUkiModify(espDir string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
 ) error {
 	return nil
 }

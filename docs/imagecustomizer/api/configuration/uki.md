@@ -47,30 +47,39 @@ Supported values:
   its own to carry forward. It inherits the command line that the image's other kernels share. Customization fails if
   those kernels have divergent command lines, since there is then no single correct value to inherit.
 
-  On Azure Container Linux, the new UKIs keep the base image's UKI layout: each kernel argument stays in the main UKI
-  or the addon it came from (such as `oem.addon.efi` or `slot-a.addon.efi`), also when its value changes. A new
-  argument goes into the main UKI, or after the last addon argument of the same name, which it overrides. The A/B slot
-  addon's arguments can't change apart from the root hash, which is also updated in its templates under
-  `acl/uki-addons/` (rebuilt unsigned, like the UKIs). Other files in `<uki-name>.extra.d/` are kept. Since the UKIs
-  are rebuilt from that layout, customization fails if they change during the run; add kernel arguments with
-  `os.kernelCommandLine.extraCommandLine`. Added in v1.8. Prior to v1.8, the whole command line except
-  `flatcar.first_boot=detected` went into `<uki-name>.extra.d/<kernel>.addon.efi`.
+  The kernel command line goes into the main UKI. If the base image already has UKIs, the new UKIs keep their layout
+  (unless `os.bootloader.resetType` is `hard-reset`): each kernel argument stays in the main UKI or the addon in
+  `<uki-name>.extra.d/` it came from, also when its value changes. A new argument goes into the main UKI, or after the
+  last addon argument of the same name, which it overrides. Other files in `<uki-name>.extra.d/` are kept. Since the
+  UKIs are rebuilt from that layout, customization fails if they change during the run; add kernel arguments with
+  `os.kernelCommandLine.extraCommandLine`.
+
+  On Azure Container Linux with A/B updates, the A/B slot addon's arguments can't change apart from the root hash,
+  which is also updated in the slot addon templates under `acl/uki-addons/` (rebuilt unsigned, like the UKIs).
+
+  Prior to v1.8, the kernel command line went into `<uki-name>.extra.d/<kernel>.addon.efi` (on Azure Container Linux,
+  apart from `flatcar.first_boot=detected`), and the other files in `<uki-name>.extra.d/` were removed. The arguments
+  of a UKI built that way stay in that addon.
 
 - `passthrough`: Preserve existing UKI files without modification.
 
-- `modify`: Modify only the UKI addon to append or update kernel command-line arguments.
-  The main UKI file (kernel, initramfs, os-release, systemd-stub) remains unchanged.
-  This mode requires that the base image uses the UKI addon architecture where kernel
-  command-line arguments are stored in a separate `.addon.efi` file rather than embedded
-  in the main UKI.
+- `modify`: Modify only the UKI's own addon, `<uki-name>.extra.d/<kernel>.addon.efi`, to append or update kernel
+  command-line arguments. The main UKI file (kernel, initramfs, os-release, systemd-stub, kernel command line) and the
+  other addons remain unchanged. If the UKI has no such addon, one is created with just the new arguments.
+  systemd-stub appends the addon's command line to the main UKI's, so an argument in the addon overrides the main
+  UKI's value, but the main UKI's arguments can't be removed. For example, `selinux.mode` can't change from
+  `force-enforcing`, since `enforcing=1` stays.
 
   **Restrictions for modify mode:**
-  - Base image must have UKIs with addon architecture (`<uki-name>.extra.d/*.addon.efi`)
   - Kernel and initramfs cannot be modified (package updates that change kernel/initramfs are not allowed)
   - Only kernel command-line arguments can be changed via:
     - `kernelCommandLine.extraCommandLine` (appended to existing args)
     - `selinux.mode` (replaces existing SELinux args)
     - `storage.reinitializeVerity` (replaces existing verity args)
+  - On Azure Container Linux with A/B updates, `storage.reinitializeVerity` isn't supported, since the addon would
+    override the root hash of the A/B slot addon.
+
+  Prior to v1.8, modify mode required the UKIs to have addons.
 
 Example (creating UKIs):
 
