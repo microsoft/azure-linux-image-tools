@@ -1306,8 +1306,8 @@ func TestMergeUkiCmdlineParts(t *testing.T) {
 	}
 }
 
-// TestUkiKernelInfoWritersKeepBaseLayout verifies that the steps that edit the saved command line keep the base
-// UKI layout saved with it.
+// TestUkiKernelInfoWritersKeepBaseLayout verifies that create mode applies the kernel command-line changes to the saved
+// command line, keeping the base UKI layout saved with it, and that passthrough mode rejects them.
 func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	buildDir := t.TempDir()
 	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
@@ -1325,11 +1325,12 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	b := &BootCustomizer{ukiKernelInfoPath: ukiKernelInfoPath}
-	err = b.appendToUkiCmdlineFile("rd.info")
+	b := &BootCustomizer{bootConfigType: bootConfigTypeUki, ukiMode: imagecustomizerapi.UkiModeCreate,
+		ukiKernelInfoPath: ukiKernelInfoPath}
+	err = b.AddKernelCommandLine([]string{"rd.info"})
 	assert.NoError(t, err)
 
-	err = b.updateUkiCmdlineFile([]string{"selinux"}, []string{"selinux=1"})
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing)
 	assert.NoError(t, err)
 
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"usrhash=new"})
@@ -1338,89 +1339,14 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]UkiKernelInfo{
-		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info selinux=1 usrhash=new",
+		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info security=selinux selinux=1 usrhash=new",
 			Initramfs: "initramfs-1.img", BaseLayout: baseLayout},
 	}, kernelInfo)
-}
 
-// TestModifyUkiAddon verifies that modify mode adds an addon to a UKI without one only when there are args for it.
-func TestModifyUkiAddon(t *testing.T) {
-	_, addonStubPath := checkSkipForUkiStubs(t)
-
-	kernel := "vmlinuz-6.6.157.1-1.azl3"
-	buildDir := t.TempDir()
-	ukiFile := filepath.Join(t.TempDir(), kernel+".efi")
-	addonPath := filepath.Join(ukiFile+".extra.d", ukiAddonFileName(kernel))
-
-	assert.NoError(t, modifyUkiAddon(ukiFile, map[string]UkiKernelInfo{kernel: {}}, addonStubPath))
-	exists, err := file.PathExists(addonPath)
-	assert.NoError(t, err)
-	assert.False(t, exists)
-
-	assert.NoError(t, modifyUkiAddon(ukiFile, map[string]UkiKernelInfo{kernel: {Cmdline: "console=ttyS1"}},
-		addonStubPath))
-	cmdline, err := extractCmdlineFromSinglePE(addonPath, buildDir)
-	assert.NoError(t, err)
-	assert.Equal(t, "console=ttyS1", cmdline)
-}
-
-// TestUpdateUkiCmdlineFileInModifyMode verifies that modify mode fails rather than leave an arg it should remove in the
-// main UKI or another addon, which it doesn't rebuild.
-func TestUpdateUkiCmdlineFileInModifyMode(t *testing.T) {
-	tests := []struct {
-		name        string
-		baseLayout  UkiLayout
-		newArgs     []string
-		expectedErr string
-	}{
-		{
-			name:        "an arg in the main UKI that no new arg overrides",
-			baseLayout:  UkiLayout{MainCmdline: "root=/dev/sda security=selinux selinux=1 enforcing=1"},
-			newArgs:     []string{"security=selinux", "selinux=1"},
-			expectedErr: "(arg='enforcing=1', file='main UKI')",
-		},
-		{
-			name:       "new args override the main UKI's",
-			baseLayout: UkiLayout{MainCmdline: "root=/dev/sda security=selinux selinux=1 enforcing=1"},
-			newArgs:    []string{"security=selinux", "selinux=1", "enforcing=1"},
-		},
-		{
-			name: "args in the UKI's own addon are removed",
-			baseLayout: UkiLayout{
-				Addons: map[string]string{"vmlinuz-1.addon.efi": "root=/dev/sda security=selinux selinux=1 enforcing=1"},
-			},
-			newArgs: []string{"security=selinux", "selinux=1"},
-		},
-		{
-			name: "an arg in another addon that no new arg overrides",
-			baseLayout: UkiLayout{
-				MainCmdline: "root=/dev/sda",
-				Addons:      map[string]string{"debug.addon.efi": "enforcing=0"},
-			},
-			newArgs:     []string{"security=selinux", "selinux=1"},
-			expectedErr: "(arg='enforcing=0', file='debug.addon.efi')",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ukiKernelInfoPath := filepath.Join(t.TempDir(), UkiKernelInfoJson)
-			err := writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
-				"vmlinuz-1": {Cmdline: tt.baseLayout.Addons["vmlinuz-1.addon.efi"], BaseLayout: &tt.baseLayout},
-			})
-			require.NoError(t, err)
-
-			b := &BootCustomizer{ukiMode: imagecustomizerapi.UkiModeModify, ukiKernelInfoPath: ukiKernelInfoPath}
-			err = b.updateUkiCmdlineFile(selinuxArgNames, tt.newArgs)
-			if tt.expectedErr != "" {
-				assert.ErrorIs(t, err, ErrUKIModifyArgKept)
-				assert.ErrorContains(t, err, tt.expectedErr)
-				return
-			}
-
-			assert.NoError(t, err)
-		})
-	}
+	b.ukiMode = imagecustomizerapi.UkiModePassthrough
+	assert.ErrorIs(t, b.AddKernelCommandLine([]string{"rd.info"}), ErrBootUkiPassthroughCmdlineModified)
+	assert.ErrorIs(t, b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing),
+		ErrBootUkiPassthroughCmdlineModified)
 }
 
 // checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available. It returns

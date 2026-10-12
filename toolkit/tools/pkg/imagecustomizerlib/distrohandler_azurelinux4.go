@@ -253,10 +253,6 @@ func (d *azureLinux4DistroHandler) FinalizeUkis(espDir string, addonStubPath str
 	return nil
 }
 
-func (d *azureLinux4DistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
-	return nil
-}
-
 func (d *azureLinux4DistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }

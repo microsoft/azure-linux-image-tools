@@ -155,23 +155,6 @@ func TestAclPlanSlotAddonTemplate(t *testing.T) {
 	}
 }
 
-func TestAclValidateUkiModify(t *testing.T) {
-	abLayout := UkiLayout{
-		MainCmdline: testAclAbMainCmdline,
-		Addons:      map[string]string{"oem.addon.efi": testAclOemCmdline, "slot-a.addon.efi": testAclSlotACmdline},
-	}
-	layout := UkiLayout{MainCmdline: testAclMainCmdline, Addons: map[string]string{"oem.addon.efi": testAclOemCmdline}}
-	verityCmdline := "rd.systemd.verity=1 usrhash=newhash"
-
-	assert.ErrorIs(t, aclValidateUkiModify(map[string]UkiKernelInfo{
-		"vmlinuz-1": {Cmdline: verityCmdline, BaseLayout: &abLayout},
-	}), ErrAclUkiModifyRootHash)
-	assert.NoError(t, aclValidateUkiModify(map[string]UkiKernelInfo{
-		"vmlinuz-1": {Cmdline: "console=ttyS1", BaseLayout: &abLayout},
-		"vmlinuz-2": {Cmdline: verityCmdline, BaseLayout: &layout},
-	}))
-}
-
 // TestAclRebuildUkiOnEsp builds a stock ACL ESP with ukify and runs the create-mode steps that keep its layout: record
 // the layout, check it for changes, rebuild the UKI with a new root hash and update the slot addon templates.
 func TestAclRebuildUkiOnEsp(t *testing.T) {

@@ -20,8 +20,6 @@ import (
 var (
 	ErrAclUkiAddonTemplates = NewImageCustomizerError("AclUkiAddon:Templates",
 		"failed to update the root hash in the ACL UKI addon templates")
-	ErrAclUkiModifyRootHash = NewImageCustomizerError("AclUkiAddon:ModifyRootHash",
-		"UKI modify mode can't change the /usr root hash of an A/B image: use 'mode: create' to refresh verity")
 )
 
 const (
@@ -155,39 +153,6 @@ func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []stri
 	}
 
 	return newCmdline, false, changed, nil
-}
-
-// aclValidateUkiModify returns an error if modify mode would put a /usr root hash into a UKI's own addon while another
-// of its addons holds one: the A/B slot addon, which the UKI's own addon would override even after Trident swaps it.
-func aclValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
-	for _, kernel := range slices.Sorted(maps.Keys(kernelInfo)) {
-		info := kernelInfo[kernel]
-		usrHash, err := aclGetArgValue(info.Cmdline, aclUsrHashArgName)
-		if err != nil {
-			return fmt.Errorf("failed to read the root hash of kernel (%s):\n%w", kernel, err)
-		}
-
-		if usrHash == "" || info.BaseLayout == nil {
-			continue
-		}
-
-		for _, addon := range slices.Sorted(maps.Keys(info.BaseLayout.Addons)) {
-			if addon == ukiAddonFileName(kernel) {
-				continue
-			}
-
-			addonUsrHash, err := aclGetArgValue(info.BaseLayout.Addons[addon], aclUsrHashArgName)
-			if err != nil {
-				return fmt.Errorf("failed to read the root hash of addon (%s):\n%w", addon, err)
-			}
-
-			if addonUsrHash != "" {
-				return fmt.Errorf("%w (kernel='%s', addon='%s')", ErrAclUkiModifyRootHash, kernel, addon)
-			}
-		}
-	}
-
-	return nil
 }
 
 // aclGetUsrHash returns the /usr root hash of the rebuilt UKIs, which must all agree, or "" if they have none.

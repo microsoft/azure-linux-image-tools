@@ -106,10 +106,6 @@ type DistroHandler interface {
 	// FinalizeUkis updates distro-specific files on the ESP after the UKIs are built in UKI create mode.
 	FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo, buildDir string) error
 
-	// ValidateUkiModify returns an error if the distro can't boot the command lines that UKI modify mode puts into each
-	// UKI's <kernel>.addon.efi, given the base image's UKI layouts in kernelInfo.
-	ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error
-
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only
 	// remove kernel and initramfs files; all other entries are preserved.

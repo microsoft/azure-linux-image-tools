@@ -49,7 +49,7 @@ type BootCustomizer struct {
 	// The UKI mode when boot type is UKI (optional).
 	ukiMode imagecustomizerapi.UkiMode
 
-	// The path to the UKI kernel info file (for modify mode).
+	// The path to the UKI kernel info file (for create mode).
 	ukiKernelInfoPath string
 
 	// The distribution-specific handler for boot configuration.
@@ -77,7 +77,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	ukiKernelInfoPath := ""
 	if uki != nil {
 		ukiMode = uki.Mode
-		if ukiMode == imagecustomizerapi.UkiModeModify || ukiMode == imagecustomizerapi.UkiModeCreate {
+		if ukiMode == imagecustomizerapi.UkiModeCreate {
 			ukiKernelInfoPath = filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 		}
 	}
@@ -102,8 +102,8 @@ func determineBootConfigType(grubCfgContent string, imageChroot safechroot.Chroo
 			// The image boots via UKIs and has no grub.cfg. Passthrough mode preserves the
 			// existing UKIs as-is.
 			//
-			// UKI modes create and modify carry any kernel command-line changes through uki-kernel-info.json rather
-			// than a grub.cfg, which is never regenerated for a UKI base image.
+			// UKI create mode carries any kernel command-line changes through uki-kernel-info.json rather than a
+			// grub.cfg, which is never regenerated for a UKI base image.
 			return bootConfigTypeUki, nil
 		}
 		return "", ErrBootNoConfigFound
@@ -145,9 +145,9 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	case bootConfigTypeUki:
 		// The image boots via UKIs. Passthrough mode preserves the existing UKIs, so the
-		// kernel command-line cannot be changed. Create and modify mode both regenerate the
-		// UKI boot data from uki-kernel-info.json, so the args are applied there.
-		if b.ukiMode != imagecustomizerapi.UkiModeModify && b.ukiMode != imagecustomizerapi.UkiModeCreate {
+		// kernel command-line cannot be changed. Create mode regenerates the UKIs from
+		// uki-kernel-info.json, so the args are applied there.
+		if b.ukiMode != imagecustomizerapi.UkiModeCreate {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
 		err := b.appendToUkiCmdlineFile(combinedArgs)
@@ -281,10 +281,10 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
 		// Cmdline args cannot be modified in passthrough mode.
-		if b.ukiMode != imagecustomizerapi.UkiModeModify {
+		if b.ukiMode != imagecustomizerapi.UkiModeCreate {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
-		// For modify mode, update the UKI cmdline file.
+		// For create mode, update the UKI cmdline file.
 		err := b.updateUkiCmdlineFile(argsToRemove, newArgs)
 		if err != nil {
 			return err
@@ -406,14 +406,6 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 
 	// Update each kernel's cmdline
 	for kernel, info := range kernelInfo {
-		// Modify mode only rebuilds <kernel>.addon.efi, which can override the other files' args but not remove them.
-		if b.ukiMode == imagecustomizerapi.UkiModeModify && info.BaseLayout != nil {
-			err := checkUkiArgsRemovable(kernel, *info.BaseLayout, argsToRemove, newArgs)
-			if err != nil {
-				return err
-			}
-		}
-
 		currentCmdline := strings.TrimSpace(info.Cmdline)
 		tokens, err := grub.TokenizeConfig(currentCmdline)
 		if err != nil {

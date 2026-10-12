@@ -63,23 +63,7 @@ Supported values:
 
 - `passthrough`: Preserve existing UKI files without modification.
 
-- `modify`: Modify only the UKI's own addon, `<uki-name>.extra.d/<kernel>.addon.efi`, to append or update kernel
-  command-line arguments. The main UKI file (kernel, initramfs, os-release, systemd-stub, kernel command line) and the
-  other addons remain unchanged. If the UKI has no such addon, one is created with just the new arguments.
-  systemd-stub appends the addon's command line to the main UKI's, so an argument in the addon overrides the main
-  UKI's value. A change that would remove an argument of the main UKI or another addon fails instead, such as
-  `selinux.mode` from `force-enforcing` to `enforcing`, which drops `enforcing=1`; use `create` mode for it.
-
-  **Restrictions for modify mode:**
-  - Kernel and initramfs cannot be modified (package updates that change kernel/initramfs are not allowed)
-  - Only kernel command-line arguments can be changed via:
-    - `kernelCommandLine.extraCommandLine` (appended to existing args)
-    - `selinux.mode` (replaces existing SELinux args)
-    - `storage.reinitializeVerity` (replaces existing verity args)
-  - On Azure Container Linux with A/B updates, `storage.reinitializeVerity` isn't supported, since the addon would
-    override the root hash of the A/B slot addon.
-
-  Prior to v1.8, modify mode required the UKIs to have addons.
+Prior to v1.8, a `modify` value rebuilt only `<uki-name>.extra.d/<kernel>.addon.efi`. Use `create` instead.
 
 Example (creating UKIs):
 
@@ -148,57 +132,6 @@ os:
     - path: /etc/uki-recustomization.txt
       content: |
         UKI recustomization with verity refresh
-
-previewFeatures:
-  - uki
-  - reinitialize-verity
-```
-
-Example (modify mode):
-
-```yaml
-# Modify kernel cmdline in existing UKI addon without touching the main UKI.
-# This preserves the kernel, initramfs, and all other UKI sections.
-os:
-  uki:
-    mode: modify
-  
-  kernelCommandLine:
-    extraCommandLine:
-      - console=ttyS0
-      - debug
-  
-  # You can still perform OS customizations:
-  packages:
-    install:
-      - nginx
-  
-  additionalFiles:
-    - path: /etc/app-config.txt
-      content: |
-        Application configuration
-
-previewFeatures:
-  - uki
-```
-
-Example (modify mode with SELinux and verity update):
-
-```yaml
-# Update SELinux mode and refresh verity hashes while preserving main UKI.
-storage:
-  reinitializeVerity: all
-
-os:
-  uki:
-    mode: modify
-  
-  selinux:
-    mode: permissive
-  
-  kernelCommandLine:
-    extraCommandLine:
-      - rd.info
 
 previewFeatures:
   - uki

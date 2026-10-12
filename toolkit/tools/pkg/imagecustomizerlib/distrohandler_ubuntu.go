@@ -219,10 +219,6 @@ func (d *ubuntuDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	return nil
 }
 
-func (d *ubuntuDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
-	return nil
-}
-
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }

@@ -261,10 +261,6 @@ func (d *fedoraDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
 	return nil
 }
 
-func (d *fedoraDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
-	return nil
-}
-
 func (d *fedoraDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }

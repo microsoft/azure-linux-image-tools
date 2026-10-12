@@ -234,11 +234,6 @@ func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, ker
 	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
 }
 
-// ValidateUkiModify rejects a new /usr root hash on an A/B image, whose A/B slot addon holds it.
-func (d *aclDistroHandler) ValidateUkiModify(kernelInfo map[string]UkiKernelInfo) error {
-	return aclValidateUkiModify(kernelInfo)
-}
-
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
 	// Only remove kernel/initramfs file patterns; preserve all directories and other files.
