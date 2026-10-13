@@ -278,11 +278,20 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			}
 			cmdline = fallbackArgs
 
-			// The kernel inherits the base UKI layout along with the command line.
-			baseLayout, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
+			// The kernel inherits the base UKI layout along with the command line, and the files that layout keeps in
+			// the addon directory.
+			var layoutKernel string
+			baseLayout, layoutKernel, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
 			if err != nil {
 				return fmt.Errorf("no UKI found for kernel (%s) and cannot determine the UKI layout to inherit:\n%w",
 					kernel, err)
+			}
+
+			if baseLayout != nil {
+				err = copyUkiExtraFiles(buildDir, layoutKernel, kernel, *baseLayout)
+				if err != nil {
+					return err
+				}
 			}
 
 			cmdlineSource = "fallback"
@@ -716,7 +725,7 @@ func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, st
 
 	// Put back the other files that the layout keeps in the addon directory.
 	for _, fileName := range slices.Sorted(maps.Keys(layout.ExtraFiles)) {
-		err = restoreUkiExtraFile(kernel, fileName, layout.ExtraFiles[fileName], buildDir, systemBootPartitionTmpDir)
+		err = restoreUkiExtraFile(kernel, fileName, buildDir, systemBootPartitionTmpDir)
 		if err != nil {
 			return err
 		}

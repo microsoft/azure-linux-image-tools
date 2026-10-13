@@ -221,6 +221,15 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	assert.ErrorContains(t, err, "changes='added kdump.addon.efi'")
 	require.NoError(t, os.Remove(kdumpAddonPath))
 
+	// A kernel without a UKI of its own inherits the layout and a copy of the saved credential.
+	newKernel := "vmlinuz-6.6.200.1-1.azl3"
+	fallbackLayout, layoutKernel, err := getFallbackUkiLayout(kernelInfo, newKernel)
+	require.NoError(t, err)
+	require.NoError(t, copyUkiExtraFiles(buildDir, layoutKernel, newKernel, *fallbackLayout))
+	savedCred, err := os.ReadFile(ukiExtraFileSavePath(buildDir, newKernel, "acl-ipe-policy.p7b.cred"))
+	assert.NoError(t, err)
+	assert.Equal(t, cred, savedCred)
+
 	// Rebuild the UKI with a new root hash, the way storage.reinitializeVerity does.
 	kernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 	require.NoError(t, writeUkiKernelInfoFile(kernelInfoPath, kernelInfo))

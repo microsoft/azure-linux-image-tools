@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// Copies of the base image's non-addon files in UKI addon directories, under UkiBuildDir.
+	// Copies of the base image's non-addon files in UKI addon directories, under UkiBuildDir, by kernel.
 	ukiExtraFilesDir = "extra-files"
 )
 
@@ -29,7 +29,7 @@ type UkiLayout struct {
 	MainCmdline string `json:"mainCmdline,omitempty"`
 	// Addon file name -> addon command line.
 	Addons map[string]string `json:"addons,omitempty"`
-	// Name of another file in the addon directory (e.g. a credential) -> SHA-256 of its copy in the build dir.
+	// Name of another file in the addon directory (e.g. a credential) -> its SHA-256, to tell if it changed.
 	ExtraFiles map[string]string `json:"extraFiles,omitempty"`
 }
 
@@ -61,7 +61,7 @@ func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInf
 			return nil, fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
 
-		err = saveUkiExtraFiles(ukiFile, layout, buildDir)
+		err = saveUkiExtraFiles(ukiFile, kernel, layout, buildDir)
 		if err != nil {
 			return nil, err
 		}
@@ -116,17 +116,11 @@ func readUkiLayout(ukiFile string, buildDir string) (UkiLayout, error) {
 	return layout, nil
 }
 
-// saveUkiExtraFiles copies the other files of a UKI's addon directory into the build dir, named by their SHA-256.
-func saveUkiExtraFiles(ukiFile string, layout UkiLayout, buildDir string) error {
-	savedDir := filepath.Join(buildDir, UkiBuildDir, ukiExtraFilesDir)
+// saveUkiExtraFiles copies the other files of a UKI's addon directory into the build dir, under the kernel's name.
+func saveUkiExtraFiles(ukiFile string, kernel string, layout UkiLayout, buildDir string) error {
 	for _, fileName := range slices.Sorted(maps.Keys(layout.ExtraFiles)) {
-		err := os.MkdirAll(savedDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create directory (%s):\n%w", savedDir, err)
-		}
-
 		filePath := filepath.Join(ukiFile+".extra.d", fileName)
-		err = file.Copy(filePath, filepath.Join(savedDir, layout.ExtraFiles[fileName]))
+		err := file.Copy(filePath, ukiExtraFileSavePath(buildDir, kernel, fileName))
 		if err != nil {
 			return fmt.Errorf("failed to save UKI addon directory file (%s):\n%w", filePath, err)
 		}
@@ -135,24 +129,35 @@ func saveUkiExtraFiles(ukiFile string, layout UkiLayout, buildDir string) error 
 	return nil
 }
 
-// restoreUkiExtraFile copies a file saved by saveUkiExtraFiles into a UKI's addon directory.
-func restoreUkiExtraFile(kernel string, fileName string, hash string, buildDir string,
-	systemBootPartitionTmpDir string,
-) error {
-	addonDirPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.efi.extra.d", kernel))
-	err := os.MkdirAll(addonDirPath, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create addon directory (%s):\n%w", addonDirPath, err)
+// copyUkiExtraFiles gives a kernel a copy of the files saved by saveUkiExtraFiles for another kernel.
+func copyUkiExtraFiles(buildDir string, fromKernel string, toKernel string, layout UkiLayout) error {
+	for _, fileName := range slices.Sorted(maps.Keys(layout.ExtraFiles)) {
+		err := file.Copy(ukiExtraFileSavePath(buildDir, fromKernel, fileName),
+			ukiExtraFileSavePath(buildDir, toKernel, fileName))
+		if err != nil {
+			return fmt.Errorf("failed to copy UKI addon directory file (%s) for kernel (%s):\n%w", fileName, toKernel,
+				err)
+		}
 	}
 
-	filePath := filepath.Join(addonDirPath, fileName)
-	err = file.Copy(filepath.Join(buildDir, UkiBuildDir, ukiExtraFilesDir, hash), filePath)
+	return nil
+}
+
+// restoreUkiExtraFile copies a file saved by saveUkiExtraFiles into a UKI's addon directory.
+func restoreUkiExtraFile(kernel string, fileName string, buildDir string, systemBootPartitionTmpDir string) error {
+	filePath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, kernel+".efi.extra.d", fileName)
+	err := file.Copy(ukiExtraFileSavePath(buildDir, kernel, fileName), filePath)
 	if err != nil {
 		return fmt.Errorf("failed to restore UKI addon directory file (%s):\n%w", filePath, err)
 	}
 
 	logger.Log.Infof("Kept UKI addon directory file: (%s)", filePath)
 	return nil
+}
+
+// ukiExtraFileSavePath returns where a kernel's copy of a file of its UKI's addon directory is saved.
+func ukiExtraFileSavePath(buildDir string, kernel string, fileName string) string {
+	return filepath.Join(buildDir, UkiBuildDir, ukiExtraFilesDir, kernel, fileName)
 }
 
 // checkUkiLayoutsUnchanged returns an error if the command line or the addon directory of a base UKI changed since its
@@ -230,30 +235,30 @@ func ukiFileChanges(base map[string]string, files map[string]string) []string {
 }
 
 // getFallbackUkiLayout returns the layout that a kernel with no UKI of its own inherits: the one the existing UKIs
-// share, with <kernel>.addon.efi renamed. Like getFallbackKernelArgs, it fails if they disagree. Nil if none.
-func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, error) {
+// share, with <kernel>.addon.efi renamed. Like getFallbackKernelArgs, it fails if they disagree. Nil if none. It also
+// returns the kernel whose UKI the layout is taken from.
+func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, string, error) {
 	var fallback *UkiLayout
-	found := false
-	for existingKernel, info := range existingUkiKernelInfo {
+	fallbackKernel := ""
+	for _, existingKernel := range slices.Sorted(maps.Keys(existingUkiKernelInfo)) {
 		var layout *UkiLayout
-		if info.BaseLayout != nil {
-			renamed := renameUkiLayoutAddon(*info.BaseLayout, ukiAddonFileName(existingKernel),
-				ukiAddonFileName(kernel))
+		if baseLayout := existingUkiKernelInfo[existingKernel].BaseLayout; baseLayout != nil {
+			renamed := renameUkiLayoutAddon(*baseLayout, ukiAddonFileName(existingKernel), ukiAddonFileName(kernel))
 			layout = &renamed
 		}
 
-		if !found {
+		if fallbackKernel == "" {
 			fallback = layout
-			found = true
+			fallbackKernel = existingKernel
 			continue
 		}
 
 		if !ukiLayoutsEqual(fallback, layout) {
-			return nil, fmt.Errorf("cannot pick a fallback UKI layout: kernels have divergent UKI layouts")
+			return nil, "", fmt.Errorf("cannot pick a fallback UKI layout: kernels have divergent UKI layouts")
 		}
 	}
 
-	return fallback, nil
+	return fallback, fallbackKernel, nil
 }
 
 // renameUkiLayoutAddon returns a copy of the layout with the addon oldName renamed to newName.

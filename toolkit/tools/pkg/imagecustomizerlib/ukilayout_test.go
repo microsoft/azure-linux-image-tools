@@ -231,7 +231,7 @@ func TestGetFallbackUkiLayout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			layout, err := getFallbackUkiLayout(tt.existingUkis, "vmlinuz-3")
+			layout, layoutKernel, err := getFallbackUkiLayout(tt.existingUkis, "vmlinuz-3")
 			if tt.expectError {
 				assert.ErrorContains(t, err, "divergent UKI layouts")
 				return
@@ -239,6 +239,7 @@ func TestGetFallbackUkiLayout(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedLayout, layout)
+			assert.Equal(t, "vmlinuz-1", layoutKernel)
 		})
 	}
 }
