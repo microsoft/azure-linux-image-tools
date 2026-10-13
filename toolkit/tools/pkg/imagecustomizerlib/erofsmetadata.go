@@ -42,11 +42,11 @@ func verifyErofsTree(source string, destination string) error {
 			before.Mtim != after.Mtim || before.Rdev != after.Rdev {
 			return fmt.Errorf("EROFS metadata differs (%s)", relative)
 		}
-		sourceAttrs, err := readErofsXattrs(path)
+		sourceAttrs, err := readFileXattrs(path)
 		if err != nil {
 			return err
 		}
-		targetAttrs, err := readErofsXattrs(target)
+		targetAttrs, err := readFileXattrs(target)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func verifyErofsTree(source string, destination string) error {
 	})
 }
 
-func readErofsXattrs(path string) (map[string]string, error) {
+func readFileXattrs(path string) (map[string]string, error) {
 	size, err := unix.Llistxattr(path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list extended attributes (%s):\n%w", path, err)

@@ -88,6 +88,52 @@ func TestNativeExt4SealRoundtrip(t *testing.T) {
 	}
 }
 
+func TestFindRootfsPartitionErofs(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root, loop devices and EROFS support")
+	}
+	for _, tc := range []struct {
+		name     string
+		markers  []string
+		rootPath string
+		wantErr  string
+	}{
+		{name: "root", markers: []string{"etc/fstab"}},
+		{name: "acl-usr", markers: []string{"share/ic/etc/fstab"}, rootPath: "share/ic"},
+		{name: "missing", wantErr: "failed to find rootfs partition"},
+		{name: "ambiguous", markers: []string{"etc/fstab", "share/ic/etc/fstab"},
+			wantErr: "found too many rootfs partition candidates"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			source := filepath.Join(dir, "tree")
+			require.NoError(t, os.Mkdir(source, 0o755))
+			for _, marker := range tc.markers {
+				path := filepath.Join(source, marker)
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+				require.NoError(t, os.WriteFile(path, []byte("/dev/mapper/usr /usr erofs ro 0 0\n"), 0o644))
+			}
+			image := filepath.Join(dir, "usr.erofs")
+			require.NoError(t, shell.ExecuteLive(true, "mkfs.erofs", image, source))
+			connection := imageconnection.NewImageConnection()
+			defer connection.Close()
+			require.NoError(t, connection.ConnectLoopback(image))
+			partition := diskutils.PartitionInfo{Type: "part", Path: connection.Loopback().DevicePath(),
+				FileSystemType: "erofs"}
+			found, rootPath, err := findRootfsPartition([]diskutils.PartitionInfo{partition}, dir)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Nil(t, found)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, &partition, found)
+				require.Equal(t, tc.rootPath, rootPath)
+			}
+			require.NoError(t, connection.CleanClose())
+		})
+	}
+}
+
 func TestErofsCustomizationRoundtrip(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("requires root, loop devices and EROFS support")

@@ -7,13 +7,80 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/moby/sys/mountinfo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
+
+func TestAclEtcOverlayPreservesSELinuxLabels(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requires root, overlay mounts and SELinux xattrs")
+	}
+	for _, testCase := range []struct {
+		name        string
+		createUpper bool
+		upperLabel  string
+	}{
+		{name: "new-upper"},
+		{name: "existing-unlabeled-upper", createUpper: true},
+		{name: "existing-labeled-upper", createUpper: true, upperLabel: "system_u:object_r:etc_runtime_t:s0"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			baseline := filepath.Join(root, aclEtcBaselineDir)
+			upper := filepath.Join(root, "etc")
+			require.NoError(t, os.MkdirAll(baseline, 0o755))
+			if testCase.createUpper {
+				require.NoError(t, os.Mkdir(upper, 0o755))
+			}
+			label := "system_u:object_r:etc_t:s0"
+			require.NoError(t, unix.Lsetxattr(baseline, "security.selinux", []byte(label), 0))
+			if testCase.upperLabel != "" {
+				require.NoError(t, unix.Lsetxattr(upper, "security.selinux", []byte(testCase.upperLabel), 0))
+			} else if testCase.createUpper {
+				attrs, err := readFileXattrs(upper)
+				require.NoError(t, err)
+				if _, exists := attrs["security.selinux"]; exists {
+					err := unix.Lremovexattr(upper, "security.selinux")
+					if err == unix.EACCES || err == unix.EPERM {
+						t.Skip("host policy prevents constructing an unlabeled overlay upper")
+					}
+					require.NoError(t, err)
+				}
+			}
+			resolver := filepath.Join(baseline, "resolv.conf")
+			require.NoError(t, os.WriteFile(resolver, []byte("nameserver 192.0.2.1\n"), 0o644))
+			require.NoError(t, unix.Lsetxattr(resolver, "security.selinux", []byte(label), 0))
+
+			overlay, err := newAclEtcOverlay(t.Context(), root, imagecustomizerapi.ReinitializeVerityTypeAll)
+			require.NoError(t, err)
+			defer overlay.Close()
+			chroot := safechroot.NewChroot(root, true)
+			existing, err := overrideResolvConf(chroot)
+			require.NoError(t, err)
+			require.NoError(t, restoreResolvConf(t.Context(), existing, chroot))
+			require.NoError(t, overlay.Finalize(t.Context()))
+
+			expected := label
+			if testCase.upperLabel != "" {
+				expected = testCase.upperLabel
+			}
+			attrs, err := readFileXattrs(baseline)
+			require.NoError(t, err)
+			require.Equal(t, expected, strings.TrimRight(attrs["security.selinux"], "\x00"))
+			attrs, err = readFileXattrs(resolver)
+			require.NoError(t, err)
+			require.Equal(t, label, strings.TrimRight(attrs["security.selinux"], "\x00"))
+			assertFileContent(t, resolver, "nameserver 192.0.2.1\n")
+		})
+	}
+}
 
 // makeAclEtcOverlayTestRoot creates a fake ACL image root:
 //   - a baseline (usr/share/distro/etc) with passwd, chrony.conf, obsolete.conf, and a subdirectory

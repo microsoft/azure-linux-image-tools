@@ -102,9 +102,31 @@ func assembleAclEtcOverlay(rootDir string, reinitializeVerity imagecustomizerapi
 		logger.Log.Infof("Assembling /etc overlay (read-only baseline; /etc changes will stay on the root partition)")
 	}
 
+	upperExists, err := file.DirExists(etcDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for /etc upper directory:\n%w", err)
+	}
 	err = os.MkdirAll(etcDir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create /etc directory:\n%w", err)
+	}
+
+	// A newly created upper may acquire a host label. It must inherit the
+	// baseline label, while a pre-existing labeled upper remains authoritative.
+	upperAttrs, err := readFileXattrs(etcDir)
+	if err != nil {
+		return nil, err
+	}
+	if _, labeled := upperAttrs["security.selinux"]; !upperExists || !labeled {
+		baselineAttrs, err := readFileXattrs(baselineDir)
+		if err != nil {
+			return nil, err
+		}
+		if label, exists := baselineAttrs["security.selinux"]; exists {
+			if err := unix.Lsetxattr(etcDir, "security.selinux", []byte(label), 0); err != nil {
+				return nil, fmt.Errorf("failed to preserve /etc baseline SELinux label:\n%w", err)
+			}
+		}
 	}
 
 	// Remove scratch state left behind by an interrupted previous run.

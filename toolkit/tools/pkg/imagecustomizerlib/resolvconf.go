@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -41,6 +42,7 @@ type resolvConfInfo struct {
 	fileContents string
 	filePerms    os.FileMode
 	symlinkPath  string
+	xattrs       map[string]string
 }
 
 const (
@@ -81,6 +83,13 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 		existing.existingType = resolvConfTypeFile
 		existing.fileContents = fileContents
 		existing.filePerms = stat.Mode().Perm()
+	}
+
+	if existing.existingType != resolvConfTypeNone {
+		existing.xattrs, err = readFileXattrs(imageResolveConfPath)
+		if err != nil {
+			return resolvConfInfo{}, fmt.Errorf("%w: extended attributes:\n%w", ErrResolvConfFileRead, err)
+		}
 	}
 
 	// Remove the existing resolv.conf file, if it exists.
@@ -154,6 +163,12 @@ func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot
 
 	default:
 		return fmt.Errorf("%w (%v)", ErrResolvConfUnknownType, existing.existingType)
+	}
+
+	for name, value := range existing.xattrs {
+		if err := unix.Lsetxattr(imageResolveConfPath, name, []byte(value), 0); err != nil {
+			return fmt.Errorf("%w: extended attribute (%s):\n%w", ErrResolvConfRestore, name, err)
+		}
 	}
 
 	return nil

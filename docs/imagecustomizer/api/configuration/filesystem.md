@@ -78,6 +78,20 @@ the repacked image. Repacking preserves the filesystem UUID and label, emits
 uncompressed single-device EROFS with 4096-byte blocks, and fails before writing
 the partition if the new image does not fit. EROFS is not a supported `type`
 for creating or repartitioning filesystems through this API.
+The staging host must preserve extended attributes, including their absence.
+If host SELinux labeling adds attributes to originally unlabeled paths,
+staging verification fails instead of accepting a relabeled image. Use a
+compatible build environment; do not disable metadata verification.
+Image discovery also searches EROFS for the ACL layout marker
+`share/ic/etc/fstab`, allowing conversion of existing sealed `/usr` images to
+COSI without changing their filesystem format.
+
+ACL customization preserves existing SELinux labels rather than relabeling the
+whole `/usr` tree. A newly created or unlabeled `/etc` upper directory inherits
+the baseline's label before folding. A host-assigned label on a newly created
+directory is not treated as a pre-existing image label; an already labeled
+upper directory remains authoritative. Temporary resolver replacement
+preserves the original extended attributes.
 
 Verity-backed partitions remain read-only unless `storage.reinitializeVerity:
 all` is explicitly requested with the corresponding preview feature. EROFS
