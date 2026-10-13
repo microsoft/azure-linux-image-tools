@@ -103,17 +103,8 @@ type DistroHandler interface {
 	SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
 		reinitializeVerity imagecustomizerapi.ReinitializeVerityType) (*AclEtcOverlay, error)
 
-	// ExtractUkiAddonCmdline returns the current kernel command line from the
-	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,
-	// distros that support a first-run addon-creation flow (e.g. ACL) return an
-	// empty string; all other distros return an error.
-	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
-
-	// GetUkiAddonSpecs returns the cmdline addon files to write for a kernel in UKI
-	// create mode. Most distros emit a single addon holding the full command
-	// line; distros with a first-boot addon contract (e.g. ACL) split the
-	// command line across multiple addons.
-	GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error)
+	// FinalizeUkis updates distro-specific files on the ESP after the UKIs are built in UKI create mode.
+	FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo, buildDir string) error
 
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only

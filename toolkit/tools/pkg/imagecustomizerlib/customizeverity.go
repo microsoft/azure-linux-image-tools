@@ -804,7 +804,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		}
 
 		// Update kernel args.
-		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
+		// UKI create mode puts the verity args into the UKIs (not GRUB)
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout, distroHandler)
 		if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
 
@@ -66,7 +67,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -81,7 +82,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums, nil)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums)
 }
 
 func TestCustomizeImageUkiCreateNoBootloaderReset(t *testing.T) {
@@ -227,8 +228,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
-		[]string{"systemd.log_level=debug"}, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
+		[]string{"systemd.log_level=debug"}, nil)
 	if !ok {
 		return
 	}
@@ -245,13 +246,13 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	}
 
 	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.debug"}, []string{"rd.info"}, ukiFilesChecksums, nil)
+		[]string{"rd.debug"}, []string{"rd.info"}, nil)
 	if !ok {
 		return
 	}
 
 	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2, ukiFilesChecksums, newUkiFilesChecksums,
-		addonFilesChecksums, newAddonFilesChecksums)
+		newAddonFilesChecksums)
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwap(t *testing.T) {
@@ -288,8 +289,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		return
 	}
 
-	ukiFilesChecksums0, addonFilesChecksums0, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"},
-		nil, nil, nil)
+	ukiFilesChecksums0, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -304,13 +304,13 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
-		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil)
 	if !ok {
 		return
 	}
 
 	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath1, ukiFilesChecksums0, ukiFilesChecksums1,
-		addonFilesChecksums0, addonFilesChecksums1)
+		addonFilesChecksums1)
 
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		t.Skip("Azure Linux 4.0 has no alternative kernel package to swap to, only other versions of 'kernel'")
@@ -335,28 +335,23 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil)
 	if !ok {
 		return
 	}
 
 	verifyUsrVerityUkiRecustomizedKernelSwap(t, buildDir, outImageFilePath2, ukiFilesChecksums1, ukiFilesChecksums2,
-		addonFilesChecksums1, addonFilesChecksums2)
+		addonFilesChecksums2)
 }
 
 // verifyUsrVerityUkiRecustomizedKernelSwap checks that kernel swap re-customization replaces the previously
-// generated UKIs/addons with new ones for the swapped-in kernel.
+// generated UKIs with one for the swapped-in kernel.
 func verifyUsrVerityUkiRecustomizedKernelSwap(t *testing.T, buildDir string, imagePath string,
-	oldUkiChecksums, newUkiChecksums, oldAddonChecksums, newAddonChecksums map[string]string,
+	oldUkiChecksums, newUkiChecksums, newAddonChecksums map[string]string,
 ) {
 	for oldUkiFile := range oldUkiChecksums {
 		_, exists := newUkiChecksums[oldUkiFile]
 		assert.False(t, exists, "old UKI file should be removed after kernel swap: %s", oldUkiFile)
-	}
-
-	for oldAddonFile := range oldAddonChecksums {
-		_, exists := newAddonChecksums[oldAddonFile]
-		assert.False(t, exists, "old addon file should be removed after kernel swap: %s", oldAddonFile)
 	}
 
 	assert.Equal(t, 1, len(newUkiChecksums), "kernel swap should leave exactly one main UKI")
@@ -364,10 +359,7 @@ func verifyUsrVerityUkiRecustomizedKernelSwap(t *testing.T, buildDir string, ima
 		assert.Contains(t, filepath.Base(newUkiFile), "npi", "expected swapped kernel UKI path to contain npi")
 	}
 
-	assert.Equal(t, 1, len(newAddonChecksums), "kernel swap should leave exactly one UKI addon")
-	for newAddonFile := range newAddonChecksums {
-		assert.Contains(t, filepath.Base(newAddonFile), "npi", "expected swapped kernel addon path to contain npi")
-	}
+	assert.Empty(t, newAddonChecksums, "the main UKI should hold the kernel command line")
 
 	verifyUsrVerityUkiRecustomizedCommon(t, buildDir, imagePath)
 }
@@ -403,7 +395,7 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -419,7 +411,7 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	}
 
 	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil,
-		ukiFilesChecksums, nil)
+		ukiFilesChecksums)
 	if !ok {
 		return
 	}
@@ -517,8 +509,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 		return
 	}
 
-	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
-		nil, nil, nil)
+	ukiFilesChecksums1, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -534,37 +525,28 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil, nil)
+		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil)
 	if !ok {
 		return
 	}
 
-	// Create mode must preserve each main UKI while regenerating the addon.
 	verifyUsrVerityUkiRecustomized(t, buildDir, outImageFilePath2, ukiFilesChecksums1, ukiFilesChecksums2,
-		addonFilesChecksums1, addonFilesChecksums2)
+		addonFilesChecksums2)
 }
 
-// verifyUsrVerityUkiRecustomized checks that re-customizing a usr-verity UKI image in create mode
-// preserved each main UKI (kernel/initramfs/os-release unchanged) while regenerating its addon
-// (cmdline changed), and that /boot contains only the ESP.
+// verifyUsrVerityUkiRecustomized checks that re-customizing a usr-verity UKI image in create mode rebuilt each main
+// UKI with the new kernel command line, without addons, and that /boot contains only the ESP.
 func verifyUsrVerityUkiRecustomized(t *testing.T, buildDir string, imagePath string,
-	oldUkiChecksums, newUkiChecksums, oldAddonChecksums, newAddonChecksums map[string]string,
+	oldUkiChecksums, newUkiChecksums, newAddonChecksums map[string]string,
 ) {
-	// The main UKI (kernel + os-release + initramfs) must not change; only the addon (cmdline) does.
 	for ukiFile, oldChecksum := range oldUkiChecksums {
 		newChecksum, exists := newUkiChecksums[ukiFile]
 		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
-		assert.Equal(t, oldChecksum, newChecksum,
-			"Main UKI checksum should NOT change (only cmdline in addon changes): %s", ukiFile)
+		assert.NotEqual(t, oldChecksum, newChecksum,
+			"Main UKI checksum should change with the kernel command line: %s", ukiFile)
 	}
 
-	// The addon (cmdline) must change.
-	for addonFile, oldChecksum := range oldAddonChecksums {
-		newChecksum, exists := newAddonChecksums[addonFile]
-		assert.True(t, exists, "Addon file should exist after re-customization: %s", addonFile)
-		assert.NotEqual(t, oldChecksum, newChecksum,
-			"Addon checksum should change after re-customization: %s", addonFile)
-	}
+	assert.Empty(t, newAddonChecksums, "the main UKI should hold the kernel command line")
 
 	verifyUsrVerityUkiRecustomizedCommon(t, buildDir, imagePath)
 }
@@ -639,7 +621,7 @@ func verifyUkiCmdline(t *testing.T, buildDir string, imageFilePath string, extra
 }
 
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraCommandLine []string, absentCommandLine []string,
-	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
+	expectedUkiFilesChecksums map[string]string,
 ) (map[string]string, map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
@@ -772,10 +754,6 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraComma
 	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
 	if addonFilesChecksums == nil {
 		return nil, nil, false
-	}
-
-	if expectedAddonFilesChecksums != nil {
-		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
 	}
 
 	err = imageConnection.CleanClose()
@@ -1064,9 +1042,9 @@ func TestGetKernelNameFromUki(t *testing.T) {
 }
 
 // TestCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdline is the end-to-end regression test for a failure where
-// re-customizing a UKI usr-verity image aborted because its addon `.cmdline` PE section carried trailing NUL padding.
+// re-customizing a UKI usr-verity image aborted because its `.cmdline` PE section carried trailing NUL padding.
 //
-// The base-image validation reads the UKI addon `.cmdline`, discovers the usr-verity partition, and parses
+// The base-image validation reads the UKI `.cmdline`, discovers the usr-verity partition, and parses
 // `systemd.verity_usr_options` (including the numeric `hash-offset` at the end), then re-provisions verity and rebuilds
 // the UKI.
 //
@@ -1076,7 +1054,7 @@ func TestGetKernelNameFromUki(t *testing.T) {
 // value fails to parse and customization aborts with "cannot validate target OS of the base image".
 //
 // This test builds an inline-usr-verity UKI image (inline verity, where data and hash is on the same partition, makes
-// IC append `...,hash-offset=<N>` to the addon command line), rewrites the addon `.cmdline` with shorter NUL-terminated
+// IC append `...,hash-offset=<N>` to the command line), rewrites the main UKI's `.cmdline` with shorter NUL-terminated
 // content to recreate the padding, then re-customizes and asserts success.
 func TestCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdline(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinux3Plus {
@@ -1103,7 +1081,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 
 	buildDir := filepath.Join(testTempDir, "build")
 
-	// Build an inline-usr-verity UKI image whose addon command line ends with
+	// Build an inline-usr-verity UKI image whose command line ends with
 	// `systemd.verity_usr_options=...,hash-offset=<N>`. Adds rd.info and <nulPaddingFillerArg>.
 	ukiImageFilePath := filepath.Join(testTempDir, "uki-verity.raw")
 	configFile := filepath.Join(testDir, verityUsrInlineUkiConfigFile(t, baseImageInfo))
@@ -1113,9 +1091,9 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 		return
 	}
 
-	// Rewrite the addon `.cmdline` with shorter, NUL-terminated content so the re-read command line carries trailing
-	// NUL padding after its last argument. Removes <nulPaddingFillerArg>.
-	if !injectAddonCmdlineNulPadding(t, buildDir, ukiImageFilePath) {
+	// Rewrite the main UKI's `.cmdline` with shorter, NUL-terminated content so the re-read command line carries
+	// trailing NUL padding after its last argument. Removes <nulPaddingFillerArg>.
+	if !injectUkiCmdlineNulPadding(t, buildDir, ukiImageFilePath) {
 		return
 	}
 
@@ -1128,22 +1106,22 @@ func testCustomizeImageVerityUsrUkiRecustomizeNulPaddedCmdlineHelper(t *testing.
 		return
 	}
 
-	// Validate the re-customized image. Reading the UKI addon command line back is the code path the fix touches, so
-	// this also confirms the usr-verity configuration is well-formed, including a parseable inline hash-offset.
+	// Validate the re-customized image. Reading the UKI command line back is the code path the fix touches, so this
+	// also confirms the usr-verity configuration is well-formed, including a parseable inline hash-offset.
 	verifyUsrInlineVerityUki(t, buildDir, outImageFilePath, []string{"rd.debug"}, []string{"rd.info", nulPaddingFillerArg})
 }
 
-// injectAddonCmdlineNulPadding rewrites every UKI addon `.cmdline` section on the image's ESP with shorter,
-// NUL-terminated content using `objcopy --update-section`, so the re-read command line carries trailing NUL padding
-// after its last argument.
+// injectUkiCmdlineNulPadding rewrites every main UKI `.cmdline` section on the image's ESP with shorter, NUL-terminated
+// content using `objcopy --update-section`, so the re-read command line carries trailing NUL padding after its last
+// argument.
 //
 // `objcopy --update-section` keeps the section's original size and zero-pads the freed bytes, which is how trailing
 // NULs end up in a `.cmdline` section in practice. The content is shortened by dropping the throwaway
 // nulPaddingFillerArg argument added by the build config, keeping the verity `hash-offset` value last so the padding
 // lands on it.
 //
-// Returns false (after failing the test) if no addon carrying the command line was found to patch.
-func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath string) bool {
+// Returns false (after failing the test) if no UKI carrying the command line was found to patch.
+func injectUkiCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath string) bool {
 	imageConnection, err := testutils.ConnectToImage(buildDir, imageFilePath, false, /*includeDefaultMounts*/
 		[]testutils.MountPoint{
 			{
@@ -1158,20 +1136,20 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 	defer imageConnection.Close()
 
 	espDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
-	addonFiles, err := getUkiAddonFiles(espDir)
+	ukiFiles, err := getUkiFiles(espDir)
 	if !assert.NoError(t, err) {
 		return false
 	}
-	if !assert.NotEmpty(t, addonFiles, "expected at least one UKI addon on the ESP") {
+	if !assert.NotEmpty(t, ukiFiles, "expected at least one UKI on the ESP") {
 		return false
 	}
 
-	dumpPath := filepath.Join(buildDir, "addon-cmdline-orig.bin")
-	shortPath := filepath.Join(buildDir, "addon-cmdline-short.bin")
+	dumpPath := filepath.Join(buildDir, "uki-cmdline-orig.bin")
+	shortPath := filepath.Join(buildDir, "uki-cmdline-short.bin")
 
 	patched := false
-	for _, addonFile := range addonFiles {
-		_, _, err := shell.Execute("objcopy", "--dump-section", ".cmdline="+dumpPath, addonFile)
+	for _, ukiFile := range ukiFiles {
+		_, _, err := shell.Execute("objcopy", "--dump-section", ".cmdline="+dumpPath, ukiFile)
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -1187,7 +1165,7 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 		cmdline := string(content)
 		shortened := strings.Replace(cmdline, " "+nulPaddingFillerArg, "", 1)
 		if shortened == cmdline {
-			// Not the addon carrying the padded command line; leave it untouched.
+			// Not the UKI carrying the padded command line; leave it untouched.
 			continue
 		}
 
@@ -1196,18 +1174,18 @@ func injectAddonCmdlineNulPadding(t *testing.T, buildDir string, imageFilePath s
 			return false
 		}
 
-		_, _, err = shell.Execute("objcopy", "--update-section", ".cmdline="+shortPath, addonFile)
+		_, _, err = shell.Execute("objcopy", "--update-section", ".cmdline="+shortPath, ukiFile)
 		if !assert.NoError(t, err) {
 			return false
 		}
 		patched = true
 	}
 
-	return assert.True(t, patched, "no addon carrying the throwaway "+nulPaddingFillerArg+" argument was found to patch")
+	return assert.True(t, patched, "no UKI carrying the throwaway "+nulPaddingFillerArg+" argument was found to patch")
 }
 
 // verifyUsrInlineVerityUki validates that an inline-usr-verity UKI image is well-formed. It reads the usr-verity
-// kernel command line back from the UKI addons on the ESP (the code path the NUL-trim fix touches), checks the
+// kernel command line back from the UKIs on the ESP (the code path the NUL-trim fix touches), checks the
 // systemd.verity_usr_* arguments including a parseable inline hash-offset, and runs `veritysetup verify` against the
 // usr partition.
 func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath string, extraCommandLine []string, absentCommandLine []string) {
@@ -1296,10 +1274,106 @@ func TestGetFallbackKernelArgs(t *testing.T) {
 	}
 }
 
-func TestDefaultGetUkiAddonSpecs(t *testing.T) {
-	specs, err := defaultGetUkiAddonSpecs("vmlinuz-6.6.92.2-2.azl3", "console=tty0 rw")
+func TestMergeUkiCmdlineParts(t *testing.T) {
+	tests := []struct {
+		name          string
+		mainCmdline   string
+		addonCmdlines map[string]string
+		expected      string
+	}{
+		{
+			name:        "main UKI first, then addons in file-name order",
+			mainCmdline: "root=/dev/sda",
+			addonCmdlines: map[string]string{
+				"oem.addon.efi":       "flatcar.oem.id=azure",
+				"firstboot.addon.efi": "flatcar.first_boot=detected",
+			},
+			expected: "root=/dev/sda flatcar.first_boot=detected flatcar.oem.id=azure",
+		},
+		{
+			name:          "empty main UKI and empty addons skipped",
+			addonCmdlines: map[string]string{"a.addon.efi": "", "b.addon.efi": "console=tty0"},
+			expected:      "console=tty0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmdline, err := mergeUkiCmdlineParts(tt.mainCmdline, tt.addonCmdlines)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, cmdline)
+		})
+	}
+}
+
+// TestUkiKernelInfoWritersKeepBaseLayout verifies that create mode applies the kernel command-line changes to the saved
+// command line, keeping the base UKI layout saved with it, and that passthrough mode rejects them.
+func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
+	buildDir := t.TempDir()
+	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err := os.MkdirAll(filepath.Dir(ukiKernelInfoPath), os.ModePerm)
 	assert.NoError(t, err)
-	assert.Equal(t, []UkiAddonSpec{
-		{FileName: "vmlinuz-6.6.92.2-2.azl3.addon.efi", Cmdline: "console=tty0 rw"},
-	}, specs)
+
+	baseLayout := &UkiLayout{
+		MainCmdline: "root=/dev/sda usrhash=old",
+		Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
+		ExtraFiles:  map[string]string{"policy.cred": "abc"},
+	}
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "root=/dev/sda usrhash=old flatcar.oem.id=azure", Initramfs: "initramfs-1.img",
+			BaseLayout: baseLayout},
+	})
+	assert.NoError(t, err)
+
+	b := &BootCustomizer{bootConfigType: bootConfigTypeUki, ukiMode: imagecustomizerapi.UkiModeCreate,
+		ukiKernelInfoPath: ukiKernelInfoPath}
+	err = b.AddKernelCommandLine([]string{"rd.info"})
+	assert.NoError(t, err)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing)
+	assert.NoError(t, err)
+
+	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"usrhash=new"})
+	assert.NoError(t, err)
+
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]UkiKernelInfo{
+		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info security=selinux selinux=1 usrhash=new",
+			Initramfs: "initramfs-1.img", BaseLayout: baseLayout},
+	}, kernelInfo)
+
+	b.ukiMode = imagecustomizerapi.UkiModePassthrough
+	assert.ErrorIs(t, b.AddKernelCommandLine([]string{"rd.info"}), ErrBootUkiPassthroughCmdlineModified)
+	assert.ErrorIs(t, b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing),
+		ErrBootUkiPassthroughCmdlineModified)
+}
+
+// checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available. It returns
+// the UKI stub and addon stub paths.
+func checkSkipForUkiStubs(t *testing.T) (string, string) {
+	for _, command := range []string{"ukify", "objcopy"} {
+		exists, err := file.CommandExists(command)
+		require.NoError(t, err)
+		if !exists {
+			t.Skipf("The '%s' command is not available", command)
+		}
+	}
+
+	stubPath := filepath.Join(ukiEfiStubDir, ukiEfiStubx64Binary)
+	addonStubPath := filepath.Join(ukiEfiStubDir, ukiAddonStubx64Binary)
+	if runtime.GOARCH == "arm64" {
+		stubPath = filepath.Join(ukiEfiStubDir, ukiEfiStubAA64Binary)
+		addonStubPath = filepath.Join(ukiEfiStubDir, ukiAddonStubAA64Binary)
+	}
+
+	for _, path := range []string{stubPath, addonStubPath} {
+		exists, err := file.PathExists(path)
+		require.NoError(t, err)
+		if !exists {
+			t.Skipf("The systemd-boot stub (%s) is not available", path)
+		}
+	}
+
+	return stubPath, addonStubPath
 }

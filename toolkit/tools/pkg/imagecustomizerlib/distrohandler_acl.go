@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 
@@ -228,23 +227,11 @@ func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *saf
 	return newAclEtcOverlay(ctx, imageChroot.RootDir(), reinitializeVerity)
 }
 
-func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	_, statErr := os.Stat(addonFilePath)
-	if statErr == nil {
-		return extractCmdlineFromSinglePE(addonFilePath, buildDir)
-	}
-	if os.IsNotExist(statErr) {
-		// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
-		// Start with empty cmdline; modifyUkiAddon will create the addon.
-		logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
-		return "", nil
-	}
-	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
-}
-
-// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons.
-func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return aclGetUkiAddonSpecs(kernel, cmdline)
+// FinalizeUkis updates the root hash in ACL's A/B slot addon templates.
+func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
+) error {
+	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
