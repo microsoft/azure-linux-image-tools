@@ -11,12 +11,12 @@ import (
 // ErrInvalidCosiCompressionLevelArg is returned when an invalid --cosi-compression-level CLI argument is provided.
 var ErrInvalidCosiCompressionLevelArg = errors.New("invalid --cosi-compression-level value")
 
-// CosiCompression specifies the compression settings for COSI output format.
+// CosiCompression specifies the compression settings for cosi and baremetal-image output formats.
 type CosiCompression struct {
 	// Level specifies the zstd compression level (1-22).
 	// Higher levels provide better compression but take longer.
 	// Levels 20-22 require additional memory (--ultra mode is automatically enabled).
-	// Default: 9
+	// Default: 9 for cosi, 22 for baremetal-image.
 	Level *int `yaml:"level" json:"level,omitempty"`
 }
 

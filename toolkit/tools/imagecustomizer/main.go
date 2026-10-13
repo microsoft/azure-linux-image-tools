@@ -44,7 +44,7 @@ type CustomizeCmd struct {
 	DisableBaseImageRpmRepos  bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
 	PackageSnapshotTime       string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 	ImageCacheDir             string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
-	CosiCompressionLevel      *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	CosiCompressionLevel      *int     `name:"cosi-compression-level" help:"Zstd compression level for cosi and baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image, unless set in config)."`
 	ToolsDir                  string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 	SetFilesContext           string   `name:"setfiles-context" help:"The SELinux label to use when calling setfiles."`
 }
@@ -55,7 +55,7 @@ type InjectFilesCmd struct {
 	InputImageFile       string `name:"image-file" help:"Path of the base image to inject files into." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi|baremetal-image)" help:"Format of output image." enum:"${imageformat}" default:""`
-	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for cosi and baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image)."`
 	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
@@ -64,7 +64,7 @@ type ConvertCmd struct {
 	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
-	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level, only valid for cosi or baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image)."`
 	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
