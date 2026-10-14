@@ -223,7 +223,7 @@ jobs:
           2>&1 \
           | tee "$TEST_RESULTS_DIR/api.txt"
 
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: ${{ !cancelled() }}
       with:
         name: tests-results-api-${{ inputs.arch }}
@@ -231,25 +231,25 @@ jobs:
 
     - name: Upload version artifact
       if: inputs.arch == 'amd64'
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: version
         path: version.txt
 
     - name: Upload binary artifact
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: binary-${{ inputs.arch }}
         path: repo/toolkit/out/imagecustomizer.tar.gz
 
     - name: Upload container artifact
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: container-${{ inputs.arch }}
         path: imagecustomizer.tar.gz
 
     - name: Upload osmodifier artifact
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: osmodifier-${{ inputs.arch }}
         path: repo/toolkit/out/tools/osmodifier
