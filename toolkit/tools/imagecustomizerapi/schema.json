@@ -41,6 +41,9 @@
         "permissions": {
           "$ref": "#/$defs/FilePermissions"
         },
+        "symlinkMode": {
+          "type": "string"
+        },
         "sha256hash": {
           "type": "string"
         }
@@ -214,6 +217,9 @@
         },
         "childFilePermissions": {
           "$ref": "#/$defs/FilePermissions"
+        },
+        "symlinkMode": {
+          "type": "string"
         },
         "sha256hashmap": {
           "additionalProperties": {
@@ -492,6 +498,9 @@
         },
         "selinuxPolicyPath": {
           "type": "string"
+        },
+        "packageManifest": {
+          "$ref": "#/$defs/OutputPackageManifest"
         }
       },
       "additionalProperties": false,
@@ -507,6 +516,15 @@
         },
         "cosi": {
           "$ref": "#/$defs/CosiConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OutputPackageManifest": {
+      "properties": {
+        "path": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -545,6 +563,15 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "PackageManifest": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Packages": {
       "properties": {
         "updateExistingPackages": {
@@ -573,6 +600,9 @@
         },
         "removePackageManager": {
           "type": "boolean"
+        },
+        "manifest": {
+          "$ref": "#/$defs/PackageManifest"
         }
       },
       "additionalProperties": false,
@@ -637,6 +667,36 @@
         },
         "kdumpBootFiles": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ResizeDisk": {
+      "properties": {
+        "diskSize": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "partitions": {
+          "items": {
+            "$ref": "#/$defs/ResizePartition"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ResizePartition": {
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "freeSpace": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "size": {
+          "$ref": "#/$defs/DiskSize"
         }
       },
       "additionalProperties": false,
@@ -748,6 +808,9 @@
         },
         "reinitializeVerity": {
           "type": "string"
+        },
+        "resizeDisk": {
+          "$ref": "#/$defs/ResizeDisk"
         }
       },
       "additionalProperties": false,

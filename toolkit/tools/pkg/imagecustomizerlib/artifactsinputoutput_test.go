@@ -470,16 +470,16 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, baseImageInfo testBaseImageIn
 	}
 
 	// Ensure all the expected files were seen.
-	expectedCount := 4 // shim, bootloader, main UKI, UKI addon
+	expectedCount := 3 // shim, bootloader, main UKI
 	if expectVerityHash {
-		expectedCount = 5 // + verity hash
+		expectedCount = 4 // + verity hash
 	}
 
 	assert.Equal(t, expectedCount, len(injectConfig.InjectFiles))
 	assert.True(t, hasShim, "Expected an inject entry for shim")
 	assert.True(t, hasBootloader, "Expected an inject entry for bootloader")
 	assert.True(t, hasUKI, "Expected at least one inject entry for main UKI")
-	assert.True(t, hasUKIAddon, "Expected at least one inject entry for UKI addon")
+	assert.False(t, hasUKIAddon, "Expected no UKI addons, since the main UKI holds the kernel command line")
 	if expectVerityHash {
 		assert.True(t, hasVerityHash, "Expected an inject entry for verity-hash")
 	}

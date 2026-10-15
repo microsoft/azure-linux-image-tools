@@ -105,6 +105,10 @@ Contains the options for provisioning disks and their partitions.
 Note: While disks is a list, only 1 disk is supported at the moment.
 Support for multiple disks may (or may not) be added in the future.
 
+This value cannot be specified if either
+[resetPartitionsUuidsType](#resetpartitionsuuidstype-string) or
+[resizeDisk](#resizedisk-resizedisk) are specified.
+
 Added in v0.3.
 
 ## verity [[verity](./verity.md)[]]
@@ -126,8 +130,8 @@ Specifies that the partition UUIDs and filesystem UUIDs should be reset.
 
 Value is optional.
 
-This value cannot be specified if [storage](./storage.md) is specified (since
-customizing the partition layout resets all the UUIDs anyway).
+This value cannot be specified if either [disks](#disks-disk) or
+[resizeDisk](#resizedisk-resizedisk) are specified.
 
 If this value is specified, then [os.bootloader.resetType](./bootloader.md#resettype-string)
 must also be specified.
@@ -148,6 +152,21 @@ os:
 ```
 
 Added in v0.7.
+
+## resizeDisk [[resizeDisk](./resizeDisk.md)]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `resize-disk` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+Resizes the disk and partitions without changing the partition layout or
+partition metadata (e.g. partition UUID, filesystem UUID, etc.).
+
+This value cannot be specified if either [disks](#disks-disk) or
+[resetPartitionsUuidsType](#resetpartitionsuuidstype-string) are specified.
+
+Added in v1.8.
 
 ## reinitializeVerity [string]
 

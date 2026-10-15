@@ -28,6 +28,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	// Extract the partition number from the loopback partition path.
+	partitionNumberRegex = regexp.MustCompile(`^/dev/(loop\d+p|sd[a-z]+|vd[a-z]+|nvme\d+n\d+p)(\d+)$`)
+)
+
 type blockDevicesOutput struct {
 	Devices []blockDeviceInfo `json:"blockdevices"`
 }
@@ -1015,5 +1020,74 @@ func requestKernelRereadPartitionTable(diskDevPath string) error {
 		default:
 			return nil
 		}
+	}
+}
+
+// Extract the partition number from the partition path.
+func GetPartitionNum(partitionLoopDevice string) (int, error) {
+	match := partitionNumberRegex.FindStringSubmatch(partitionLoopDevice)
+	if match == nil {
+		return 0, fmt.Errorf("failed to find partition number in partition dev path (%s)", partitionLoopDevice)
+	}
+
+	numStr := match[2]
+
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
+	}
+
+	return num, nil
+}
+
+// Resize a partition. Does not resize the filesystem.
+func ResizePartition(partitionDevice string, diskDevice string, newSizeInSectors uint64) error {
+	partitionNumber, err := GetPartitionNum(partitionDevice)
+	if err != nil {
+		return err
+	}
+
+	// Resize the partition.
+	sfdiskScript := fmt.Sprintf("unit: sectors\nsize=%d", newSizeInSectors)
+
+	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no",
+		"-N", strconv.Itoa(partitionNumber), diskDevice).
+		Stdin(sfdiskScript).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to resize partition (%s) with sfdisk (and flock):\n%w", partitionDevice, err)
+	}
+
+	// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then
+	// recreated. So, wait for that to finish.
+	err = RefreshPartitions(diskDevice)
+	if err != nil {
+		return fmt.Errorf("failed to wait for disk (%s) to update:\n%w", diskDevice, err)
+	}
+
+	return nil
+}
+
+func HumanReadable[I ~uint64 | ~int64](size I) string {
+	switch {
+	case size == 0:
+		return fmt.Sprintf("%d bytes", size)
+
+	case size%TiB == 0:
+		return fmt.Sprintf("%d TiB", size/TiB)
+
+	case size%GiB == 0:
+		return fmt.Sprintf("%d GiB", size/GiB)
+
+	case size%MiB == 0:
+		return fmt.Sprintf("%d MiB", size/MiB)
+
+	case size%KiB == 0:
+		return fmt.Sprintf("%d KiB", size/KiB)
+
+	default:
+		return fmt.Sprintf("%d bytes", size)
 	}
 }

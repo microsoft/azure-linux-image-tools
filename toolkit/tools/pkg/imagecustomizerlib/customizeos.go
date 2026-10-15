@@ -17,12 +17,12 @@ import (
 )
 
 const (
-	buildTimeFormat = "2006-01-02T15:04:05Z"
+	buildTimeFormatUtc = "2006-01-02T15:04:05Z"
 )
 
 var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 	"kernel binaries detected in /boot after package operations. "+
-		"Both 'passthrough' and 'modify' modes preserve the existing kernel and initramfs. "+
+		"'passthrough' mode preserves the existing kernel and initramfs. "+
 		"Use 'mode: create' to regenerate UKIs with updated kernels")
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
@@ -33,7 +33,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTime := time.Now().Format(buildTimeFormat)
+	buildTime := time.Now()
 
 	// Assemble the distro's /etc overlay if the distro has one, so that customization operates on
 	// the same merged /etc the booted OS sees.
@@ -89,20 +89,6 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	// If UKI mode is 'modify', extract cmdline early so BootCustomizer can modify it
-	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
-		ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
-		err = os.MkdirAll(ukiBuildDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
-		}
-
-		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot, distroHandler)
-		if err != nil {
-			return fmt.Errorf("failed to extract UKI cmdline for modify mode:\n%w", err)
-		}
-	}
-
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
@@ -117,11 +103,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	// Both modes preserve the existing kernel and initramfs:
-	// - passthrough: preserves entire UKI without modification
-	// - modify: preserves main UKI (kernel, initramfs) and only modifies addon
-	if rc.Uki != nil && (rc.Uki.Mode == imagecustomizerapi.UkiModePassthrough ||
-		rc.Uki.Mode == imagecustomizerapi.UkiModeModify) {
+	// Passthrough mode preserves the entire UKI, including the kernel and initramfs.
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
 		hasKernels, err := hasKernelBinariesInBoot(imageChroot.RootDir())
 		if err != nil {
 			return err
@@ -240,11 +223,10 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	if rc.RemovePackageManager {
-		err = removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
-		}
+	err = finalizePackageManagement(ctx, distroHandler, imageChroot, toolsChroot, buildTime,
+		rc.PackageManifestMode, rc.RemovePackageManager)
+	if err != nil {
+		return err
 	}
 
 	err = restoreResolvConf(ctx, resolvConf, imageChroot)

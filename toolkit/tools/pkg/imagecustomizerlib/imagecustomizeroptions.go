@@ -17,19 +17,20 @@ var (
 )
 
 type ImageCustomizerOptions struct {
-	BuildDir                string
-	InputImageFile          string
-	InputImage              string
-	RpmsSources             []string
-	OutputImageFile         string
-	OutputImageFormat       imagecustomizerapi.ImageFormatType
-	OutputSelinuxPolicyPath string
-	UseBaseImageRpmRepos    bool
-	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
-	ImageCacheDir           string
-	CosiCompressionLevel    *int
-	ToolsDir                string
-	SetFilesContext         string
+	BuildDir                  string
+	InputImageFile            string
+	InputImage                string
+	RpmsSources               []string
+	OutputImageFile           string
+	OutputImageFormat         imagecustomizerapi.ImageFormatType
+	OutputSelinuxPolicyPath   string
+	OutputPackageManifestFile string
+	UseBaseImageRpmRepos      bool
+	PackageSnapshotTime       imagecustomizerapi.PackageSnapshotTime
+	ImageCacheDir             string
+	CosiCompressionLevel      *int
+	ToolsDir                  string
+	SetFilesContext           string
 
 	// Not provided via the command line. Only used in tests.
 	PreviewFeatures []imagecustomizerapi.PreviewFeature

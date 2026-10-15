@@ -5,7 +5,7 @@ ancestor: Image Customizer
 
 # output type
 
-Specifies the configuration for the output image and artifacts.
+Specifies the configuration for the output image, artifacts, and package manifest.
 
 ## image [[outputImage](./outputImage.md)]
 
@@ -47,6 +47,33 @@ previewFeatures:
 ```
 
 Added in v0.14.
+
+## packageManifest [[outputPackageManifest](./outputPackageManifest.md)]
+
+Optional.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `package-manifest` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+Specifies the configuration for the package manifest output file.
+
+Example:
+
+```yaml
+os:
+  packages:
+    manifest:
+      mode: create
+output:
+  packageManifest:
+    path: ./out/package-manifest.spdx.json
+previewFeatures:
+- package-manifest
+```
+
+Added in v1.7.
 
 ## selinuxPolicyPath [string]
 

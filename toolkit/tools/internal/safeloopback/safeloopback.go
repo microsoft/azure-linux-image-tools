@@ -76,6 +76,13 @@ func (l *Loopback) DiskFilePath() string {
 	return l.diskFilePath
 }
 
+// Request the loopback device refresh the size of the disk from file.
+func (l *Loopback) RefreshDiskSize() error {
+	return shell.NewExecBuilder("losetup", "--set-capacity", l.devicePath).
+		ErrorStderrLines(1).
+		Execute()
+}
+
 func (l *Loopback) Close() {
 	err := l.close( /*async*/ true)
 	if err != nil {

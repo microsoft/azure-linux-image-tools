@@ -54,6 +54,7 @@ type DirToCopy struct {
 	NewDirPermissions    os.FileMode
 	ChildFilePermissions os.FileMode
 	MergedDirPermissions *os.FileMode
+	NoDereference        bool
 }
 
 // MountPoint represents a system mount point used by a Chroot.
@@ -267,8 +268,13 @@ func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMoun
 
 // AddDirs copies each directory 'Src' to the relative path chrootRootDir/'Dest' in the chroot.
 func (c *Chroot) AddDirs(dirToCopy DirToCopy) (err error) {
-	return file.CopyDir(dirToCopy.Src, filepath.Join(c.rootDir, dirToCopy.Dest), dirToCopy.NewDirPermissions,
-		dirToCopy.ChildFilePermissions, dirToCopy.MergedDirPermissions)
+	return file.CopyDir(dirToCopy.Src, filepath.Join(c.rootDir, dirToCopy.Dest),
+		file.CopyDirOptions{
+			NewDirPermissions:    dirToCopy.NewDirPermissions,
+			ChildFilePermissions: dirToCopy.ChildFilePermissions,
+			MergedDirPermissions: dirToCopy.MergedDirPermissions,
+			NoDereference:        dirToCopy.NoDereference,
+		})
 }
 
 // AddFiles copies each file 'Src' to the relative path chrootRootDir/'Dest' in the chroot.

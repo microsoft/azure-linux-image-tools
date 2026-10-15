@@ -1,0 +1,6 @@
+previewFeatures:
+- resize-disk
+
+storage:
+  resizeDisk:
+    diskSize: 50G

@@ -77,10 +77,7 @@ func (pm *tdnfPackageManager) configureSnapshotTime(packageManagerChroot *safech
 func (pm *tdnfPackageManager) executeCommand(args []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
 ) error {
-	pmChroot := imageChroot
-	if toolsChroot != nil {
-		pmChroot = toolsChroot
-	}
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
 	fullArgs := []string{"-v"}
 
@@ -143,20 +140,12 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 	toolsChroot *safechroot.Chroot, packageName string,
 ) (bool, error) {
 	args := []string{"info", packageName, "--repo", "@system"}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL).
-		args = append([]string{
-			"--releasever=" + pm.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-		chroot = toolsChroot
-	}
+	args = append(args, getRpmInstallRootArgs(pm, toolsChroot)...)
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
-	err := shell.NewExecBuilder("tdnf", args...).
+	err := shell.NewExecBuilder(packageManagerTDNF, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
+		Chroot(pmChroot.ChrootDir()).
 		Execute()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -176,20 +165,12 @@ func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chro
 	packageName string,
 ) (*PackageVersionInformation, error) {
 	args := []string{"info", packageName, "--repo", "@system"}
-	chroot := imageChroot
-	if toolsChroot != nil {
-		// Run tdnf from inside the tools chroot against the image bind-mounted at /_imageroot — needed when
-		// imageChroot has no in-image tdnf (e.g. ACL).
-		args = append([]string{
-			"--releasever=" + pm.getReleaseVersion(),
-			"--installroot=/" + toolsRootImageDir,
-		}, args...)
-		chroot = toolsChroot
-	}
+	args = append(args, getRpmInstallRootArgs(pm, toolsChroot)...)
+	pmChroot := getRpmChroot(imageChroot, toolsChroot)
 
 	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
+		Chroot(pmChroot.ChrootDir()).
 		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information via tdnf:\n%w", packageName, err)
