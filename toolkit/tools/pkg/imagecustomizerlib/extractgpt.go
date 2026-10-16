@@ -183,7 +183,7 @@ func readGptEndOffset(file *os.File, sectorSize int) (uint64, error) {
 	gptEndOffset := partitionArrayStart + partitionArraySize
 
 	// Round up to sector boundary
-	gptEndOffset = mathutils.RoundDown(gptEndOffset, uint64(sectorSize))
+	gptEndOffset = mathutils.RoundUp(gptEndOffset, uint64(sectorSize))
 
 	logger.Log.Debugf("GPT header parsed: PartitionEntryLBA=%d, NumEntries=%d, EntrySize=%d, EndOffset=%d",
 		header.PartitionEntryLBA, header.NumberOfPartitionEntries, header.SizeOfPartitionEntry, gptEndOffset)
