@@ -32,6 +32,7 @@ const (
 
 	SshDirectoryPerm   os.FileMode = 0o700
 	AuthorizedKeysPerm os.FileMode = 0o600
+	HomeDirectoryPerm  os.FileMode = 0o755
 )
 
 func HashPassword(password string) (string, error) {
@@ -334,6 +335,29 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 	gid, err := GetUserGroupId(username, installChroot)
 	if err != nil {
 		return err
+	}
+
+	userHomeDirFullPath := filepath.Dir(userSSHKeyDirFullPath)
+	homeDirExists, err := file.PathExists(userHomeDirFullPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if user's home directory (%s) exists:\n%w", userHomeDirFullPath, err)
+	}
+
+	if !homeDirExists {
+		err = os.MkdirAll(userHomeDirFullPath, HomeDirectoryPerm)
+		if err != nil {
+			return fmt.Errorf("failed to create user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		}
+
+		err = os.Chmod(userHomeDirFullPath, HomeDirectoryPerm)
+		if err != nil {
+			return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		}
+
+		err = os.Chown(userHomeDirFullPath, uid, gid)
+		if err != nil {
+			return fmt.Errorf("failed to set ownership on user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		}
 	}
 
 	// Create the .ssh directory, if needed.

@@ -162,6 +162,10 @@ Added in v0.3.
 
 Where the user's home directory should be located.
 
+When SSH public keys are provided, a missing home directory is created with mode
+`0755` and the user's UID/GID. Existing home directories retain their permissions
+and ownership.
+
 ```yaml
 os:
   users:
