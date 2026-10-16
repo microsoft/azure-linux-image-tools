@@ -88,8 +88,9 @@ type PartitionTablePartition struct {
 	PartLabel    string `json:"name"`  // Example: rootfs
 
 	// Populated from "blkid --probe":
-	FileSystemType string // Example: vfat
-	FileSystemUuid string // Example: 4BD9-3A78
+	FileSystemType  string // Example: vfat
+	FileSystemUuid  string // Example: 4BD9-3A78
+	FileSystemLabel string // Example: rootfs
 }
 
 type PartitionTable struct {
@@ -568,7 +569,7 @@ func createSinglePartition(diskDevPath string, partitionNumber int, partitionTab
 		return "", fmt.Errorf("MBR support is not implemented")
 
 	case configuration.PartitionTableTypeGpt:
-		name = escapeSfdiskString(partition.Name)
+		name = EscapeSfdiskString(partition.Name)
 		typeId = GenericLinuxPartitionTypeUuid
 
 		for _, flag := range partition.Flags {
@@ -626,7 +627,7 @@ func createSinglePartition(diskDevPath string, partitionNumber int, partitionTab
 // - Azure Linux 2.0: v2.37.4
 //
 // So, it should be fine to assume that it is supported.
-func escapeSfdiskString(value string) string {
+func EscapeSfdiskString(value string) string {
 	builder := strings.Builder{}
 	builder.WriteString("\"")
 
@@ -847,6 +848,15 @@ func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
 		}
 
 		partition.FileSystemUuid = strings.TrimSpace(stdout)
+
+		// Read the filesystem label directly from disk.
+		stdout, _, err = shell.Execute("flock", "--timeout", "5", "--shared", diskDevPath,
+			"blkid", "--probe", "-s", "LABEL", "-o", "value", partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get filesystem LABEL of partition (%s)\n%w", partition.Path, err)
+		}
+
+		partition.FileSystemLabel = strings.Trim(stdout, "\n")
 	}
 
 	return output.PartitionTable, nil

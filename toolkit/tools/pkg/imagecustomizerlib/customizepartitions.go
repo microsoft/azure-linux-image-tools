@@ -52,12 +52,12 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 		return true, buildImageFile, nil, nil
 
 	case storage.ResizeDisk != nil:
-		err := resizeDiskAndPartitions(ctx, buildImageFile, buildDir, *storage.ResizeDisk)
+		newBuildImageFile, err := resizeDiskAndPartitions(ctx, buildImageFile, buildDir, *storage.ResizeDisk)
 		if err != nil {
 			return false, "", nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
 		}
 
-		return false, buildImageFile, nil, nil
+		return false, newBuildImageFile, nil, nil
 
 	default:
 		// No changes to make to the partitions.
