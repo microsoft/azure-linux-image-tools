@@ -544,17 +544,12 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
 
-	// The 'reinitialize-verity' preview feature is only required when verity will actually be
-	// re-sealed. Re-sealing happens only under storage.reinitializeVerity: all (readOnlyVerity=false),
-	// which regenerates the verity hash tree, kernel cmdline, and (on UKI systems) the UKI. When
-	// reinitializeVerity is unset/none, the base image's verity partitions are mounted read-only and
-	// left untouched, so no acknowledgment is required -- this lets read-only passes (e.g.
-	// output.artifacts extraction with os.uki.mode: passthrough) run over a verity-sealed base without
-	// altering the dm-verity root hash. (config.go additionally enforces the feature whenever
-	// storage.reinitializeVerity is set; this is the runtime safety net for the re-seal path.)
-	if verityReinitializePreviewFeatureRequired(rc, len(baseImageVerityMetadata) > 0) &&
-		!slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureReinitializeVerity) {
-		return im, ErrVerityPreviewFeatureRequired
+	if len(baseImageVerityMetadata) > 0 {
+		previewFeatureEnabled := slices.Contains(rc.PreviewFeatures,
+			imagecustomizerapi.PreviewFeatureReinitializeVerity)
+		if !previewFeatureEnabled {
+			return im, ErrVerityPreviewFeatureRequired
+		}
 	}
 
 	im.partitionsLayout = partitionsLayout
@@ -765,16 +760,6 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 	default:
 		return string(imageFormat), ""
 	}
-}
-
-// verityReinitializePreviewFeatureRequired reports whether the 'reinitialize-verity' preview feature
-// must be enabled for the current customization. It is required only when a base image that actually
-// contains verity metadata is being re-sealed (storage.reinitializeVerity: all). Customizations that
-// leave verity read-only (reinitializeVerity unset/none) — e.g. output-artifacts extraction with a
-// passthrough UKI, or writes limited to non-verity partitions — keep the original dm-verity root hash
-// intact (readOnlyVerity stays true) and therefore do not require the feature.
-func verityReinitializePreviewFeatureRequired(rc *ResolvedConfig, hasBaseVerity bool) bool {
-	return hasBaseVerity && rc.Storage.ReinitializeVerity == imagecustomizerapi.ReinitializeVerityTypeAll
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
