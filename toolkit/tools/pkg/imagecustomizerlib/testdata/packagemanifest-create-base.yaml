@@ -1,0 +1,6 @@
+previewFeatures:
+  - package-manifest
+os:
+  packages:
+    manifest:
+      mode: create

@@ -32,20 +32,21 @@ type CreateCmd struct {
 }
 
 type CustomizeCmd struct {
-	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
-	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
-	InputImage               string   `name:"image" help:"The image which the customization will be applied to.\n Supported formats:\n - oci:URI"`
-	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
-	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi|baremetal-image)" help:"Format of output image." enum:"${imageformat}" default:""`
-	OutputSelinuxPolicyPath  string   `name:"output-selinux-policy-path" help:"Path to output directory for extracting SELinux policy files."`
-	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
-	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
-	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
-	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
-	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
-	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
-	ToolsDir                 string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
-	SetFilesContext          string   `name:"setfiles-context" help:"The SELinux label to use when calling setfiles."`
+	BuildDir                  string   `name:"build-dir" help:"Directory to run build out of." required:""`
+	InputImageFile            string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
+	InputImage                string   `name:"image" help:"The image which the customization will be applied to.\n Supported formats:\n - oci:URI"`
+	OutputImageFile           string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
+	OutputImageFormat         string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi|baremetal-image)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputSelinuxPolicyPath   string   `name:"output-selinux-policy-path" help:"Path to output directory for extracting SELinux policy files."`
+	OutputPackageManifestFile string   `name:"output-package-manifest-file" help:"Path to write the image's package manifest to."`
+	ConfigFile                string   `name:"config-file" help:"Path of the image customization config file." required:""`
+	RpmSources                []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
+	DisableBaseImageRpmRepos  bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
+	PackageSnapshotTime       string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
+	ImageCacheDir             string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
+	CosiCompressionLevel      *int     `name:"cosi-compression-level" help:"Zstd compression level for cosi and baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image, unless set in config)."`
+	ToolsDir                  string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
+	SetFilesContext           string   `name:"setfiles-context" help:"The SELinux label to use when calling setfiles."`
 }
 
 type InjectFilesCmd struct {
@@ -54,7 +55,7 @@ type InjectFilesCmd struct {
 	InputImageFile       string `name:"image-file" help:"Path of the base image to inject files into." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi|baremetal-image)" help:"Format of output image." enum:"${imageformat}" default:""`
-	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for cosi and baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image)."`
 	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
@@ -63,7 +64,7 @@ type ConvertCmd struct {
 	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
-	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level, only valid for cosi or baremetal-image output (1-22; defaults: 9 for cosi, 22 for baremetal-image)."`
 	ToolsDir             string `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
@@ -173,19 +174,20 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
-			BuildDir:                cmd.BuildDir,
-			InputImageFile:          cmd.InputImageFile,
-			InputImage:              cmd.InputImage,
-			RpmsSources:             cmd.RpmSources,
-			OutputImageFile:         cmd.OutputImageFile,
-			OutputImageFormat:       imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
-			OutputSelinuxPolicyPath: cmd.OutputSelinuxPolicyPath,
-			UseBaseImageRpmRepos:    !cmd.DisableBaseImageRpmRepos,
-			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
-			ImageCacheDir:           cmd.ImageCacheDir,
-			CosiCompressionLevel:    cmd.CosiCompressionLevel,
-			ToolsDir:                cmd.ToolsDir,
-			SetFilesContext:         cmd.SetFilesContext,
+			BuildDir:                  cmd.BuildDir,
+			InputImageFile:            cmd.InputImageFile,
+			InputImage:                cmd.InputImage,
+			RpmsSources:               cmd.RpmSources,
+			OutputImageFile:           cmd.OutputImageFile,
+			OutputImageFormat:         imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
+			OutputSelinuxPolicyPath:   cmd.OutputSelinuxPolicyPath,
+			OutputPackageManifestFile: cmd.OutputPackageManifestFile,
+			UseBaseImageRpmRepos:      !cmd.DisableBaseImageRpmRepos,
+			PackageSnapshotTime:       imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+			ImageCacheDir:             cmd.ImageCacheDir,
+			CosiCompressionLevel:      cmd.CosiCompressionLevel,
+			ToolsDir:                  cmd.ToolsDir,
+			SetFilesContext:           cmd.SetFilesContext,
 		})
 	if err != nil {
 		return err

@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -35,9 +35,6 @@ import (
 var (
 	bootPartitionRegexAzl3 = regexp.MustCompile(`(?m)^[\t ]*search\s+-n\s+-u\s+([a-zA-Z0-9\-]+)\s+-s\s*$`)
 	bootPartitionRegexAzl4 = regexp.MustCompile(`(?m)^[\t ]*search\s+--fs-uuid\s+--set=root\s+([a-zA-Z0-9\-]+)\s*$`)
-
-	// Extract the partition number from the loopback partition path.
-	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
 const (
@@ -1081,50 +1078,55 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 // extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
 // It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
 func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
-	// Extract cmdline from main UKI (may be absent if using addon architecture)
-	mainUkiCmdline, err := extractCmdlineFromSinglePEIfPresent(ukiFile, buildDir)
+	mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+		return "", err
 	}
 
-	// Construct addon directory path: <uki-file>.extra.d/
-	ukiFileName := filepath.Base(ukiFile)
-	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+	return mergeUkiCmdlineParts(mainUkiCmdline, addonCmdlines)
+}
 
-	// Extract cmdlines from all addon files in lexicographic order (mirrors systemd-boot behavior)
-	addonCmdlines := []string{}
+// extractUkiCmdlineParts returns the main UKI's .cmdline as found and each addon's .cmdline, trimmed, by file name.
+func extractUkiCmdlineParts(ukiFile string, buildDir string) (string, map[string]string, error) {
+	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	}
+
+	addonCmdlines := map[string]string{}
+	addonDirPath := ukiFile + ".extra.d"
 	if entries, err := os.ReadDir(addonDirPath); err == nil {
-		// Collect all .addon.efi files
-		var addonFiles []string
 		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".addon.efi") {
-				addonFiles = append(addonFiles, entry.Name())
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".addon.efi") {
+				continue
 			}
-		}
 
-		// Sort addon files lexicographically (same order as systemd-boot)
-		slices.Sort(addonFiles)
-
-		// Extract cmdline from each addon in sorted order
-		for _, addonFile := range addonFiles {
-			addonFilePath := filepath.Join(addonDirPath, addonFile)
-			addonCmdline, err := extractCmdlineFromSinglePEIfPresent(addonFilePath, buildDir)
+			addonFilePath := filepath.Join(addonDirPath, entry.Name())
+			addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
 			if err != nil {
-				return "", fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+				return "", nil, fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 			}
-			if strings.TrimSpace(addonCmdline) != "" {
-				addonCmdlines = append(addonCmdlines, strings.TrimSpace(addonCmdline))
-			}
+
+			addonCmdlines[entry.Name()] = strings.TrimSpace(addonCmdline)
 		}
 	}
 
-	// Concatenate cmdlines from main UKI and all addons (mirrors systemd-boot behavior)
-	// At boot time, systemd-boot concatenates .cmdline sections from the main UKI and all addons.
+	return mainUkiCmdline, addonCmdlines, nil
+}
+
+// mergeUkiCmdlineParts concatenates the main UKI's cmdline and the addon cmdlines in lexicographic addon file-name
+// order, the same way systemd-boot builds the kernel command line at boot time.
+func mergeUkiCmdlineParts(mainUkiCmdline string, addonCmdlines map[string]string) (string, error) {
 	cmdlines := []string{}
 	if mainUkiCmdline != "" {
 		cmdlines = append(cmdlines, strings.TrimSpace(mainUkiCmdline))
 	}
-	cmdlines = append(cmdlines, addonCmdlines...)
+
+	for _, addonFile := range slices.Sorted(maps.Keys(addonCmdlines)) {
+		if addonCmdlines[addonFile] != "" {
+			cmdlines = append(cmdlines, addonCmdlines[addonFile])
+		}
+	}
 
 	if len(cmdlines) == 0 {
 		return "", fmt.Errorf("no cmdline found in either main UKI or addon")
@@ -1408,24 +1410,6 @@ func getNonSpecialChrootMountPoints(imageChroot *safechroot.Chroot) []*safechroo
 			return true
 		},
 	)
-}
-
-// Extract the partition number from the partition path.
-// Ideally, we would use `lsblk --output PARTN` instead of this. But that is only available in util-linux v2.39+.
-func getPartitionNum(partitionLoopDevice string) (int, error) {
-	match := partitionNumberRegex.FindStringSubmatch(partitionLoopDevice)
-	if match == nil {
-		return 0, fmt.Errorf("failed to find partition number in partition dev path (%s)", partitionLoopDevice)
-	}
-
-	numStr := match[1]
-
-	num, err := strconv.Atoi(numStr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
-	}
-
-	return num, nil
 }
 
 // Find the closest parent for a target path, given a set of parent paths.

@@ -804,7 +804,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		}
 
 		// Update kernel args.
-		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
+		// UKI create mode puts the verity args into the UKIs (not GRUB)
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout, distroHandler)
 		if err != nil {
@@ -895,7 +895,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	if shrinkHashPartition && !formatSettings.IsInlineVerity() {
 		partitionSizeInSectors := mathutils.DivRoundUp(hashSizeInBytes, sectorSize)
 
-		err = resizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
+		err = diskutils.ResizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
 		if err != nil {
 			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}

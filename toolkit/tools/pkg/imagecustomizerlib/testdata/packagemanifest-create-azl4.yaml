@@ -1,0 +1,11 @@
+# Differs from packagemanifest-create-azl3 in the pinned tree version.
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: packagemanifest-create-base.yaml
+
+os:
+  packages:
+    install:
+    - tree-0:2.2.1-3.azl4

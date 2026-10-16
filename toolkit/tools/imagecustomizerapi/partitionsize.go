@@ -29,6 +29,19 @@ type PartitionSize struct {
 }
 
 func (s *PartitionSize) IsValid() error {
+	switch s.Type {
+	case PartitionSizeTypeGrow, PartitionSizeTypeUnset:
+		// Nothing else to check.
+
+	case PartitionSizeTypeExplicit:
+		if err := s.Size.IsValid(); err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("invalid partition size type (%v)", s.Type)
+	}
+
 	return nil
 }
 

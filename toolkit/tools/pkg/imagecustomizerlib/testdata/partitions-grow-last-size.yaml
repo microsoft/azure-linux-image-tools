@@ -1,0 +1,8 @@
+previewFeatures:
+- resize-disk
+
+storage:
+  resizeDisk:
+    partitions:
+    - ref: last
+      size: 50G

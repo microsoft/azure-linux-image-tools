@@ -14,7 +14,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 )
 
@@ -141,7 +140,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verit
 
 		fileSystemSizeInSectors := mathutils.DivRoundUp(totalSizeInBytes, sectorSize)
 
-		err = resizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
+		err = diskutils.ResizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
 		if err != nil {
 			return nil, err
 		}
@@ -170,35 +169,6 @@ func shrinkExt4FileSystem(partitionDevice string, diskDevice string) (uint64, er
 	}
 
 	return fileSystemSizeInBytes, nil
-}
-
-func resizePartition(partitionDevice string, diskDevice string, newSizeInSectors uint64) error {
-	partitionNumber, err := getPartitionNum(partitionDevice)
-	if err != nil {
-		return err
-	}
-
-	// Resize the partition.
-	sfdiskScript := fmt.Sprintf("unit: sectors\nsize=%d", newSizeInSectors)
-
-	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no",
-		"-N", strconv.Itoa(partitionNumber), diskDevice).
-		Stdin(sfdiskScript).
-		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
-		ErrorStderrLines(1).
-		Execute()
-	if err != nil {
-		return fmt.Errorf("failed to resize partition (%s) with sfdisk (and flock):\n%w", partitionDevice, err)
-	}
-
-	// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then
-	// recreated. So, wait for that to finish.
-	err = diskutils.RefreshPartitions(diskDevice)
-	if err != nil {
-		return fmt.Errorf("failed to wait for disk (%s) to update:\n%w", diskDevice, err)
-	}
-
-	return nil
 }
 
 // Get the filesystem size in bytes.

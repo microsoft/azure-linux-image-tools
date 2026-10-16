@@ -68,7 +68,8 @@ Optional.
 Specifies the configuration options for the COSI (Composable Operating System
 Image) output format.
 
-This field is only applicable when `format` is set to `cosi`.
+This field is only applicable when the output image format is `cosi` or
+`baremetal-image`.
 
 Example:
 

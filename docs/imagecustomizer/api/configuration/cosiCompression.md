@@ -5,7 +5,8 @@ ancestor: Image Customizer
 
 # cosiCompression type
 
-Specifies the zstd compression settings for the partition images within the COSI output image.
+Specifies the zstd compression settings for the partition images within `cosi` and
+`baremetal-image` output images.
 
 If not specified, the default compression level is used.
 
@@ -23,7 +24,7 @@ output:
 
 ## level [int]
 
-Optional. Default: `9`
+Optional. Default: `9` for `cosi`, `22` for `baremetal-image`.
 
 If both `output.image.cosi.compression.level` and
 [--cosi-compression-level](../cli/customize.md#--cosi-compression-levellevel) are provided, then the
