@@ -12,9 +12,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -41,6 +43,7 @@ var (
 	ErrDiskResizeFindTooManyPartitions        = NewImageCustomizerError("Partitions:ResizeFindTooManyPartitions", "partition reference matches more than 1 partition")
 	ErrDiskResizeFailedToCreatePartitionTable = NewImageCustomizerError("Partitions:DiskResizeFailedToCreatePartitionTable", "failed to create partition table")
 	ErrDiskResizePartitionCopyFailed          = NewImageCustomizerError("Partitions:DiskResizePartitionCopyFailed", "failed to copy partition to the new disk")
+	ErrDiskResizeCannotMoveBiosBootPartition  = NewImageCustomizerError("Partitions:DiskResizeCannotMoveBiosBootPartition", "cannot move bios boot partition")
 )
 
 func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDir string,
@@ -326,7 +329,8 @@ func resizeDiskAdvanced(loopback *safeloopback.Loopback, partitionTable diskutil
 			sizeCompareStr(oldPart.Size*sectorSize, newPart.Size*sectorSize))
 	}
 
-	err = diskutils.CreateSparseDisk(newImageFilePath, newDiskSize/diskutils.MiB, os.ModePerm)
+	err = createNewResizedDisk(loopback.DevicePath(), newImageFilePath, newDiskSize, gptHeaderSize, gptFooterSize,
+		newPartitionTable)
 	if err != nil {
 		return "", err
 	}
@@ -336,16 +340,6 @@ func resizeDiskAdvanced(loopback *safeloopback.Loopback, partitionTable diskutil
 		return "", err
 	}
 	defer newDiskLoopback.Close()
-
-	err = setNewDevicePathOnPartitionTable(newDiskLoopback.DevicePath(), &newPartitionTable)
-	if err != nil {
-		return "", err
-	}
-
-	err = formatDiskPartitionTable(newDiskLoopback.DevicePath(), newPartitionTable)
-	if err != nil {
-		return "", fmt.Errorf("%w:\n%w", ErrDiskResizeFailedToCreatePartitionTable, err)
-	}
 
 	err = copyAndGrowPartitions(loopback.DevicePath(), newDiskLoopback.DevicePath(), partitionTable, newPartitionTable,
 		buildDir)
@@ -375,7 +369,14 @@ func copyAndGrowPartitions(oldDiskDevice string, newDiskDevice string, oldPartit
 			return fmt.Errorf("old partition size is larger than the new partition size")
 		}
 
-		err := copyPartitionFile(oldPart.Path, newPart.Path)
+		partNum, err := diskutils.GetPartitionNum(oldPart.Path)
+		if err != nil {
+			return err
+		}
+
+		newPartPath := fmt.Sprintf("%sp%d", newDiskDevice, partNum)
+
+		err = copyPartitionFile(newDiskDevice, oldPart.Path, newPartPath)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrDiskResizePartitionCopyFailed, err)
 		}
@@ -398,7 +399,18 @@ func copyAndGrowPartitions(oldDiskDevice string, newDiskDevice string, oldPartit
 	return nil
 }
 
-func copyPartitionFile(oldPartPath string, newPartPath string) error {
+func copyPartitionFile(diskDevice string, oldPartPath string, newPartPath string) error {
+	diskDeviceFile, err := os.Open(diskDevice)
+	if err != nil {
+		return err
+	}
+	defer diskDeviceFile.Close()
+
+	_, err = file.LockExclusive(context.Background(), diskDeviceFile, 5*time.Second)
+	if err != nil {
+		return err
+	}
+
 	oldPartFile, err := os.Open(oldPartPath)
 	if err != nil {
 		return err
@@ -433,25 +445,39 @@ func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartS
 	alignmentSize := int64(imagecustomizerapi.DefaultPartitionAlignment)
 	sectorSize := int64(partitionTable.SectorSize)
 	alignmentSectors := alignmentSize / sectorSize
+	if alignmentSize%sectorSize != 0 {
+		// Shouldn't happen since alignment size is 1 MiB and sector size is either 512 or 4 KiB.
+		err := fmt.Errorf("default partition alignment size is not a multiple of the sector size (alignment=%d, sector=%d)",
+			alignmentSize, sectorSize)
+		return diskutils.PartitionTable{}, 0, err
+	}
+
+	indexes := []int(nil)
+	for i := range partitionTable.Partitions {
+		indexes = append(indexes, i)
+	}
 
 	// Some distros (e.g. Ubuntu) have a physical disk order that is different from the table order.
-	sortedPartitions := slices.SortedFunc(slices.Values(partitionTable.Partitions),
-		func(a, b diskutils.PartitionTablePartition) int {
-			return cmp.Compare(a.Start, b.Start)
+	sortedPartitionIndexes := slices.SortedFunc(slices.Values(indexes),
+		func(a, b int) int {
+			return cmp.Compare(partitionTable.Partitions[a].Start, partitionTable.Partitions[b].Start)
 		})
 
 	// GPT header.
-	nextSector := mathutils.RoundUp(int64(gptHeaderSize), alignmentSize) / sectorSize
+	if partitionTable.FirstLba < int64(gptHeaderSize)/sectorSize {
+		err := fmt.Errorf("invalid disk: FirstUsableLba smaller than GPT header size")
+		return diskutils.PartitionTable{}, 0, err
+	}
+
+	nextSector := partitionTable.FirstLba
 
 	// Assign partition sectors.
-	newPartitions := []diskutils.PartitionTablePartition(nil)
-	for i, partition := range sortedPartitions {
+	newPartitions := make([]diskutils.PartitionTablePartition, len(partitionTable.Partitions))
+	for _, index := range sortedPartitionIndexes {
+		partition := partitionTable.Partitions[index]
 		newPartition := partition
 
-		// Note: The new partition layout intentionally collapses any existing gaps between partitions.
-		newPartition.Start = nextSector
-
-		if newSize, hasNewSize := newPartSizes[i]; hasNewSize {
+		if newSize, hasNewSize := newPartSizes[index]; hasNewSize {
 			newPartSizeInSectors := newSize / uint64(sectorSize)
 			if newSize%uint64(sectorSize) != 0 {
 				// Shouldn't happen, since the size should be rounded up to DefaultPartitionAlignment, which should be a
@@ -461,15 +487,27 @@ func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartS
 				return diskutils.PartitionTable{}, 0, err
 			}
 
+			// Note: This will fill up any empty space before and after the partition before expanding into existing
+			// partitions' territory.
+			newPartition.Start = mathutils.RoundUp(nextSector, alignmentSectors)
 			newPartition.Size = int64(newPartSizeInSectors)
+		} else if partition.Start < nextSector {
+			// We can't give the partition its original location.
+			// So, we need to move it.
+			if partition.PartTypeUuid == imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeBiosGrub] {
+				// This is a BIOS boot partition. It's location is hardcoded inside the MBR boot code.
+				// So, it can't be moved.
+				err := fmt.Errorf("%w (oldStart=%s, newStart=%s)", ErrDiskResizeCannotMoveBiosBootPartition,
+					diskutils.HumanReadable(partition.Start*sectorSize),
+					diskutils.HumanReadable(nextSector*sectorSize))
+				return diskutils.PartitionTable{}, 0, err
+			}
+
+			newPartition.Start = mathutils.RoundUp(nextSector, alignmentSectors)
 		}
 
 		nextSector = newPartition.Start + newPartition.Size
-
-		// Ensure all partitions are aligned.
-		nextSector = mathutils.RoundUp(nextSector, alignmentSectors)
-
-		newPartitions = append(newPartitions, newPartition)
+		newPartitions[index] = newPartition
 	}
 
 	// GPT footer.
@@ -745,56 +783,106 @@ func calcNewPartitionSizeWithSize(newSize uint64, partSize uint64) (bool, uint64
 	return true, newSize, nil
 }
 
-func setNewDevicePathOnPartitionTable(diskDevice string, partitionTable *diskutils.PartitionTable) error {
-	partitionTable.Device = diskDevice
+// Create a new raw disk file, initially populating it with the GPT header and footer from an existing disk, and then
+// changing the partition's starts and sizes (in the GPT header).
+func createNewResizedDisk(source string, dest string, destDiskSize uint64, gptHeaderSize uint64, gptFooterSize uint64,
+	newPartitionTable diskutils.PartitionTable,
+) error {
+	sourceFile, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
 
-	for i := range partitionTable.Partitions {
-		part := &partitionTable.Partitions[i]
+	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
 
-		partNum, err := diskutils.GetPartitionNum(part.Path)
-		if err != nil {
-			return err
-		}
+	// Set the disk's size.
+	err = destFile.Truncate(int64(destDiskSize))
+	if err != nil {
+		return fmt.Errorf("failed to resize destination disk:\n%w", err)
+	}
 
-		part.Path = fmt.Sprintf("%sp%d", diskDevice, partNum)
+	err = copyGptHeaderAndFooter(sourceFile, destFile, gptHeaderSize, gptFooterSize)
+	if err != nil {
+		return err
+	}
+
+	err = destFile.Close()
+	if err != nil {
+		return err
+	}
+
+	err = updatePartitionsStartAndSize(dest, newPartitionTable)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func formatDiskPartitionTable(diskDevice string, partitionTable diskutils.PartitionTable) error {
+// Copy the GPT header and GPT footer from an existing disk to a new disk.
+func copyGptHeaderAndFooter(sourceFile *os.File, destFile *os.File, gptHeaderSize uint64, gptFooterSize uint64) error {
+	// Copy the GPT header.
+	// Note: Go will use sendfile here to optimize the copy operation.
+	_, err := io.Copy(destFile, io.LimitReader(sourceFile, int64(gptHeaderSize)))
+	if err != nil {
+		return fmt.Errorf("failed to copy the GPT header:\n%w", err)
+	}
+
+	// Copy the GPT footer.
+	_, err = destFile.Seek(-int64(gptFooterSize), io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("failed to seek to the GPT footer in source disk:\n%w", err)
+	}
+
+	_, err = sourceFile.Seek(-int64(gptFooterSize), io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("failed to seek to the GPT footer in destination disk:\n%w", err)
+	}
+
+	// Note: Go will use sendfile here to optimize the copy operation.
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy the GPT footer:\n%w", err)
+	}
+
+	return nil
+}
+
+// Update all the partitions' start and size in a raw disk file.
+// Does not move or copy the actual partition data.
+// TODO: This is creating a new disk layout, instead of modifying the existing one. We need to use --partno. :-(
+func updatePartitionsStartAndSize(path string, newPartitionTable diskutils.PartitionTable) error {
 	// Build the sfdisk script.
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "label: gpt\n")
-	fmt.Fprintf(&sb, "label-id: %s\n", partitionTable.Id)
 	fmt.Fprintf(&sb, "unit: sectors\n")
-	fmt.Fprintf(&sb, "first-lba: %d\n", partitionTable.FirstLba)
-	fmt.Fprintf(&sb, "sector-size: %d\n", partitionTable.SectorSize)
 	fmt.Fprintf(&sb, "\n")
 
-	for _, part := range partitionTable.Partitions {
-		fmt.Fprintf(&sb, "%s : start=%d, size=%d, type=%s, uuid=%s, name=%s\n", part.Path, part.Start,
-			part.Size, part.PartTypeUuid, part.PartUuid, diskutils.EscapeSfdiskString(part.PartLabel))
+	for _, part := range newPartitionTable.Partitions {
+		partNum, err := diskutils.GetPartitionNum(part.Path)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(&sb, "%s%d : start=%d, size=%d\n", path, partNum, part.Start, part.Size)
 	}
 
 	sfdiskScript := sb.String()
 
-	logger.Log.Tracef("sfdisk script:\n%s", sfdiskScript)
+	logger.Log.Debugf("sfdisk script:\n%s", sfdiskScript)
 
 	// Format partition table.
-	err := shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no", diskDevice).
+	err := shell.NewExecBuilder("sfdisk", "--lock=no", path).
 		Stdin(sfdiskScript).
-		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
 		return fmt.Errorf("sfdisk failed:\n%w", err)
-	}
-
-	// Wait for changes to populate in kernel.
-	err = diskutils.WaitForDiskDevice(diskDevice)
-	if err != nil {
-		return err
 	}
 
 	return nil

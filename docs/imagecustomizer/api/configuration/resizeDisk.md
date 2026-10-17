@@ -11,8 +11,14 @@ You must enable this feature by specifying `resize-disk` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Contains options for resizing a disk and partitions without changing the
-partition layout or partition metadata (e.g. partition UUID, filesystem UUID,
+partition ordering or partition metadata (e.g. partition UUID, filesystem UUID,
 etc.).
+
+If only the last partition's size is changed, then the disk is expanded and the
+last partition is grown without changing any other partitions or the disk's
+header. If any other partition's size is changed, then a new disk layout is
+created with all previous gaps between partitions removed while maintaining the
+default partition alignment of 1 MiB.
 
 Added in v1.8.
 
