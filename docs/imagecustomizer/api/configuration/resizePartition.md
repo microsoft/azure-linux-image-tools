@@ -14,14 +14,27 @@ Contains options for resizing a partition.
 
 Added in v1.8.
 
-## ref [string]
+## ref [[resizePartitionRef](./resizePartitionRef.md)]
 
 The partition to target.
 
-Supported values:
+The following syntactic sugar is also supported:
 
 - `last`: The last partition on the disk (according to the disk's physical
    layout, not the partition table ordering).
+
+   Example:
+
+   ```yaml
+   previewFeatures:
+   - resize-disk
+
+   storage:
+     resizeDisk:
+       partitions:
+       - ref: last
+         freeSpace: 50G
+   ```
 
 Added in v1.8.
 

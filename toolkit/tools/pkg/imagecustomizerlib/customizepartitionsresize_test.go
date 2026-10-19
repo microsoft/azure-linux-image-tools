@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests resizing a filesystem.
@@ -230,4 +231,99 @@ func testCustomizeImageGrow(t *testing.T, baseImageInfo testBaseImageInfo, testT
 			assert.Equal(t, origPartitions[partNum].SizeInBytes, newPartitions[partNum].SizeInBytes)
 		}
 	}
+}
+
+func TestCustomizeImageResizeLegacyBoot(t *testing.T) {
+	for _, baseImageInfo := range slices.Concat(baseImageAzureLinux3Plus) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageResizeLegacyBoot(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageResizeLegacyBoot(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResizeLegacyBoot"+baseImageInfo.ImageName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "legacyboot-partitions-azl3.yaml")
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		configFile = filepath.Join(testDir, "legacyboot-partitions-azl4.yaml")
+	}
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	outImageFilePath2 := filepath.Join(testTmpDir, "image2.raw")
+
+	// Customize image.
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath,
+		"raw", baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+
+	verifyLegacyBootPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir, false /*resized*/)
+
+	// Try to move the BIOS boot partition.
+	configFile = filepath.Join(testDir, "legacyboot-partitions-move-biosboot.yaml")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
+	assert.ErrorIs(t, err, ErrDiskResizeCannotMoveBiosBootPartition)
+
+	// Resize a partition that is in the middle of the disk.
+	configFile = filepath.Join(testDir, "legacyboot-partitions-resize-home.yaml")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+
+	verifyLegacyBootPartitionsImage(t, outImageFilePath2, baseImageInfo, buildDir, true /*resized*/)
+}
+
+func verifyLegacyBootPartitionsImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo,
+	buildDir string, resized bool,
+) {
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   1,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   3,
+			Path:           "/home",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   4,
+			Path:           "/var",
+			FileSystemType: "ext4",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Check that the fstab entries are correct.
+	verifyFstabEntries(t, imageConnection, mountPoints, partitions, verifyFstabEntryPartuuidSource)
+	verifyBootCfg(t, imageConnection, "",
+		partitions[mountPoints[0].PartitionNum],
+		partitions[mountPoints[0].PartitionNum],
+		baseImageInfo)
+
+	// Check the partition types.
+	assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[2].PartitionTypeUuid) // BIOS boot
+
+	// Check the partition sizes.
+	assert.Equal(t, uint64(1*diskutils.GiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(1*diskutils.MiB), partitions[2].SizeInBytes)
+	if resized {
+		assert.Equal(t, uint64(1*diskutils.GiB), partitions[3].SizeInBytes)
+	} else {
+		assert.Equal(t, uint64(500*diskutils.MiB), partitions[3].SizeInBytes)
+	}
+	assert.Equal(t, uint64(1*diskutils.GiB), partitions[4].SizeInBytes)
 }

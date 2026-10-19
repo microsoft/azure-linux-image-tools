@@ -663,13 +663,25 @@
     "ResizePartition": {
       "properties": {
         "ref": {
-          "type": "string"
+          "$ref": "#/$defs/ResizePartitionRef"
         },
         "freeSpace": {
           "$ref": "#/$defs/DiskSize"
         },
         "size": {
           "$ref": "#/$defs/DiskSize"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ResizePartitionRef": {
+      "properties": {
+        "idType": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
