@@ -4,7 +4,9 @@
 package userutils
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -34,86 +36,118 @@ func TestProvisionUserSSHCerts(t *testing.T) {
 		gid = 2345
 	)
 
+	catPath, err := exec.LookPath("cat")
+	require.NoError(t, err)
+
 	binDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(binDir, "id"), []byte(
 		"#!/bin/sh\ncase \"$1:$2\" in\n-u:test) echo 1234;;\n-g:test) echo 2345;;\n*) exit 1;;\nesac\n"), 0o755))
 	t.Setenv("PATH", binDir)
 
 	for _, test := range []struct {
-		name          string
-		existingHome  bool
-		existingSSH   bool
-		missingParent bool
+		name           string
+		homeDir        string
+		newParents     []string
+		existingParent bool
+		existingHome   bool
+		existingSSH    bool
 	}{
-		{name: "missing_home"},
-		{name: "missing_parent", missingParent: true},
-		{name: "existing_home", existingHome: true},
-		{name: "existing_ssh", existingHome: true, existingSSH: true},
+		{name: "missing_home", homeDir: "/home/test"},
+		{
+			name:       "missing_parent",
+			homeDir:    "/home/team/test",
+			newParents: []string{"home/team"},
+		},
+		{
+			name:       "missing_parents",
+			homeDir:    "/home/team/project/test",
+			newParents: []string{"home/team", "home/team/project"},
+		},
+		{name: "existing_parent", homeDir: "/home/team/test", existingParent: true},
+		{name: "existing_home", homeDir: "/home/test", existingHome: true},
+		{name: "existing_ssh", homeDir: "/home/test", existingHome: true, existingSSH: true},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			rootDir := t.TempDir()
-			homeDir := "/home/test"
-			if test.missingParent {
-				homeDir = "/home/team/test"
-			}
-			require.NoError(t, os.MkdirAll(filepath.Join(rootDir, "etc"), 0o755))
-			require.NoError(t, os.Mkdir(filepath.Join(rootDir, "home"), 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(rootDir, PasswdFile),
-				[]byte("test:x:1234:2345::"+homeDir+":/bin/sh\n"), 0o644))
+		for _, umask := range []int{0o022, 0o027, 0o077, 0o777} {
+			t.Run(fmt.Sprintf("%s/umask_%03o", test.name, umask), func(t *testing.T) {
+				rootDir := t.TempDir()
+				require.NoError(t, os.Chmod(filepath.Dir(rootDir), 0o755))
+				require.NoError(t, os.Chmod(rootDir, 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(rootDir, "etc"), 0o755))
+				require.NoError(t, os.Mkdir(filepath.Join(rootDir, "home"), 0o755))
+				require.NoError(t, os.Chmod(filepath.Join(rootDir, "home"), 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(rootDir, PasswdFile),
+					[]byte("test:x:1234:2345::"+test.homeDir+":/bin/sh\n"), 0o644))
 
-			homePath := filepath.Join(rootDir, homeDir)
-			sshPath := filepath.Join(homePath, SSHDirectoryName)
-			keysPath := filepath.Join(sshPath, SSHAuthorizedKeysFileName)
-			homeMode, homeUID, homeGID := os.FileMode(0o755), uid, gid
-			sshMode := SshDirectoryPerm
-			expectedKeys := "ssh-ed25519 file-key\nssh-ed25519 inline-key\n"
-			if test.existingHome {
-				homeMode, homeUID, homeGID = 0o750, 3456, 4567
-				require.NoError(t, os.Mkdir(homePath, homeMode))
-				require.NoError(t, os.Chmod(homePath, homeMode))
-				require.NoError(t, os.Chown(homePath, homeUID, homeGID))
-			}
-			if test.existingSSH {
-				sshMode = 0o750
-				require.NoError(t, os.Mkdir(sshPath, sshMode))
-				require.NoError(t, os.Chmod(sshPath, sshMode))
-				require.NoError(t, os.Chown(sshPath, uid, gid))
-				require.NoError(t, os.WriteFile(keysPath, []byte("ssh-ed25519 existing-key\n"), 0o644))
-				expectedKeys = "ssh-ed25519 existing-key\n" + expectedKeys
-			}
-			pubKeyPath := filepath.Join(rootDir, "key.pub")
-			require.NoError(t, os.WriteFile(pubKeyPath, []byte("ssh-ed25519 file-key\n"), 0o644))
+				homePath := filepath.Join(rootDir, test.homeDir)
+				parentPath := filepath.Dir(homePath)
+				sshPath := filepath.Join(homePath, SSHDirectoryName)
+				keysPath := filepath.Join(sshPath, SSHAuthorizedKeysFileName)
+				homeMode, homeUID, homeGID := os.FileMode(0o755), uid, gid
+				sshMode := SshDirectoryPerm
+				expectedKeys := "ssh-ed25519 file-key\nssh-ed25519 inline-key\n"
+				if test.existingParent {
+					require.NoError(t, os.Mkdir(parentPath, 0o711))
+					require.NoError(t, os.Chmod(parentPath, 0o711))
+					require.NoError(t, os.Chown(parentPath, 3456, 4567))
+				}
+				if test.existingHome {
+					homeMode, homeUID, homeGID = 0o750, 3456, 4567
+					require.NoError(t, os.Mkdir(homePath, homeMode))
+					require.NoError(t, os.Chmod(homePath, homeMode))
+					require.NoError(t, os.Chown(homePath, homeUID, homeGID))
+				}
+				if test.existingSSH {
+					sshMode = 0o750
+					require.NoError(t, os.Mkdir(sshPath, sshMode))
+					require.NoError(t, os.Chmod(sshPath, sshMode))
+					require.NoError(t, os.Chown(sshPath, uid, gid))
+					require.NoError(t, os.WriteFile(keysPath, []byte("ssh-ed25519 existing-key\n"), 0o644))
+					expectedKeys = "ssh-ed25519 existing-key\n" + expectedKeys
+				}
+				pubKeyPath := filepath.Join(rootDir, "key.pub")
+				require.NoError(t, os.WriteFile(pubKeyPath, []byte("ssh-ed25519 file-key\n"), 0o644))
 
-			umask := 0o777
-			if test.missingParent {
-				umask = 0o022
-			}
-			oldUmask := syscall.Umask(umask)
-			defer syscall.Umask(oldUmask)
+				oldUmask := syscall.Umask(umask)
+				defer syscall.Umask(oldUmask)
 
-			chroot := &sshTestChroot{rootDir: rootDir}
-			err := ProvisionUserSSHCerts(chroot, "test", []string{pubKeyPath},
-				[]string{"ssh-ed25519 inline-key"}, true)
-			require.NoError(t, err)
-			verifySSHPath(t, homePath, homeMode, homeUID, homeGID)
-			verifySSHPath(t, sshPath, sshMode, uid, gid)
-			verifySSHPath(t, keysPath, AuthorizedKeysPerm, uid, gid)
-			keys, err := os.ReadFile(keysPath)
-			require.NoError(t, err)
-			assert.Equal(t, expectedKeys, string(keys))
-
-			for range 2 {
-				err = ProvisionUserSSHCerts(chroot, "test", nil, []string{"ssh-ed25519 replacement-key"}, false)
+				chroot := &sshTestChroot{rootDir: rootDir}
+				err := ProvisionUserSSHCerts(chroot, "test", []string{pubKeyPath},
+					[]string{"ssh-ed25519 inline-key"}, true)
 				require.NoError(t, err)
+				if test.existingParent {
+					verifySSHPath(t, parentPath, 0o711, 3456, 4567)
+				}
+				for _, parent := range test.newParents {
+					verifySSHPath(t, filepath.Join(rootDir, parent), HomeDirectoryPerm, os.Geteuid(), os.Getegid())
+				}
 				verifySSHPath(t, homePath, homeMode, homeUID, homeGID)
 				verifySSHPath(t, sshPath, sshMode, uid, gid)
 				verifySSHPath(t, keysPath, AuthorizedKeysPerm, uid, gid)
-				keys, err = os.ReadFile(keysPath)
-				require.NoError(t, err)
-				assert.Equal(t, "ssh-ed25519 replacement-key\n", string(keys))
-			}
-		})
+				user := &syscall.Credential{
+					Uid: uid, Gid: gid, Groups: []uint32{uint32(homeGID)},
+				}
+				assert.Equal(t, expectedKeys, readSSHKeysAsUser(t, catPath, keysPath, user))
+
+				for range 2 {
+					err = ProvisionUserSSHCerts(chroot, "test", nil, []string{"ssh-ed25519 replacement-key"}, false)
+					require.NoError(t, err)
+					verifySSHPath(t, homePath, homeMode, homeUID, homeGID)
+					verifySSHPath(t, sshPath, sshMode, uid, gid)
+					verifySSHPath(t, keysPath, AuthorizedKeysPerm, uid, gid)
+					assert.Equal(t, "ssh-ed25519 replacement-key\n", readSSHKeysAsUser(t, catPath, keysPath, user))
+				}
+			})
+		}
 	}
+}
+
+func readSSHKeysAsUser(t *testing.T, catPath, keysPath string, user *syscall.Credential) string {
+	t.Helper()
+	cmd := exec.Command(catPath, keysPath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Credential: user}
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "target user cannot read authorized_keys: %s", output)
+	return string(output)
 }
 
 func verifySSHPath(t *testing.T, path string, mode os.FileMode, uid, gid int) {

@@ -344,14 +344,28 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 	}
 
 	if !homeDirExists {
-		err = os.MkdirAll(userHomeDirFullPath, HomeDirectoryPerm)
-		if err != nil {
-			return fmt.Errorf("failed to create user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		missingDirs := []string{userHomeDirFullPath}
+		for parent := filepath.Dir(userHomeDirFullPath); ; parent = filepath.Dir(parent) {
+			exists, err := file.PathExists(parent)
+			if err != nil {
+				return fmt.Errorf("failed to check user's home parent directory (%s):\n%w", parent, err)
+			}
+			if exists {
+				break
+			}
+			missingDirs = append(missingDirs, parent)
 		}
 
-		err = os.Chmod(userHomeDirFullPath, HomeDirectoryPerm)
-		if err != nil {
-			return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		for i := len(missingDirs) - 1; i >= 0; i-- {
+			dir := missingDirs[i]
+			err = os.Mkdir(dir, HomeDirectoryPerm)
+			if err != nil {
+				return fmt.Errorf("failed to create user's home directory (%s):\n%w", dir, err)
+			}
+			err = os.Chmod(dir, HomeDirectoryPerm)
+			if err != nil {
+				return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", dir, err)
+			}
 		}
 
 		err = os.Chown(userHomeDirFullPath, uid, gid)
