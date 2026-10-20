@@ -1082,6 +1082,16 @@ func ResizePartition(partitionDevice string, diskDevice string, newSizeInSectors
 }
 
 // Resize and move a partition. Does not resize the filesystem.
+//
+// --move-data has been supported since util-linux v2.28 (commit f42205d). However, a bug blocked partition size grow
+// until v2.38 (commit b383155).
+//
+// util-linux versions:
+// - Ubuntu 22.04: v2.37.2
+// - Ubuntu 24.04: v2.39.3
+// - Azure Linux 3.0: v2.40.2
+//
+// Image Customizer is primarily distributed as an AZL3 container. So, this should be ok.
 func ResizeAndMovePartition(partitionDevice string, diskDevice string, newStartInSectors uint64,
 	newSizeInSectors uint64,
 ) error {
