@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 
@@ -234,6 +235,11 @@ func testCustomizeImageGrow(t *testing.T, baseImageInfo testBaseImageInfo, testT
 }
 
 func TestCustomizeImageResizeLegacyBoot(t *testing.T) {
+	// Skip this test on arm64 because the legacy bootloader is not supported.
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping legacy test for arm64")
+	}
+
 	for _, baseImageInfo := range slices.Concat(baseImageAzureLinux3Plus) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageResizeLegacyBoot(t, baseImageInfo)

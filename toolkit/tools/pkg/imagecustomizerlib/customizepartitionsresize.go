@@ -302,8 +302,10 @@ func resizeDisk(loopback *safeloopback.Loopback, imageFile *os.File, newDiskSize
 func doDiskAndPartitionsResize(loopback *safeloopback.Loopback, imageFile *os.File, partitionTable diskutils.PartitionTable,
 	diskSize int64, newPartSizes map[int]uint64, gptHeaderSize uint64, gptFooterSize uint64, buildDir string,
 ) error {
+	sortedPartitionIndexes := getSortedPartitionIndexes(partitionTable)
+
 	newPartitionTable, newDiskSize, err := resolveResizeDiskAdvanced(partitionTable, newPartSizes, diskSize,
-		gptHeaderSize, gptFooterSize)
+		gptHeaderSize, gptFooterSize, sortedPartitionIndexes)
 	if err != nil {
 		return err
 	}
@@ -325,7 +327,8 @@ func doDiskAndPartitionsResize(loopback *safeloopback.Loopback, imageFile *os.Fi
 		return err
 	}
 
-	err = moveAndGrowPartitions(loopback.DevicePath(), partitionTable, newPartitionTable, buildDir)
+	err = moveAndGrowPartitions(loopback.DevicePath(), partitionTable, newPartitionTable, sortedPartitionIndexes,
+		buildDir)
 	if err != nil {
 		return err
 	}
@@ -341,9 +344,25 @@ func diskSizeCompareStr(oldSize, newSize int64) string {
 	}
 }
 
+// Get the list of partition indexes in the order of the physical disk layout.
+// Some distros (e.g. Ubuntu) have a physical disk order that is different from the table order.
+func getSortedPartitionIndexes(partitionTable diskutils.PartitionTable) []int {
+	indexes := []int(nil)
+	for i := range partitionTable.Partitions {
+		indexes = append(indexes, i)
+	}
+
+	sortedPartitionIndexes := slices.SortedFunc(slices.Values(indexes),
+		func(a, b int) int {
+			return cmp.Compare(partitionTable.Partitions[a].Start, partitionTable.Partitions[b].Start)
+		})
+
+	return sortedPartitionIndexes
+}
+
 // Calculate the new partition layout.
 func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartSizes map[int]uint64,
-	diskSize int64, gptHeaderSize uint64, gptFooterSize uint64,
+	diskSize int64, gptHeaderSize uint64, gptFooterSize uint64, sortedPartitionIndexes []int,
 ) (diskutils.PartitionTable, uint64, error) {
 	alignmentSize := int64(imagecustomizerapi.DefaultPartitionAlignment)
 	sectorSize := int64(partitionTable.SectorSize)
@@ -354,17 +373,6 @@ func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartS
 			alignmentSize, sectorSize)
 		return diskutils.PartitionTable{}, 0, err
 	}
-
-	indexes := []int(nil)
-	for i := range partitionTable.Partitions {
-		indexes = append(indexes, i)
-	}
-
-	// Some distros (e.g. Ubuntu) have a physical disk order that is different from the table order.
-	sortedPartitionIndexes := slices.SortedFunc(slices.Values(indexes),
-		func(a, b int) int {
-			return cmp.Compare(partitionTable.Partitions[a].Start, partitionTable.Partitions[b].Start)
-		})
 
 	// GPT header.
 	if partitionTable.FirstLba < int64(gptHeaderSize)/sectorSize {
@@ -429,11 +437,12 @@ func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartS
 }
 
 func moveAndGrowPartitions(devicePath string, oldPartitionTable, newPartitionTable diskutils.PartitionTable,
-	buildDir string,
+	sortedPartitionIndexes []int, buildDir string,
 ) error {
-	for i := len(newPartitionTable.Partitions) - 1; i >= 0; i-- {
-		oldPartInfo := oldPartitionTable.Partitions[i]
-		newPartInfo := newPartitionTable.Partitions[i]
+	// Process the partitions backwards, so that the later partitions move out of the way of earlier partitions.
+	for _, index := range slices.Backward(sortedPartitionIndexes) {
+		oldPartInfo := oldPartitionTable.Partitions[index]
+		newPartInfo := newPartitionTable.Partitions[index]
 
 		err := moveAndGrowPartition(devicePath, oldPartInfo, newPartInfo, buildDir)
 		if err != nil {

@@ -6,6 +6,7 @@ package imagecustomizerapi
 import (
 	"fmt"
 
+	"github.com/invopop/jsonschema"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -51,6 +52,20 @@ func (r *ResizePartitionRef) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("failed to parse ResizePartitionRef struct:\n%w", err)
 	}
 	return nil
+}
+
+func (ResizePartitionRef) JSONSchema() *jsonschema.Schema {
+	type resizePartitionRef ResizePartitionRef
+
+	return &jsonschema.Schema{
+		AnyOf: []*jsonschema.Schema{
+			{
+				Type: "string",
+				Enum: []any{"last"},
+			},
+			jsonschema.Reflect(resizePartitionRef{}),
+		},
+	}
 }
 
 func (r ResizePartitionRef) IsValid() error {
