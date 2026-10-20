@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -617,7 +618,7 @@ func resolvePartitionForResizeOp(resizePartConfig imagecustomizerapi.ResizeParti
 				match = partInfo.FileSystemLabel == resizePartConfig.Ref.Id
 
 			case imagecustomizerapi.ResizePartitionRefTypePartUuid:
-				match = partInfo.PartUuid == resizePartConfig.Ref.Id
+				match = strings.EqualFold(partInfo.PartUuid, resizePartConfig.Ref.Id)
 			}
 
 			if match {
