@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
@@ -28,12 +27,11 @@ type stagedErofs struct {
 	image     string
 }
 
-type sealedFilesystemEdits struct {
-	ext4  []string
-	erofs []stagedErofs
+type erofsFilesystemEdits struct {
+	stages []stagedErofs
 }
 
-func (s *sealedFilesystemEdits) prepare(connection *imageconnection.ImageConnection,
+func (s *erofsFilesystemEdits) prepare(connection *imageconnection.ImageConnection,
 	mounts []*safechroot.MountPoint, partitions []diskutils.PartitionInfo, buildDir string,
 	verityMetadata []verityDeviceMetadata,
 ) error {
@@ -48,58 +46,39 @@ func (s *sealedFilesystemEdits) prepare(connection *imageconnection.ImageConnect
 			continue
 		}
 		partition := partitions[index]
-		switch partition.FileSystemType {
-		case "ext4":
-			if slices.Contains(s.ext4, partition.Path) {
-				continue
+		if partition.FileSystemType != "erofs" {
+			continue
+		}
+		if mount.GetTarget() == "/" {
+			return fmt.Errorf("customizing an EROFS root filesystem is not supported")
+		}
+		for _, metadata := range verityMetadata {
+			if metadata.dataPartUuid == partition.PartUuid &&
+				(metadata.formatSettings.IsInlineVerity() ||
+					(metadata.formatSettings.dataSizeBytes != 0 &&
+						metadata.formatSettings.dataSizeBytes != partition.SizeInBytes)) {
+				return fmt.Errorf("EROFS customization requires separate, whole-partition verity (%s)", partition.Path)
 			}
-			readonly, err := extFilesystemReadOnly(partition.Path)
+		}
+		stageIndex := slices.IndexFunc(s.stages, func(stage stagedErofs) bool {
+			return stage.partition.Path == partition.Path
+		})
+		if stageIndex < 0 {
+			stage, err := stageErofs(connection, partition, buildDir)
 			if err != nil {
 				return err
 			}
-			if readonly {
-				if err := setExtFilesystemReadOnly(partition.Path, false); err != nil {
-					return err
-				}
-				s.ext4 = append(s.ext4, partition.Path)
-			}
-		case "erofs":
-			if mount.GetTarget() == "/" {
-				return fmt.Errorf("customizing an EROFS root filesystem is not supported")
-			}
-			for _, metadata := range verityMetadata {
-				if metadata.dataPartUuid == partition.PartUuid &&
-					(metadata.formatSettings.IsInlineVerity() ||
-						(metadata.formatSettings.dataSizeBytes != 0 &&
-							metadata.formatSettings.dataSizeBytes != partition.SizeInBytes)) {
-					return fmt.Errorf("EROFS customization requires separate, whole-partition verity (%s)", partition.Path)
-				}
-			}
-			stageIndex := slices.IndexFunc(s.erofs, func(stage stagedErofs) bool {
-				return stage.partition.Path == partition.Path
-			})
-			if stageIndex < 0 {
-				stage, err := stageErofs(connection, partition, buildDir)
-				if err != nil {
-					return err
-				}
-				s.erofs = append(s.erofs, stage)
-				stageIndex = len(s.erofs) - 1
-			}
-			mounts[i] = safechroot.NewMountPoint(s.erofs[stageIndex].directory,
-				mount.GetTarget(), "none", mount.GetFlags()|unix.MS_BIND, "")
+			s.stages = append(s.stages, stage)
+			stageIndex = len(s.stages) - 1
 		}
+		mounts[i] = safechroot.NewMountPoint(s.stages[stageIndex].directory,
+			mount.GetTarget(), "none", mount.GetFlags()|unix.MS_BIND, "")
 	}
 	return nil
 }
 
-func (s *sealedFilesystemEdits) finalize() error {
-	for _, path := range s.ext4 {
-		if err := setExtFilesystemReadOnly(path, true); err != nil {
-			return err
-		}
-	}
-	for _, stage := range s.erofs {
+func (s *erofsFilesystemEdits) finalize() error {
+	for _, stage := range s.stages {
 		args := []string{"-b", "4096", "-U", stage.partition.Uuid}
 		if stage.partition.Label != "" {
 			args = append(args, "-L", stage.partition.Label)
@@ -122,21 +101,6 @@ func (s *sealedFilesystemEdits) finalize() error {
 		}
 	}
 	return nil
-}
-
-func setExtFilesystemReadOnly(path string, readonly bool) error {
-	if err := checkFileSystem("ext4", path); err != nil {
-		return err
-	}
-	feature := "^read-only"
-	if readonly {
-		feature = "read-only"
-	}
-	logger.Log.Debugf("Setting native ext readonly feature (%s): %t", path, readonly)
-	if err := shell.ExecuteLive(true, "tune2fs", "-O", feature, path); err != nil {
-		return fmt.Errorf("failed to set ext readonly feature (%s):\n%w", path, err)
-	}
-	return checkFileSystem("ext4", path)
 }
 
 func stageErofs(connection *imageconnection.ImageConnection, partition diskutils.PartitionInfo,

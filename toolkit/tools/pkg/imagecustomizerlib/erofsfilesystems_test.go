@@ -17,31 +17,61 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestSealedFilesystemsPreserveReadonlyMounts(t *testing.T) {
+func TestErofsEditsPreserveReadonlyMounts(t *testing.T) {
 	for _, fsType := range []string{"ext4", "erofs", "btrfs"} {
 		t.Run(fsType, func(t *testing.T) {
 			mount := safechroot.NewMountPoint("/not-a-device", "/usr", fsType, unix.MS_RDONLY, "")
 			mounts := []*safechroot.MountPoint{mount}
-			edits := &sealedFilesystemEdits{}
+			edits := &erofsFilesystemEdits{}
 			err := edits.prepare(imageconnection.NewImageConnection(), mounts,
 				[]diskutils.PartitionInfo{{Type: "part", Path: "/not-a-device", FileSystemType: fsType}},
 				t.TempDir(), nil)
 			require.NoError(t, err)
 			require.Same(t, mount, mounts[0])
-			require.Empty(t, edits.ext4)
-			require.Empty(t, edits.erofs)
+			require.Empty(t, edits.stages)
 		})
 	}
 }
 
-func TestSealedFilesystemsRejectInlineErofs(t *testing.T) {
-	edits := &sealedFilesystemEdits{}
-	err := edits.prepare(imageconnection.NewImageConnection(),
-		[]*safechroot.MountPoint{safechroot.NewMountPoint("/not-a-device", "/usr", "erofs", 0, "")},
-		[]diskutils.PartitionInfo{{Type: "part", Path: "/not-a-device", PartUuid: "usr", FileSystemType: "erofs"}},
-		t.TempDir(), []verityDeviceMetadata{{dataPartUuid: "usr",
-			formatSettings: verityFormatSettings{hashOffsetBytes: 4096}}})
-	require.ErrorContains(t, err, "separate, whole-partition verity")
+func TestErofsEditsIgnoreOtherFilesystems(t *testing.T) {
+	for _, fsType := range []string{"ext4", "btrfs"} {
+		t.Run(fsType, func(t *testing.T) {
+			mount := safechroot.NewMountPoint("/not-a-device", "/usr", fsType, 0, "")
+			mounts := []*safechroot.MountPoint{mount}
+			edits := &erofsFilesystemEdits{}
+			require.NoError(t, edits.prepare(imageconnection.NewImageConnection(), mounts,
+				[]diskutils.PartitionInfo{{Type: "part", Path: "/not-a-device", FileSystemType: fsType}},
+				t.TempDir(), nil))
+			require.Same(t, mount, mounts[0])
+			require.Empty(t, edits.stages)
+		})
+	}
+}
+
+func TestErofsEditsRejectUnsupportedLayouts(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		target   string
+		settings verityFormatSettings
+		wantErr  string
+	}{
+		{name: "root", target: "/", wantErr: "EROFS root filesystem"},
+		{name: "inline", target: "/usr", settings: verityFormatSettings{hashOffsetBytes: 4096},
+			wantErr: "separate, whole-partition verity"},
+		{name: "partial", target: "/usr", settings: verityFormatSettings{dataSizeBytes: 1024},
+			wantErr: "separate, whole-partition verity"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			edits := &erofsFilesystemEdits{}
+			err := edits.prepare(imageconnection.NewImageConnection(),
+				[]*safechroot.MountPoint{safechroot.NewMountPoint("/not-a-device", tc.target, "erofs", 0, "")},
+				[]diskutils.PartitionInfo{{Type: "part", Path: "/not-a-device", PartUuid: "usr",
+					FileSystemType: "erofs", SizeInBytes: 4096}},
+				t.TempDir(), []verityDeviceMetadata{{dataPartUuid: "usr", formatSettings: tc.settings}})
+			require.ErrorContains(t, err, tc.wantErr)
+			require.Empty(t, edits.stages)
+		})
+	}
 }
 
 func TestErofsOverflowDoesNotWriteDestination(t *testing.T) {
@@ -68,24 +98,6 @@ func TestErofsRejectsNonBlockDestination(t *testing.T) {
 	data, err := os.ReadFile(destination)
 	require.NoError(t, err)
 	require.Equal(t, "unchanged", string(data))
-}
-
-func TestNativeExt4SealRoundtrip(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip("requires root and e2fsprogs")
-	}
-	image := filepath.Join(t.TempDir(), "usr.ext4")
-	f, err := os.Create(image)
-	require.NoError(t, err)
-	require.NoError(t, f.Truncate(64*1024*1024))
-	require.NoError(t, f.Close())
-	require.NoError(t, shell.ExecuteLive(true, "mkfs.ext4", "-F", "-O", "^has_journal,metadata_csum", image))
-	for _, readonly := range []bool{true, false, true} {
-		require.NoError(t, setExtFilesystemReadOnly(image, readonly))
-		got, err := extFilesystemReadOnly(image)
-		require.NoError(t, err)
-		require.Equal(t, readonly, got)
-	}
 }
 
 func TestFindRootfsPartitionErofs(t *testing.T) {
@@ -159,11 +171,11 @@ func TestErofsCustomizationRoundtrip(t *testing.T) {
 	partition := diskutils.PartitionInfo{Type: "part", Path: connection.Loopback().DevicePath(),
 		FileSystemType: "erofs", Uuid: fsUuid, Label: "USR-A", SizeInBytes: 64 * 1024 * 1024}
 	mounts := []*safechroot.MountPoint{safechroot.NewMountPoint(partition.Path, "/usr", "erofs", 0, "")}
-	edits := &sealedFilesystemEdits{}
+	edits := &erofsFilesystemEdits{}
 	require.NoError(t, edits.prepare(connection, mounts, []diskutils.PartitionInfo{partition}, dir, nil))
 	require.Equal(t, "none", mounts[0].GetFSType())
 	require.NotZero(t, mounts[0].GetFlags()&unix.MS_BIND)
-	require.NoError(t, os.WriteFile(filepath.Join(edits.erofs[0].directory, "original"), []byte("after"), 0o751))
+	require.NoError(t, os.WriteFile(filepath.Join(edits.stages[0].directory, "original"), []byte("after"), 0o751))
 	require.NoError(t, edits.finalize())
 
 	output := filepath.Join(dir, "mounted")

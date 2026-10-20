@@ -62,12 +62,9 @@ This can only be set when [.type](./filesystem.md#type-string) is `btrfs`.
 
 Added in v1.2.
 
-## Customizing existing sealed filesystems
+## Customizing existing EROFS filesystems
 
-Existing ext4 filesystems using the native `read-only` feature are temporarily
-unsealed for writable customization with checksum-aware e2fsprogs operations,
-then checked and resealed before verity is regenerated. Their partition geometry
-is preserved during COSI export.
+Existing ext4 and Btrfs behavior is unchanged by this support.
 Finalization requires a clean unmount; a busy mount fails customization instead
 of lazily detaching a filesystem that might still be in use.
 

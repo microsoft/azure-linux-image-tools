@@ -53,7 +53,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, mountPath string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
-	ignoreOverlays bool, distroHandler DistroHandler, sealedEdits *sealedFilesystemEdits,
+	ignoreOverlays bool, distroHandler DistroHandler, erofsEdits *erofsFilesystemEdits,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -117,9 +117,9 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 
 	imageConnection.AddOwnedDirectories(tempDirectories...)
 
-	if sealedEdits != nil {
-		if err := sealedEdits.prepare(imageConnection, mountPoints, partitions, buildDir, verityMetadata); err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to prepare sealed filesystems:\n%w", err)
+	if erofsEdits != nil {
+		if err := erofsEdits.prepare(imageConnection, mountPoints, partitions, buildDir, verityMetadata); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to prepare EROFS filesystems:\n%w", err)
 		}
 	}
 

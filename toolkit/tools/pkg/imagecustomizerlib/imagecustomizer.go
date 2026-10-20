@@ -749,10 +749,10 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	imageConnection := imageconnection.NewImageConnection()
 	defer imageConnection.Close()
-	sealedEdits := &sealedFilesystemEdits{}
+	erofsEdits := &erofsFilesystemEdits{}
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImageHelper(
 		imageConnection, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint, true, false, readOnlyVerity,
-		false, distroHandler, sealedEdits)
+		false, distroHandler, erofsEdits)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -800,7 +800,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
-	if len(sealedEdits.ext4) != 0 || len(sealedEdits.erofs) != 0 {
+	if len(erofsEdits.stages) != 0 {
 		err = imageConnection.Chroot().CleanClose()
 	} else {
 		err = imageConnection.Chroot().Close()
@@ -808,9 +808,9 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	err = sealedEdits.finalize()
+	err = erofsEdits.finalize()
 	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to finalize sealed filesystems:\n%w", err)
+		return nil, nil, nil, "", fmt.Errorf("failed to finalize EROFS filesystems:\n%w", err)
 	}
 	err = imageConnection.CleanClose()
 	if err != nil {
