@@ -88,8 +88,9 @@ type PartitionTablePartition struct {
 	PartLabel    string `json:"name"`  // Example: rootfs
 
 	// Populated from "blkid --probe":
-	FileSystemType string // Example: vfat
-	FileSystemUuid string // Example: 4BD9-3A78
+	FileSystemType  string // Example: vfat
+	FileSystemUuid  string // Example: 4BD9-3A78
+	FileSystemLabel string // Example: rootfs
 }
 
 type PartitionTable struct {
@@ -568,7 +569,7 @@ func createSinglePartition(diskDevPath string, partitionNumber int, partitionTab
 		return "", fmt.Errorf("MBR support is not implemented")
 
 	case configuration.PartitionTableTypeGpt:
-		name = escapeSfdiskString(partition.Name)
+		name = EscapeSfdiskString(partition.Name)
 		typeId = GenericLinuxPartitionTypeUuid
 
 		for _, flag := range partition.Flags {
@@ -626,7 +627,7 @@ func createSinglePartition(diskDevPath string, partitionNumber int, partitionTab
 // - Azure Linux 2.0: v2.37.4
 //
 // So, it should be fine to assume that it is supported.
-func escapeSfdiskString(value string) string {
+func EscapeSfdiskString(value string) string {
 	builder := strings.Builder{}
 	builder.WriteString("\"")
 
@@ -847,6 +848,15 @@ func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
 		}
 
 		partition.FileSystemUuid = strings.TrimSpace(stdout)
+
+		// Read the filesystem label directly from disk.
+		stdout, _, err = shell.Execute("flock", "--timeout", "5", "--shared", diskDevPath,
+			"blkid", "--probe", "-s", "LABEL", "-o", "value", partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get filesystem LABEL of partition (%s)\n%w", partition.Path, err)
+		}
+
+		partition.FileSystemLabel = strings.Trim(stdout, "\n")
 	}
 
 	return output.PartitionTable, nil
@@ -1061,6 +1071,7 @@ func ResizePartition(partitionDevice string, diskDevice string, newSizeInSectors
 
 	// Resize the partition.
 	sfdiskScript := fmt.Sprintf("unit: sectors\nsize=%d", newSizeInSectors)
+	logger.Log.Debugf("sfdisk script:\n%s", sfdiskScript)
 
 	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no",
 		"-N", strconv.Itoa(partitionNumber), diskDevice).
@@ -1070,6 +1081,49 @@ func ResizePartition(partitionDevice string, diskDevice string, newSizeInSectors
 		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to resize partition (%s) with sfdisk (and flock):\n%w", partitionDevice, err)
+	}
+
+	// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then
+	// recreated. So, wait for that to finish.
+	err = RefreshPartitions(diskDevice)
+	if err != nil {
+		return fmt.Errorf("failed to wait for disk (%s) to update:\n%w", diskDevice, err)
+	}
+
+	return nil
+}
+
+// Resize and move a partition. Does not resize the filesystem.
+//
+// --move-data has been supported since util-linux v2.28 (commit f42205d). However, a bug blocked partition size grow
+// until v2.38 (commit b383155).
+//
+// util-linux versions:
+// - Ubuntu 22.04: v2.37.2
+// - Ubuntu 24.04: v2.39.3
+// - Azure Linux 3.0: v2.40.2
+//
+// Image Customizer is primarily distributed as an AZL3 container. So, this should be ok.
+func ResizeAndMovePartition(partitionDevice string, diskDevice string, newStartInSectors uint64,
+	newSizeInSectors uint64,
+) error {
+	partitionNumber, err := GetPartitionNum(partitionDevice)
+	if err != nil {
+		return err
+	}
+
+	// Resize the partition.
+	sfdiskScript := fmt.Sprintf("unit: sectors\nstart=%d, size=%d", newStartInSectors, newSizeInSectors)
+	logger.Log.Debugf("sfdisk script:\n%s", sfdiskScript)
+
+	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no",
+		"-N", strconv.Itoa(partitionNumber), "--move-data", diskDevice).
+		Stdin(sfdiskScript).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to move and resize partition (%s) with sfdisk (and flock):\n%w", partitionDevice, err)
 	}
 
 	// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then

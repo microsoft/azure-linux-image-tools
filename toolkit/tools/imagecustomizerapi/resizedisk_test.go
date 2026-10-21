@@ -21,7 +21,9 @@ func TestResizeDiskIsValidBothDiskSizeAndPartitions(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:       ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				FreeSpace: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
 		},
@@ -43,7 +45,9 @@ func TestResizeDiskIsValidLastNoSize(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref: ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 			},
 		},
 	}
@@ -55,7 +59,9 @@ func TestResizeDiskIsValidLastBothSizeAndFreeSpace(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:       ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				FreeSpace: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 				Size:      ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
@@ -69,7 +75,9 @@ func TestResizeDiskIsValidLastFreeSpace(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:       ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				FreeSpace: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
 		},
@@ -82,7 +90,9 @@ func TestResizeDiskIsValidInvalidRef(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:       "test",
+				Ref: ResizePartitionRef{
+					IdType: "test",
+				},
 				FreeSpace: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
 		},
@@ -90,6 +100,7 @@ func TestResizeDiskIsValidInvalidRef(t *testing.T) {
 	err := script.IsValid()
 	assert.ErrorContains(t, err, "invalid 'partitions' value at index 0:\n")
 	assert.ErrorContains(t, err, "invalid 'ref' value:\n")
+	assert.ErrorContains(t, err, "invalid 'idType' value:\n")
 	assert.ErrorContains(t, err, "invalid value (test)")
 }
 
@@ -97,7 +108,9 @@ func TestResizeDiskIsValidLastSize(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:  ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				Size: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
 		},
@@ -110,11 +123,15 @@ func TestResizeDiskIsValidMultiplePartitions(t *testing.T) {
 	script := ResizeDisk{
 		Partitions: []ResizePartition{
 			{
-				Ref:  ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				Size: ptrutils.PtrTo(DiskSize(1 * diskutils.GiB)),
 			},
 			{
-				Ref:  ResizePartitionRefLast,
+				Ref: ResizePartitionRef{
+					IdType: ResizePartitionRefTypeLast,
+				},
 				Size: ptrutils.PtrTo(DiskSize(2 * diskutils.GiB)),
 			},
 		},

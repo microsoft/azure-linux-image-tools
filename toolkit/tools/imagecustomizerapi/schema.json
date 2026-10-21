@@ -663,7 +663,7 @@
     "ResizePartition": {
       "properties": {
         "ref": {
-          "type": "string"
+          "$ref": "#/$defs/ResizePartitionRef"
         },
         "freeSpace": {
           "$ref": "#/$defs/DiskSize"
@@ -674,6 +674,35 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ResizePartitionRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "last"
+          ]
+        },
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "https://github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi/resize-partition-ref",
+          "$ref": "#/$defs/resizePartitionRef",
+          "$defs": {
+            "resizePartitionRef": {
+              "properties": {
+                "idType": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            }
+          }
+        }
+      ]
     },
     "SELinux": {
       "properties": {

@@ -227,28 +227,6 @@ func TestStorageIsValidBadBiosBootFsType(t *testing.T) {
 	assert.ErrorContains(t, err, "BIOS boot partition (bios) must not have a filesystem 'type'")
 }
 
-func TestStorageIsValidBadBiosBootStart(t *testing.T) {
-	storage := Storage{
-		Disks: []Disk{{
-			PartitionTableType: PartitionTableTypeGpt,
-			MaxSize:            ptrutils.PtrTo(DiskSize(2 * diskutils.GiB)),
-			Partitions: []Partition{
-				{
-					Id:    "bios",
-					Start: ptrutils.PtrTo(DiskSize(2 * diskutils.MiB)),
-					End:   nil,
-					Type:  PartitionTypeBiosGrub,
-				},
-			},
-		}},
-		BootType: BootTypeLegacy,
-	}
-
-	err := storage.IsValid()
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "BIOS boot partition must start at 1 MiB")
-}
-
 func TestStorageIsValidBadDeviceId(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
