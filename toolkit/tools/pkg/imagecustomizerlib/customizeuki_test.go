@@ -666,7 +666,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraComma
 	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
 	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
 	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
+	verifyVerityUki(t, espPath, usrDevice, partitions[3].SizeInBytes, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "panic-on-corruption", false /*inlineVerity*/)
 
 	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
@@ -805,8 +805,9 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, extraC
 	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	rootHashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityUki(t, espPath, rootDevice, rootHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "panic-on-corruption", false /*inlineVerity*/)
+	verifyVerityUki(t, espPath, rootDevice, partitions[3].SizeInBytes, rootHashDevice,
+		"PARTUUID="+partitions[3].PartUuid, "PARTUUID="+partitions[4].PartUuid, "root", buildDir, "panic-on-corruption",
+		false /*inlineVerity*/)
 
 	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
 
@@ -1212,8 +1213,8 @@ func verifyUsrInlineVerityUki(t *testing.T, buildDir string, imageFilePath strin
 	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
 	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
 	usrPartUuid := "PARTUUID=" + partitions[3].PartUuid
-	verifyVerityUki(t, espPath, usrDevice, usrDevice, usrPartUuid, usrPartUuid, "usr", buildDir,
-		"panic-on-corruption", true /*inlineVerity*/)
+	verifyVerityUki(t, espPath, usrDevice, partitions[3].SizeInBytes, usrDevice, usrPartUuid, usrPartUuid, "usr",
+		buildDir, "panic-on-corruption", true /*inlineVerity*/)
 
 	verifyUkiCmdlineArgs(t, espPath, buildDir, extraCommandLine, absentCommandLine)
 

@@ -245,7 +245,8 @@ func (s *Storage) IsValid() error {
 					// So, calculate and store the size of the data section.
 					partition := deviceMap[verity.DataDeviceId].(*Partition)
 
-					dataSize, err = calculateInlineVerityDataSize(uint64(partition.Size.Size))
+					dataSize, err = CalculateInlineVerityDataSize(uint64(partition.Size.Size),
+						DefaultVerityDataBlockSize, DefaultVerityHashBlockSize, DefaultVerityHashAlgorithm)
 					if err != nil {
 						return fmt.Errorf("failed to caclulate inline verity device's (%s) data size:\n%w",
 							filesystem.DeviceId, err)
@@ -532,11 +533,9 @@ func addParentToDevice(deviceId string, deviceMap map[string]any, deviceParents 
 	return device, nil
 }
 
-func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
-	dataBlockSize := uint32(DefaultVerityDataBlockSize)
-	verityBlockSize := uint32(DefaultVerityHashBlockSize)
-	hashAlgorithm := DefaultVerityHashAlgorithm
-
+func CalculateInlineVerityDataSize(partitionSize uint64, dataBlockSize uint32, verityBlockSize uint32,
+	hashAlgorithm string,
+) (uint64, error) {
 	left := uint64(0)
 	right := partitionSize / uint64(dataBlockSize)
 	answer := uint64(0)

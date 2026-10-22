@@ -41,11 +41,14 @@ var (
 	ErrDiskResizeFailedToCreatePartitionTable = NewImageCustomizerError("Partitions:DiskResizeFailedToCreatePartitionTable", "failed to create partition table")
 	ErrDiskResizePartitionCopyFailed          = NewImageCustomizerError("Partitions:DiskResizePartitionCopyFailed", "failed to copy partition to the new disk")
 	ErrDiskResizeCannotMoveBiosBootPartition  = NewImageCustomizerError("Partitions:DiskResizeCannotMoveBiosBootPartition", "cannot move bios boot partition")
+	ErrCannotResizeReadonlyVerityPartition    = NewImageCustomizerError("Partitions:CannotResizeReadonlyVerityPartition", "cannot resize verity data partition without '.storage.reinitializeVerity' set to 'all'")
+	ErrFileSystemSizeNotMultipleOfBlockSize   = NewImageCustomizerError("Partitions:FileSystemSizeNotMultipleOfBlockSize", "new filesystem size is not a multiple of the block size")
+	ErrFailedToResizeFileSystem               = NewImageCustomizerError("Partitions:FailedToResizeFileSystem", "failed to resize filesystem")
 )
 
-func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDir string,
-	resizeConfig imagecustomizerapi.ResizeDisk,
-) error {
+func resizeDiskAndPartitions(ctx context.Context, reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+	buildImageFile string, buildDir string, resizeConfig imagecustomizerapi.ResizeDisk, distroHandler DistroHandler,
+) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Resize disk and partitions")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "resize_disk")
@@ -53,70 +56,66 @@ func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDi
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer loopback.Close()
 
 	imageFile, err := os.OpenFile(buildImageFile, os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = resizeDiskAndPartitionsHelper(loopback, imageFile, buildDir, resizeConfig)
+	newVerityMetadata, err := resizeDiskAndPartitionsHelper(reinitializeVerity, loopback, imageFile, buildDir, resizeConfig, distroHandler)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = imageFile.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return newVerityMetadata, nil
 }
 
-func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *os.File,
-	buildDir string, resizeConfig imagecustomizerapi.ResizeDisk,
-) error {
+func resizeDiskAndPartitionsHelper(reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+	loopback *safeloopback.Loopback, imageFile *os.File, buildDir string, resizeConfig imagecustomizerapi.ResizeDisk,
+	distroHandler DistroHandler,
+) ([]verityDeviceMetadata, error) {
 	imageFileInfo, err := imageFile.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	diskSize := imageFileInfo.Size()
 
-	partitionTablePtr, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
+	partitionTable, _, _, verityMetadata, _, err := retrieveExistingImageInfo(
+		loopback, buildDir, false /*ignoreOverlays*/, distroHandler)
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrGptExtractReadTable, loopback.DevicePath(), err)
+		return nil, err
 	}
-
-	if partitionTablePtr == nil {
-		return fmt.Errorf("%w (file='%s')", ErrGptExtractNoTable, loopback.DiskFilePath())
-	}
-
-	partitionTable := *partitionTablePtr
 
 	gptHeaderSize, err := readGptHeaderSize(loopback.DevicePath(), partitionTable.SectorSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Subtract the MBR header sector.
 	gptFooterSize := gptHeaderSize - uint64(partitionTable.SectorSize)
 
 	if diskSize%int64(partitionTable.SectorSize) != 0 {
-		return fmt.Errorf("%w (file='%s', diskSize=%d, sectorSize=%d)", ErrDiskSizeNotMultipleOfSectorSize,
+		return nil, fmt.Errorf("%w (file='%s', diskSize=%d, sectorSize=%d)", ErrDiskSizeNotMultipleOfSectorSize,
 			loopback.DiskFilePath(), diskSize, partitionTable.SectorSize)
 	}
 
 	lastPartIndex, _, err := findLastPartition(partitionTable)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Calculate the resize operation.
@@ -126,25 +125,32 @@ func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *o
 	case len(resizeConfig.Partitions) > 0:
 		newPartSizes, err = resolveResizeWithPartitions(resizeConfig, partitionTable, lastPartIndex, buildDir)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
+			return nil, fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
 		}
 
 	case resizeConfig.DiskSize != nil:
 		newPartSizes, err = resolveResizeWithDiskSize(uint64(*resizeConfig.DiskSize), partitionTable, lastPartIndex,
 			diskSize, gptFooterSize)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
+			return nil, fmt.Errorf("%w:\n%w", ErrDiskResizeResolveFailed, err)
 		}
 
 	default:
 		// Not possible, since it should be pre-checked by ResizeConfig.IsValid().
-		return fmt.Errorf("empty diskResize config")
+		return nil, fmt.Errorf("empty diskResize config")
 	}
 
 	if len(newPartSizes) == 0 {
 		// Nothing to do.
 		logger.Log.Infof("No disk/partitions resize needed")
-		return nil
+		return nil, nil
+	}
+
+	// Validate resize.
+	newVerityMetadata, newFilesystemSizes, err := resolveResizeVerityPartitions(reinitializeVerity, verityMetadata,
+		partitionTable, newPartSizes)
+	if err != nil {
+		return nil, err
 	}
 
 	// Do the resize operation.
@@ -155,20 +161,20 @@ func resizeDiskAndPartitionsHelper(loopback *safeloopback.Loopback, imageFile *o
 			err := resizeDiskLastPartition(loopback, imageFile, diskSize, newPartSize, lastPartIndex,
 				partitionTable, gptFooterSize, buildDir)
 			if err != nil {
-				return fmt.Errorf("%w:\n%w", ErrResizeLastPartition, err)
+				return nil, fmt.Errorf("%w:\n%w", ErrResizeLastPartition, err)
 			}
 
-			return nil
+			return nil, nil
 		}
 	}
 
-	err = doDiskAndPartitionsResize(loopback, imageFile, partitionTable, diskSize, newPartSizes, gptHeaderSize,
-		gptFooterSize, buildDir)
+	err = doDiskAndPartitionsResize(loopback, imageFile, partitionTable, diskSize, newPartSizes, newFilesystemSizes,
+		gptHeaderSize, gptFooterSize, buildDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return newVerityMetadata, nil
 }
 
 // Calculate the disk resize that expands expands the last partition and the disk size to contain the last partition.
@@ -241,6 +247,65 @@ func resolveResizeWithDiskSize(newDiskSize uint64, partitionTable diskutils.Part
 	return newPartSizes, nil
 }
 
+// Checks if any of the resized partitions are a verity partition. If any are, ensure reinitializeVerity is enabled.
+// Also, if inline verity is being used, calculate the new size of the data filesystem.
+func resolveResizeVerityPartitions(reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+	verityMetadata []verityDeviceMetadata, partitionTable diskutils.PartitionTable, newPartSizes map[int]uint64,
+) ([]verityDeviceMetadata, map[int]uint64, error) {
+	partUuidsToIndex := map[string]int{}
+	for i, partInfo := range partitionTable.Partitions {
+		partUuidsToIndex[strings.ToLower(partInfo.PartUuid)] = i
+	}
+
+	newFilesystemSizes := map[int]uint64{}
+	newVerityMetadata := []verityDeviceMetadata(nil)
+	for i := range verityMetadata {
+		verityInfo := verityMetadata[i]
+		newVerityInfo := verityInfo
+
+		partIndex, foundPartIndex := partUuidsToIndex[verityInfo.dataPartUuid]
+		if !foundPartIndex {
+			// Shouldn't happen this this is checked during partition layout discovery.
+			return nil, nil, fmt.Errorf("verity data partition not found in partition table (partuuid='%s')",
+				verityInfo.dataPartUuid)
+		}
+
+		newDataPartSize, dataPartResized := newPartSizes[partIndex]
+		if !dataPartResized {
+			// Data partition is not resized. So, no special handling is needed.
+			// Note: We don't need to check if a hash partition is resized since they are allowed to be larger than the
+			// hash tree they contain. So, it shouldn't invalidate the hash tree to expand the partition.
+			continue
+		}
+
+		// Ensure reinitializeVerity is enabled.
+		if reinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll {
+			return nil, nil, fmt.Errorf("%w (name=%s)", ErrCannotResizeReadonlyVerityPartition, verityInfo.name)
+		}
+
+		if verityInfo.formatSettings.IsInlineVerity() {
+			// Calculate the new size of the data filesystem.
+			dataSize, err := imagecustomizerapi.CalculateInlineVerityDataSize(newDataPartSize,
+				verityInfo.formatSettings.dataBlockSizeBytes, verityInfo.formatSettings.hashBlockSizeBytes,
+				verityInfo.formatSettings.hashAlgorithm)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			newVerityInfo.formatSettings.dataSizeBytes = dataSize
+			newVerityInfo.formatSettings.hashOffsetBytes = dataSize
+
+			newFilesystemSizes[partIndex] = dataSize
+		} else {
+			newVerityInfo.formatSettings.dataSizeBytes = newDataPartSize
+		}
+
+		newVerityMetadata = append(newVerityMetadata, newVerityInfo)
+	}
+
+	return newVerityMetadata, newFilesystemSizes, nil
+}
+
 // Perform a disk resize the expands the size of the disk and the last partition.
 // This is a special case since it can be performed without moving data.
 func resizeDiskLastPartition(loopback *safeloopback.Loopback, imageFile *os.File, diskSize int64,
@@ -274,7 +339,7 @@ func resizeDiskLastPartition(loopback *safeloopback.Loopback, imageFile *os.File
 	}
 
 	// Resize the last partition.
-	err = growPartitionSize(loopback.DevicePath(), lastPartInfo.Path, newLastPartSizeInSectors,
+	err = growPartitionSize(loopback.DevicePath(), lastPartInfo.Path, newLastPartSizeInSectors, 0, /*newFilesystemSize*/
 		lastPartInfo.FileSystemType, buildDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPartitionResizeFailed, err)
@@ -301,7 +366,8 @@ func resizeDisk(loopback *safeloopback.Loopback, imageFile *os.File, newDiskSize
 
 // Resize the disk and partitions, where any partition can be resized so partitions may need to be moved around.
 func doDiskAndPartitionsResize(loopback *safeloopback.Loopback, imageFile *os.File, partitionTable diskutils.PartitionTable,
-	diskSize int64, newPartSizes map[int]uint64, gptHeaderSize uint64, gptFooterSize uint64, buildDir string,
+	diskSize int64, newPartSizes map[int]uint64, newFilesystemSizes map[int]uint64,
+	gptHeaderSize uint64, gptFooterSize uint64, buildDir string,
 ) error {
 	sortedPartitionIndexes := getSortedPartitionIndexes(partitionTable)
 
@@ -328,8 +394,8 @@ func doDiskAndPartitionsResize(loopback *safeloopback.Loopback, imageFile *os.Fi
 		return err
 	}
 
-	err = moveAndGrowPartitions(loopback.DevicePath(), partitionTable, newPartitionTable, sortedPartitionIndexes,
-		buildDir)
+	err = moveAndGrowPartitions(loopback.DevicePath(), partitionTable, newPartitionTable, newFilesystemSizes,
+		sortedPartitionIndexes, buildDir)
 	if err != nil {
 		return err
 	}
@@ -438,14 +504,18 @@ func resolveResizeDiskAdvanced(partitionTable diskutils.PartitionTable, newPartS
 }
 
 func moveAndGrowPartitions(devicePath string, oldPartitionTable, newPartitionTable diskutils.PartitionTable,
-	sortedPartitionIndexes []int, buildDir string,
+	newFilesystemSizes map[int]uint64, sortedPartitionIndexes []int, buildDir string,
 ) error {
 	// Process the partitions backwards, so that the later partitions move out of the way of earlier partitions.
 	for _, index := range slices.Backward(sortedPartitionIndexes) {
 		oldPartInfo := oldPartitionTable.Partitions[index]
 		newPartInfo := newPartitionTable.Partitions[index]
 
-		err := moveAndGrowPartition(devicePath, oldPartInfo, newPartInfo, buildDir)
+		// Note: The default value of 0 is interpreted as the filesytem filling the entire partition. So, it is fine if
+		// 'index' is not in 'newFilesystemSizes'.
+		newFilesystemSize := newFilesystemSizes[index]
+
+		err := moveAndGrowPartition(devicePath, oldPartInfo, newPartInfo, newFilesystemSize, buildDir)
 		if err != nil {
 			return fmt.Errorf("%w (partition='%s'):\n%w", ErrPartitionResizeAndMoveFailed, newPartInfo.Path, err)
 		}
@@ -455,7 +525,7 @@ func moveAndGrowPartitions(devicePath string, oldPartitionTable, newPartitionTab
 }
 
 func moveAndGrowPartition(devicePath string, oldPartInfo, newPartInfo diskutils.PartitionTablePartition,
-	buildDir string,
+	newFilesystemSize uint64, buildDir string,
 ) error {
 	if oldPartInfo.Size == newPartInfo.Size && oldPartInfo.Start == newPartInfo.Start {
 		// Nothing to do.
@@ -480,7 +550,7 @@ func moveAndGrowPartition(devicePath string, oldPartInfo, newPartInfo diskutils.
 
 	if oldPartInfo.Size != newPartInfo.Size {
 		// Resize the filesystem.
-		err := growFileSystem(devicePath, newPartInfo.Path, newPartInfo.FileSystemType, buildDir)
+		err := growFileSystem(devicePath, newPartInfo.Path, newPartInfo.FileSystemType, newFilesystemSize, buildDir)
 		if err != nil {
 			return err
 		}
@@ -490,7 +560,8 @@ func moveAndGrowPartition(devicePath string, oldPartInfo, newPartInfo diskutils.
 }
 
 // Grow the size of a partition and the filesystem on that partition.
-func growPartitionSize(devicePath string, partPath string, newPartSizeInSectors uint64, partFileSystemType string,
+func growPartitionSize(devicePath string, partPath string, newPartSizeInSectors uint64, newFilesystemSize uint64,
+	partFileSystemType string,
 	buildDir string,
 ) error {
 	// Resize the partition.
@@ -501,7 +572,7 @@ func growPartitionSize(devicePath string, partPath string, newPartSizeInSectors 
 	}
 
 	// Resize the filesystem.
-	err = growFileSystem(devicePath, partPath, partFileSystemType, buildDir)
+	err = growFileSystem(devicePath, partPath, partFileSystemType, newFilesystemSize, buildDir)
 	if err != nil {
 		return err
 	}
@@ -510,16 +581,28 @@ func growPartitionSize(devicePath string, partPath string, newPartSizeInSectors 
 }
 
 // Grow a filesystem.
-func growFileSystem(diskDevicePath string, partitionPath string, fileSystemType string, buildDir string) error {
+func growFileSystem(diskDevicePath string, partitionPath string, fileSystemType string, newFilesystemSize uint64,
+	buildDir string,
+) error {
+	// Note: For inline verity, the existing verity hash tree does not need to be moved since it will be invalidated
+	// anyway and therefore needs to be completely rewritten.
+
 	switch fileSystemType {
 	case "ext4":
-		return growExt4(diskDevicePath, partitionPath)
+		return growExt4(diskDevicePath, partitionPath, newFilesystemSize)
 
 	case "xfs":
-		return growXfs(diskDevicePath, partitionPath, buildDir)
+		return growXfs(diskDevicePath, partitionPath, newFilesystemSize, buildDir)
 
 	case "btrfs":
-		return growBtrfs(diskDevicePath, partitionPath, buildDir)
+		return growBtrfs(diskDevicePath, partitionPath, newFilesystemSize, buildDir)
+
+	case "DM_verity_hash":
+		// Nothing to do.
+		// If the verity data partition is not being resized, then expanding the partition will not invalidate the tree.
+		// If the verity data partition is being resized, then the verity hash tree will be completely rewritten later
+		// on.
+		return nil
 
 	default:
 		return fmt.Errorf("%w (type='%s')", ErrFileSystemResizeNotSupported, fileSystemType)
@@ -527,7 +610,7 @@ func growFileSystem(diskDevicePath string, partitionPath string, fileSystemType 
 }
 
 // Grow an ext4 filesystem.
-func growExt4(diskDevicePath string, partitionPath string) error {
+func growExt4(diskDevicePath string, partitionPath string, newFilesystemSize uint64) error {
 	// resize2fs requires e2fsck to be called before resize2fs is called.
 	err := shell.NewExecBuilder("e2fsck", "-fy", partitionPath).
 		Execute()
@@ -535,17 +618,29 @@ func growExt4(diskDevicePath string, partitionPath string) error {
 		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckResize, partitionPath, err)
 	}
 
-	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevicePath, "resize2fs", partitionPath).
+	args := []string{"--timeout", "5", diskDevicePath, "resize2fs", partitionPath}
+	if newFilesystemSize != 0 {
+		newFilesystemSizeInMiB := newFilesystemSize / diskutils.MiB
+		if newFilesystemSize%diskutils.MiB != 0 {
+			// Shouldn't happen since the size should be aligned to 1 MiB.
+			return fmt.Errorf("partition filesystem size is not aligned to 1 MiB (path='%s', size='%d')",
+				partitionPath, newFilesystemSize)
+		}
+
+		args = append(args, fmt.Sprintf("%dm", newFilesystemSizeInMiB))
+	}
+
+	err = shell.NewExecBuilder("flock", args...).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemResize2fs, partitionPath, err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrFailedToResizeFileSystem, partitionPath, err)
 	}
 
 	return nil
 }
 
 // Grow a xfs filesystem.
-func growXfs(diskDevicePath string, partitionPath string, buildDir string) error {
+func growXfs(diskDevicePath string, partitionPath string, newFilesystemSize uint64, buildDir string) error {
 	mountPath := filepath.Join(buildDir, "resizefs")
 
 	// xfs_growfs requires the filesystem to be mounted.
@@ -555,10 +650,28 @@ func growXfs(diskDevicePath string, partitionPath string, buildDir string) error
 	}
 	defer mount.Close()
 
-	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevicePath, "xfs_growfs", mount.Target()).
+	args := []string{"--timeout", "5", diskDevicePath, "xfs_growfs"}
+	if newFilesystemSize != 0 {
+		blockSize, err := diskutils.GetXfsDataBlockSize(partitionPath)
+		if err != nil {
+			return err
+		}
+
+		newFilesystemSizeInBlocks := newFilesystemSize / blockSize
+		if newFilesystemSize%blockSize != 0 {
+			return fmt.Errorf("%w (size='%d', blockSize='%d')", ErrFileSystemSizeNotMultipleOfBlockSize,
+				newFilesystemSize, blockSize)
+		}
+
+		args = append(args, "-D", fmt.Sprintf("%d", newFilesystemSizeInBlocks))
+	}
+
+	args = append(args, mount.Target())
+
+	err = shell.NewExecBuilder("flock", args...).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemResize2fs, partitionPath, err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrFailedToResizeFileSystem, partitionPath, err)
 	}
 
 	err = mount.CleanClose()
@@ -570,7 +683,7 @@ func growXfs(diskDevicePath string, partitionPath string, buildDir string) error
 }
 
 // Grow a btrfs filesystem.
-func growBtrfs(diskDevicePath string, partitionPath string, buildDir string) error {
+func growBtrfs(diskDevicePath string, partitionPath string, newFilesystemSize uint64, buildDir string) error {
 	mountPath := filepath.Join(buildDir, "resizefs")
 
 	// 'btrfs filesystem resize' requires the filesystem to be mounted.
@@ -581,11 +694,16 @@ func growBtrfs(diskDevicePath string, partitionPath string, buildDir string) err
 	}
 	defer mount.Close()
 
+	size := "max"
+	if newFilesystemSize != 0 {
+		size = fmt.Sprintf("%d", newFilesystemSize)
+	}
+
 	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevicePath,
-		"btrfs", "filesystem", "resize", "max", mount.Target()).
+		"btrfs", "filesystem", "resize", size, mount.Target()).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemResize2fs, partitionPath, err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrFailedToResizeFileSystem, partitionPath, err)
 	}
 
 	err = mount.CleanClose()

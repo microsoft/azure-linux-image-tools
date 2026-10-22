@@ -507,8 +507,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	im.distroHandler = distroHandler
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.Storage, rc.RawImageFile, im.distroHandler)
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, newVerityMetadata, err := customizePartitions(ctx,
+		rc.BuildDirAbs, rc.Storage, rc.RawImageFile, im.distroHandler)
 	if err != nil {
 		return im, err
 	}
@@ -520,7 +520,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 
 	// Customize the raw image file.
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, im.distroHandler, toolsChroot)
+		partitionsCustomized, im.distroHandler, toolsChroot, newVerityMetadata)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -734,7 +734,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
-	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot, newVerityMetadata []verityDeviceMetadata,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -753,6 +753,12 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 	defer imageConnection.Close()
+
+	if newVerityMetadata != nil {
+		// The disk/partition resize operation changed the verity settings, typically to update the inline-verity
+		// filesystem size. Use those values instead of the out-of-date values from the image.
+		baseImageVerityMetadata = newVerityMetadata
+	}
 
 	// Clear btrfs read-only subvolume properties so that IC can write to
 	// partitions that were sealed at build time (e.g. ACL's USR-A).

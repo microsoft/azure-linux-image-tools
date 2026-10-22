@@ -22,6 +22,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
@@ -51,6 +52,47 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 	return imageConnection, partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
 }
 
+func retrieveExistingImageInfo(loopback *safeloopback.Loopback, buildDir string, ignoreOverlays bool,
+	distroHandler DistroHandler,
+) (diskutils.PartitionTable, []diskutils.PartitionInfo, []fstabEntryPartNum, []verityDeviceMetadata, DistroHandler, error) {
+	partitionTable, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
+	if err != nil {
+		err = fmt.Errorf("failed to read image's partition table:\n%w", err)
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	if partitionTable == nil {
+		err = fmt.Errorf("image does not contain a partition table")
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	if err != nil {
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
+	if err != nil {
+		err = fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
+	if err != nil {
+		err = fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	partitionsLayout, verityMetadata, distroHandler, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
+		ignoreOverlays, rootfsPartition, rootfsPath, distroHandler)
+	if err != nil {
+		err = fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+		return diskutils.PartitionTable{}, nil, nil, nil, nil, err
+	}
+
+	return *partitionTable, partitions, partitionsLayout, verityMetadata, distroHandler, nil
+}
+
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, mountPath string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
 	ignoreOverlays bool, distroHandler DistroHandler,
@@ -61,34 +103,10 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, nil, err
 	}
 
-	partitionTable, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
-	}
-
-	if partitionTable == nil {
-		return nil, nil, nil, nil, fmt.Errorf("image does not contain a partition table")
-	}
-
-	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	_, partitions, partitionsLayout, verityMetadata, distroHandler, err := retrieveExistingImageInfo(
+		imageConnection.Loopback(), buildDir, ignoreOverlays, distroHandler)
 	if err != nil {
 		return nil, nil, nil, nil, err
-	}
-
-	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
-	}
-
-	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
-	}
-
-	partitionsLayout, verityMetadata, distroHandler, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
-		ignoreOverlays, rootfsPartition, rootfsPath, distroHandler)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
 
 	if distroHandler == nil {
