@@ -30,9 +30,10 @@ const (
 	SSHDirectoryName          = ".ssh"
 	SSHAuthorizedKeysFileName = "authorized_keys"
 
-	SshDirectoryPerm   os.FileMode = 0o700
-	AuthorizedKeysPerm os.FileMode = 0o600
-	HomeDirectoryPerm  os.FileMode = 0o700
+	SshDirectoryPerm        os.FileMode = 0o700
+	AuthorizedKeysPerm      os.FileMode = 0o600
+	HomeDirectoryPerm       os.FileMode = 0o700
+	HomeParentDirectoryPerm os.FileMode = 0o755
 )
 
 func HashPassword(password string) (string, error) {
@@ -358,7 +359,7 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 
 		for i := len(missingDirs) - 1; i >= 0; i-- {
 			dir := missingDirs[i]
-			permissions := os.FileMode(0o755)
+			permissions := HomeParentDirectoryPerm
 			if dir == userHomeDirFullPath {
 				permissions = HomeDirectoryPerm
 			}
