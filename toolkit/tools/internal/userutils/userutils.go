@@ -32,7 +32,7 @@ const (
 
 	SshDirectoryPerm   os.FileMode = 0o700
 	AuthorizedKeysPerm os.FileMode = 0o600
-	HomeDirectoryPerm  os.FileMode = 0o755
+	HomeDirectoryPerm  os.FileMode = 0o700
 )
 
 func HashPassword(password string) (string, error) {
@@ -286,12 +286,13 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		return
 	}
 
-	userSSHKeyDir, err := UserSSHDirectory(installChroot.RootDir(), username)
+	userHomeDir, err := UserHomeDirectory(installChroot.RootDir(), username)
 	if err != nil {
 		return fmt.Errorf("failed to get user's (%s) home directory:\n%w", username, err)
 	}
 
-	userSSHKeyDirFullPath := filepath.Join(installChroot.RootDir(), userSSHKeyDir)
+	userHomeDirFullPath := filepath.Join(installChroot.RootDir(), userHomeDir)
+	userSSHKeyDirFullPath := filepath.Join(userHomeDirFullPath, SSHDirectoryName)
 	authorizedKeysFullPath := filepath.Join(userSSHKeyDirFullPath, SSHAuthorizedKeysFileName)
 
 	allSSHKeys := []string(nil)
@@ -337,7 +338,6 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		return err
 	}
 
-	userHomeDirFullPath := filepath.Dir(userSSHKeyDirFullPath)
 	homeDirExists, err := file.PathExists(userHomeDirFullPath)
 	if err != nil {
 		return fmt.Errorf("failed to check if user's home directory (%s) exists:\n%w", userHomeDirFullPath, err)
@@ -358,11 +358,15 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 
 		for i := len(missingDirs) - 1; i >= 0; i-- {
 			dir := missingDirs[i]
-			err = os.Mkdir(dir, HomeDirectoryPerm)
+			permissions := os.FileMode(0o755)
+			if dir == userHomeDirFullPath {
+				permissions = HomeDirectoryPerm
+			}
+			err = os.Mkdir(dir, permissions)
 			if err != nil {
 				return fmt.Errorf("failed to create user's home directory (%s):\n%w", dir, err)
 			}
-			err = os.Chmod(dir, HomeDirectoryPerm)
+			err = os.Chmod(dir, permissions)
 			if err != nil {
 				return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", dir, err)
 			}

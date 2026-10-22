@@ -162,8 +162,8 @@ Added in v0.3.
 
 Where the user's home directory should be located.
 
-When SSH public keys are provided, missing home and parent directories are created
-with mode `0755`. Only the new home is assigned the user's UID/GID.
+When SSH public keys are provided, a missing home is created with mode `0700`
+and the user's UID/GID. Missing parent directories are created with mode `0755`.
 Existing directories retain their permissions and ownership.
 
 ```yaml

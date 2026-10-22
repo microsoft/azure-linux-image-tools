@@ -82,7 +82,7 @@ func TestProvisionUserSSHCerts(t *testing.T) {
 				parentPath := filepath.Dir(homePath)
 				sshPath := filepath.Join(homePath, SSHDirectoryName)
 				keysPath := filepath.Join(sshPath, SSHAuthorizedKeysFileName)
-				homeMode, homeUID, homeGID := os.FileMode(0o755), uid, gid
+				homeMode, homeUID, homeGID := os.FileMode(0o700), uid, gid
 				sshMode := SshDirectoryPerm
 				expectedKeys := "ssh-ed25519 file-key\nssh-ed25519 inline-key\n"
 				if test.existingParent {
@@ -118,7 +118,7 @@ func TestProvisionUserSSHCerts(t *testing.T) {
 					verifySSHPath(t, parentPath, 0o711, 3456, 4567)
 				}
 				for _, parent := range test.newParents {
-					verifySSHPath(t, filepath.Join(rootDir, parent), HomeDirectoryPerm, os.Geteuid(), os.Getegid())
+					verifySSHPath(t, filepath.Join(rootDir, parent), 0o755, os.Geteuid(), os.Getegid())
 				}
 				verifySSHPath(t, homePath, homeMode, homeUID, homeGID)
 				verifySSHPath(t, sshPath, sshMode, uid, gid)
