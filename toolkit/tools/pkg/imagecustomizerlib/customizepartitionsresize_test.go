@@ -96,8 +96,10 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string, noFill bool) {
 
 	// Resize the partition.
 	newFileSystemSize := uint64(0) // Same as partition size
+	expectedFileSystemSize := partSizeNew
 	if noFill {
 		newFileSystemSize = fileSystemSizeNoFill
+		expectedFileSystemSize = fileSystemSizeNoFill
 	}
 
 	err = growPartitionSize(loopback.DevicePath(), partPath, partSizeNew/sectorSize, newFileSystemSize,
@@ -113,7 +115,7 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string, noFill bool) {
 	}
 
 	// ext4 and xfs reports the filesystem size with overhead excluded.
-	assert.LessOrEqual(t, uint64(float64(newFileSystemSize)*0.9), fileSystemSize)
+	assert.LessOrEqual(t, uint64(float64(expectedFileSystemSize)*0.9), fileSystemSize)
 }
 
 func TestCustomizeImageGrowDisk(t *testing.T) {

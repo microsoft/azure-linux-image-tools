@@ -157,8 +157,12 @@ func resizeDiskAndPartitionsHelper(reinitializeVerity imagecustomizerapi.Reiniti
 	if len(newPartSizes) == 1 {
 		newPartSize, isLastPart := newPartSizes[lastPartIndex]
 		if isLastPart {
+			// Note: The default value of 0 is interpreted as the filesytem filling the entire partition. So, it is fine if
+			// 'index' is not in 'newFilesystemSizes'.
+			newFilesystemSize := newFilesystemSizes[lastPartIndex]
+
 			// Expand the disk and the last partition.
-			err := resizeDiskLastPartition(loopback, imageFile, diskSize, newPartSize, lastPartIndex,
+			err := resizeDiskLastPartition(loopback, imageFile, diskSize, newPartSize, newFilesystemSize, lastPartIndex,
 				partitionTable, gptFooterSize, buildDir)
 			if err != nil {
 				return nil, fmt.Errorf("%w:\n%w", ErrResizeLastPartition, err)
@@ -261,7 +265,6 @@ func resolveResizeVerityPartitions(reinitializeVerity imagecustomizerapi.Reiniti
 	newVerityMetadata := []verityDeviceMetadata(nil)
 	for i := range verityMetadata {
 		verityInfo := verityMetadata[i]
-		newVerityInfo := verityInfo
 
 		partIndex, foundPartIndex := partUuidsToIndex[verityInfo.dataPartUuid]
 		if !foundPartIndex {
@@ -275,6 +278,7 @@ func resolveResizeVerityPartitions(reinitializeVerity imagecustomizerapi.Reiniti
 			// Data partition is not resized. So, no special handling is needed.
 			// Note: We don't need to check if a hash partition is resized since they are allowed to be larger than the
 			// hash tree they contain. So, it shouldn't invalidate the hash tree to expand the partition.
+			newVerityMetadata = append(newVerityMetadata, verityInfo)
 			continue
 		}
 
@@ -283,6 +287,7 @@ func resolveResizeVerityPartitions(reinitializeVerity imagecustomizerapi.Reiniti
 			return nil, nil, fmt.Errorf("%w (name=%s)", ErrCannotResizeReadonlyVerityPartition, verityInfo.name)
 		}
 
+		newVerityInfo := verityInfo
 		if verityInfo.formatSettings.IsInlineVerity() {
 			// Calculate the new size of the data filesystem.
 			dataSize, err := imagecustomizerapi.CalculateInlineVerityDataSize(newDataPartSize,
@@ -309,8 +314,8 @@ func resolveResizeVerityPartitions(reinitializeVerity imagecustomizerapi.Reiniti
 // Perform a disk resize the expands the size of the disk and the last partition.
 // This is a special case since it can be performed without moving data.
 func resizeDiskLastPartition(loopback *safeloopback.Loopback, imageFile *os.File, diskSize int64,
-	newLastPartSize uint64, lastPartIndex int, partitionTable diskutils.PartitionTable, gptFooterSize uint64,
-	buildDir string,
+	newLastPartSize uint64, newFilesystemSize uint64, lastPartIndex int, partitionTable diskutils.PartitionTable,
+	gptFooterSize uint64, buildDir string,
 ) error {
 	lastPartInfo := partitionTable.Partitions[lastPartIndex]
 
@@ -339,7 +344,7 @@ func resizeDiskLastPartition(loopback *safeloopback.Loopback, imageFile *os.File
 	}
 
 	// Resize the last partition.
-	err = growPartitionSize(loopback.DevicePath(), lastPartInfo.Path, newLastPartSizeInSectors, 0, /*newFilesystemSize*/
+	err = growPartitionSize(loopback.DevicePath(), lastPartInfo.Path, newLastPartSizeInSectors, newFilesystemSize,
 		lastPartInfo.FileSystemType, buildDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPartitionResizeFailed, err)
