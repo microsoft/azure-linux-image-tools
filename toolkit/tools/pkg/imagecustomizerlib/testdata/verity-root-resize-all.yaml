@@ -1,0 +1,28 @@
+previewFeatures:
+- reinitialize-verity
+- resize-disk
+
+storage:
+  reinitializeVerity: all
+
+  resizeDisk:
+    partitions:
+    - ref:
+        idType: part-label
+        id: boot
+      size: 2G
+
+    - ref:
+        idType: part-label
+        id: root
+      size: 4G
+
+    - ref:
+        idType: part-label
+        id: roothash
+      size: 200M
+
+    - ref:
+        idType: part-label
+        id: var
+      size: 4G

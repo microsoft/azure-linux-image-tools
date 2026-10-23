@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,13 +23,20 @@ import (
 // Tests resizing a filesystem.
 func TestGrowPartitionSize(t *testing.T) {
 	for _, fsType := range []string{"ext4", "xfs", "btrfs"} {
-		t.Run(fsType, func(t *testing.T) {
-			testGrowPartitionSize(t, fsType)
-		})
+		for _, noFill := range []bool{false, true} {
+			name := fsType
+			if noFill {
+				name += "_nofill"
+			}
+
+			t.Run(name, func(t *testing.T) {
+				testGrowPartitionSize(t, fsType, noFill)
+			})
+		}
 	}
 }
 
-func testGrowPartitionSize(t *testing.T, fileSystemType string) {
+func testGrowPartitionSize(t *testing.T, fileSystemType string, noFill bool) {
 	if testing.Short() {
 		t.Skip("Short mode enabled")
 	}
@@ -37,12 +45,13 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string) {
 		t.Skip("Test must be run as root")
 	}
 
-	diskSize := uint64(1 * diskutils.GiB)
-	partSize1 := uint64(512 * diskutils.MiB)
-	partSize2 := uint64(1022 * diskutils.MiB)
+	diskSize := uint64(2 * diskutils.GiB)
+	partSizeStart := uint64(512 * diskutils.MiB)
+	partSizeNew := uint64(2046 * diskutils.MiB)
+	fileSystemSizeNoFill := uint64(1024 * diskutils.MiB)
 	sectorSize := uint64(512)
 
-	testTmpDir := filepath.Join(tmpDir, "TestGrowPartitionSize_"+fileSystemType)
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGrowPartitionSize_%s_%v", fileSystemType, noFill))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -72,7 +81,7 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string) {
 				ID:     "a",
 				FsType: fileSystemType,
 				Start:  1, // MiB
-				End:    1 + partSize1/diskutils.MiB,
+				End:    1 + partSizeStart/diskutils.MiB,
 			},
 		},
 	}
@@ -86,7 +95,15 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string) {
 	partPath := partDevPathMap["a"]
 
 	// Resize the partition.
-	err = growPartitionSize(loopback.DevicePath(), partPath, partSize2/sectorSize, fileSystemType, buildDir)
+	newFileSystemSize := uint64(0) // Same as partition size
+	expectedFileSystemSize := partSizeNew
+	if noFill {
+		newFileSystemSize = fileSystemSizeNoFill
+		expectedFileSystemSize = fileSystemSizeNoFill
+	}
+
+	err = growPartitionSize(loopback.DevicePath(), partPath, partSizeNew/sectorSize, newFileSystemSize,
+		fileSystemType, buildDir)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -98,7 +115,7 @@ func testGrowPartitionSize(t *testing.T, fileSystemType string) {
 	}
 
 	// ext4 and xfs reports the filesystem size with overhead excluded.
-	assert.LessOrEqual(t, uint64(float64(partSize2)*0.9), fileSystemSize)
+	assert.LessOrEqual(t, uint64(float64(expectedFileSystemSize)*0.9), fileSystemSize)
 }
 
 func TestCustomizeImageGrowDisk(t *testing.T) {

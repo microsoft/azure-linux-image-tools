@@ -22,7 +22,7 @@ var (
 
 func customizePartitions(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
 	buildImageFile string, distroHandler DistroHandler,
-) (bool, string, map[string]string, error) {
+) (bool, string, map[string]string, []verityDeviceMetadata, error) {
 	switch {
 	case storage.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")
@@ -38,30 +38,31 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 			buildImageFile, newBuildImageFile, distroHandler)
 		if err != nil {
 			os.Remove(newBuildImageFile)
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)
+			return false, "", nil, nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)
 		}
 
-		return true, newBuildImageFile, partIdToPartUuid, nil
+		return true, newBuildImageFile, partIdToPartUuid, nil, nil
 
 	case storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
 		err := resetPartitionsUuids(ctx, buildImageFile, buildDir)
 		if err != nil {
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
+			return false, "", nil, nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
 		}
 
-		return true, buildImageFile, nil, nil
+		return true, buildImageFile, nil, nil, nil
 
 	case storage.ResizeDisk != nil:
-		err := resizeDiskAndPartitions(ctx, buildImageFile, buildDir, *storage.ResizeDisk)
+		newVerityMetadata, err := resizeDiskAndPartitions(ctx, storage.ReinitializeVerity, buildImageFile, buildDir, *storage.ResizeDisk,
+			distroHandler)
 		if err != nil {
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
+			return false, "", nil, nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
 		}
 
-		return false, buildImageFile, nil, nil
+		return false, buildImageFile, nil, newVerityMetadata, nil
 
 	default:
 		// No changes to make to the partitions.
 		// So, just use the original disk.
-		return false, buildImageFile, nil, nil
+		return false, buildImageFile, nil, nil, nil
 	}
 }
