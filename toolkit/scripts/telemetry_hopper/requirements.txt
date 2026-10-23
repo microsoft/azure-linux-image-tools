@@ -1,5 +1,5 @@
-azure-monitor-opentelemetry-exporter==1.0.0b37
-opentelemetry-api==1.33.1
-opentelemetry-sdk==1.33.1
-opentelemetry-proto==1.33.1
-grpcio==1.72.1
+azure-monitor-opentelemetry-exporter==1.0.0b58
+opentelemetry-api==1.45.1
+opentelemetry-sdk==1.45.1
+opentelemetry-proto==1.45.1
+grpcio==1.84.1
