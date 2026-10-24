@@ -20,6 +20,33 @@ Run:
 sudo make -C ./toolkit go-imagecustomizer
 ```
 
+### Experimental ACL root-verity build
+
+The `acl_root_verity` Go build tag reserves support for future ACL root-verity
+conversion. This foundation does not add conversion behavior or configuration fields.
+Normal builds reject the `acl-root-verity` preview feature; tagged builds accept it
+but do not change image processing.
+
+```console
+make -C toolkit go-imagecustomizer-acl-root-verity
+```
+
+This target combines `prod,acl_root_verity` and writes the separately named
+`toolkit/out/tools/imagecustomizer-acl-root-verity` binary. Its `--version` output
+identifies the build feature. Normal build and release targets remain unchanged.
+
+Future conversion implementations and registration must live in
+`//go:build acl_root_verity` files, with rejecting stubs in `!acl_root_verity` files.
+Before any conversion work, library entry points must call `RequireAclRootVerity`
+with the resolved preview features. The build tag alone is not runtime opt-in.
+Conversion API and schema changes belong in a later change.
+
+CI checks default, `prod`, `acl_root_verity`, and `prod,acl_root_verity` builds on
+both architectures. These are focused gate checks; the existing full API suite
+continues to run without `prod`.
+
+### Update the API schema
+
 If you're updating the image customizer API as part of your change, you need to
 update the API `schema.json` before sending a PR. To do so, run:
 

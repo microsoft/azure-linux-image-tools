@@ -8,6 +8,9 @@ import "fmt"
 type PreviewFeature string
 
 const (
+	// PreviewFeatureAclRootVerity reserves runtime opt-in for the tagged ACL root-verity build.
+	PreviewFeatureAclRootVerity PreviewFeature = "acl-root-verity"
+
 	// PreviewFeatureUki enables the Unified Kernel Image (UKI) feature.
 	PreviewFeatureUki PreviewFeature = "uki"
 
@@ -68,6 +71,8 @@ const (
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
+	case PreviewFeatureAclRootVerity:
+		return RequireAclRootVerity([]PreviewFeature{pf})
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,

@@ -104,6 +104,46 @@ jobs:
           echo "Schema is up-to-date!"
         fi
 
+    - name: Check compile-gated features
+      shell: python
+      working-directory: repo
+      run: |
+        import json
+        import os
+        from pathlib import Path
+        import subprocess
+        import tempfile
+
+        api = "./toolkit/tools/imagecustomizerapi"
+        cli = "./toolkit/tools/imagecustomizer"
+        ldflags = "-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib.ToolVersion=build-gate-test"
+        with tempfile.TemporaryDirectory() as directory:
+            for tags in ("", "prod", "acl_root_verity", "prod,acl_root_verity"):
+                print(f"Checking build tags: {tags or '(default)'}", flush=True)
+                gated = "acl_root_verity" in tags.split(",")
+                package = json.loads(subprocess.check_output(["go", "list", "-json", "-tags", tags, api]))
+                files = package["GoFiles"]
+                assert ("aclrootverity_enabled.go" in files) == gated
+                assert ("aclrootverity_disabled.go" in files) != gated
+                subprocess.run([
+                    "go", "test", "-tags", tags, api, "-count=1",
+                    "-run", "Test(AclRootVerity|RequireAclRootVerity|PreviewFeature)",
+                ], check=True)
+                binary = Path(directory) / "imagecustomizer"
+                subprocess.run([
+                    "go", "build", "-tags", tags, f"-ldflags={ldflags}", "-o", str(binary), cli,
+                ], check=True, env={**os.environ, "CGO_ENABLED": "0"})
+                version = subprocess.check_output([str(binary), "--version"], text=True).strip()
+                expected = "build-gate-test"
+                if gated:
+                    expected += " (build features: [acl-root-verity])"
+                assert version == expected, (version, expected)
+                schema = Path(directory) / "schema.json"
+                subprocess.run([
+                    "go", "run", "-tags", tags, "./toolkit/tools/imagecustomizerschemacli", "-o", str(schema),
+                ], check=True)
+                assert schema.read_bytes() == Path("toolkit/tools/imagecustomizerapi/schema.json").read_bytes()
+
     - name: check vmtests types and formatting
       run: |
         set -eux

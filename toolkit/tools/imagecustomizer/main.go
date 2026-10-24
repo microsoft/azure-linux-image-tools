@@ -96,7 +96,7 @@ func main() {
 		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesCreate(), ",") + ",",
 		"imageformatconvert": strings.Join(imagecustomizerapi.SupportedImageFormatTypesConvert(), ",") + ",",
 		"validateresources":  strings.Join(imagecustomizerapi.SupportedValidateResourceTypes(), ",") + ",",
-		"version":            imagecustomizerlib.ToolVersion,
+		"version":            buildVersion(),
 	}
 	maps.Copy(vars, exekong.KongVars)
 
@@ -114,6 +114,14 @@ func main() {
 	if err != nil {
 		logger.Log.Fatalf("%v", err)
 	}
+}
+
+func buildVersion() string {
+	version := imagecustomizerlib.ToolVersion
+	if features := imagecustomizerapi.BuildFeatures(); len(features) != 0 {
+		version += fmt.Sprintf(" (build features: %v)", features)
+	}
+	return version
 }
 
 func runCommand(ctx context.Context, command string, cli *RootCmd) error {
