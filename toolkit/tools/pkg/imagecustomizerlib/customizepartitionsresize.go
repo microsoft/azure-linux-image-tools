@@ -43,7 +43,7 @@ var (
 	ErrDiskResizeCannotMoveBiosBootPartition  = NewImageCustomizerError("Partitions:DiskResizeCannotMoveBiosBootPartition", "cannot move bios boot partition")
 )
 
-func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDir string,
+func resizeDiskAndPartitions(ctx context.Context, osImageConnection *osImageConnection, buildDir string,
 	resizeConfig imagecustomizerapi.ResizeDisk,
 ) error {
 	logger.Log.Infof("Resize disk and partitions")
@@ -51,28 +51,17 @@ func resizeDiskAndPartitions(ctx context.Context, buildImageFile string, buildDi
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "resize_disk")
 	defer span.End()
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return err
-	}
-	defer loopback.Close()
-
-	imageFile, err := os.OpenFile(buildImageFile, os.O_RDWR, os.ModePerm)
+	imageFile, err := os.OpenFile(osImageConnection.Loopback().DiskFilePath(), os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	err = resizeDiskAndPartitionsHelper(loopback, imageFile, buildDir, resizeConfig)
+	err = resizeDiskAndPartitionsHelper(osImageConnection.Loopback(), imageFile, buildDir, resizeConfig)
 	if err != nil {
 		return err
 	}
 
 	err = imageFile.Close()
-	if err != nil {
-		return err
-	}
-
-	err = loopback.CleanClose()
 	if err != nil {
 		return err
 	}

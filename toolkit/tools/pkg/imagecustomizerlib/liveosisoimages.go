@@ -777,10 +777,16 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
-	_, err = CreateNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+	_, osImageConnection, err := createNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
 		installOSFunc)
 	if err != nil {
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
+	}
+	defer osImageConnection.Close()
+
+	err = osImageConnection.CleanClose()
+	if err != nil {
+		return err
 	}
 
 	if squashfsMount != nil {

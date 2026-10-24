@@ -17,7 +17,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
@@ -383,15 +382,15 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
+func extractCosiBootMetadata(buildDirAbs string, imageChroot *safechroot.Chroot,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) (*cosiapi.Bootloader, error) {
-	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot(), toolsChroot)
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot, toolsChroot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
 
-	chrootDir := imageConnection.Chroot().RootDir()
+	chrootDir := imageChroot.RootDir()
 
 	switch bootloaderType {
 	case cosiapi.BootloaderTypeSystemdBoot:

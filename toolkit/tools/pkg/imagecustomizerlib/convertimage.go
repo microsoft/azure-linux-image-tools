@@ -160,7 +160,7 @@ func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawI
 
 		// For convert subcommand, we're dealing with arbitrary external images.
 		// Only shrink filesystems that completely cover their partition.
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids, nil,
+		partitionOriginalSizes, err := shrinkFilesystems(ctx, rawImageFile, readonlyPartUuids, nil,
 			true /*isExternalImage*/)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)

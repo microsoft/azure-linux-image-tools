@@ -16,7 +16,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"go.opentelemetry.io/otel"
@@ -32,22 +31,14 @@ var (
 	ErrPartitionUnsupportedFilesystem = NewImageCustomizerError("PartitionUUID:UnsupportedFilesystem", "unsupported filesystem for UUID reset")
 )
 
-func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir string) error {
+func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnection, buildDir string) error {
 	logger.Log.Infof("Resetting partition UUIDs")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reset_partitions_uuids")
 	defer span.End()
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return err
-	}
-	defer loopback.Close()
-
-	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
-	if err != nil {
-		return err
-	}
+	loopback := osImageConnection.Loopback()
+	partitions := osImageConnection.GetDiskPartitions()
 
 	// Update the UUIDs.
 	newUuids := make([]string, len(partitions))
@@ -80,18 +71,13 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 	}
 
 	// Wait for the partition table updates to be processed.
-	err = diskutils.WaitForDiskDevice(loopback.DevicePath())
+	err := diskutils.WaitForDiskDevice(loopback.DevicePath())
 	if err != nil {
 		return err
 	}
 
 	// Fix /etc/fstab file.
 	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir)
-	if err != nil {
-		return err
-	}
-
-	err = loopback.CleanClose()
 	if err != nil {
 		return err
 	}

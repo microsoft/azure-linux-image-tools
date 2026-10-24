@@ -22,35 +22,42 @@ var (
 )
 
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
-	buildImageFile string, newBuildImageFile string, distroHandler DistroHandler,
-) (map[string]string, error) {
+	osImageConnection *osImageConnection, newBuildImageFile string, distroHandler DistroHandler,
+) (map[string]string, *osImageConnection, error) {
+	ok := false
+
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
 
-	existingImageConnection, _, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, imageMountPoint,
-		false, true, false, false, distroHandler)
+	_, err := osImageConnection.ConnectChroot(imageMountPoint, true /*readonly*/, false, /*readOnlyVerity*/
+		distroHandler, buildDir, false /*includeDefaultMounts*/)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer existingImageConnection.Close()
 
 	diskConfig := storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
-		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
+		return copyFilesIntoNewDisk(osImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(distroHandler, newBuildImageFile, diskConfig, storage.FileSystems,
-		buildDir, "newimageroot", installOSFunc)
+	partIdToPartUuid, newOsImageConnection, err := createNewImage(distroHandler, newBuildImageFile, diskConfig,
+		storage.FileSystems, buildDir, "newimageroot", installOSFunc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	defer func() {
+		if !ok {
+			newOsImageConnection.Close()
+		}
+	}()
 
-	err = existingImageConnection.CleanClose()
+	// Close the original image.
+	err = osImageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partIdToPartUuid, nil
+	return partIdToPartUuid, newOsImageConnection, nil
 }
 
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {

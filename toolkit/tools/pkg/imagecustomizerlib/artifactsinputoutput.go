@@ -505,25 +505,26 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		imageMountPoint = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
 	}
 
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, distroHandler, err :=
+	osImageConnection, readonlyPartUuids, distroHandler, err :=
 		connectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, true, true, nil)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
-	defer imageConnection.Close()
+	defer osImageConnection.Close()
 
-	osRelease, err := extractOSRelease(imageConnection)
+	osRelease, err := extractOSRelease(osImageConnection.ImageConnection())
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, toolsChroot)
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, osImageConnection.ImageConnection(),
+		distroHandler, toolsChroot)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	imageUuid, imageUuidStr, err := tryExtractImageUUID(imageConnection)
+	imageUuid, imageUuidStr, err := tryExtractImageUUID(osImageConnection.ImageConnection())
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
@@ -537,13 +538,13 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		}
 	}
 
-	if err := imageConnection.CleanClose(); err != nil {
+	if err := osImageConnection.CleanClose(); err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionClose, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	return partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr,
-		cosiBootMetadata, readonlyPartUuids, nil
+	return osImageConnection.partitionsLayout, osImageConnection.verityMetadata, osRelease, osPackages, imageUuid,
+		imageUuidStr, cosiBootMetadata, readonlyPartUuids, nil
 }
 
 func tryExtractImageUUID(imageConnection *imageconnection.ImageConnection) ([randomization.UuidSize]byte, string, error) {

@@ -11,7 +11,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"go.opentelemetry.io/otel"
@@ -26,48 +25,16 @@ var (
 	ErrFilesystemTune2fs       = NewImageCustomizerError("Filesystem:Tune2fs", "failed to get filesystem info with tune2fs")
 )
 
-// shrinkFilesystemsHelper shrinks filesystems to minimize their size.
-// isExternalImage indicates whether the image was created externally (not by IC). When true
-// (convert/inject-files subcommands), filesystems are only shrunk if they completely cover
-// their partition. When false (customize subcommand), filesystems are always shrunk since
-// IC controls the image creation.
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string,
+func shrinkFilesystems(ctx context.Context, osImageConnection *osImageConnection, readonlyPartUuids []string,
 	verityMetadata []verityDeviceMetadata, isExternalImage bool,
 ) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
-	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return nil, err
-	}
-	defer imageLoopback.Close()
-
-	// Shrink the filesystems and capture original sizes.
-	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids,
-		verityMetadata, isExternalImage)
-	if err != nil {
-		return nil, err
-	}
-
-	err = imageLoopback.CleanClose()
-	if err != nil {
-		return nil, err
-	}
-
-	return partitionOriginalSizes, nil
-}
-
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verityMetadata []verityDeviceMetadata,
-	isExternalImage bool,
-) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
 
-	// Get partition info
-	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
-	if err != nil {
-		return nil, err
-	}
+	imageLoopDevice := osImageConnection.Loopback().DevicePath()
+	diskPartitions := osImageConnection.GetDiskPartitions()
 
 	// Capture original partition sizes before shrinking (partUuid -> size in bytes)
 	partitionOriginalSizes := make(map[string]uint64)
