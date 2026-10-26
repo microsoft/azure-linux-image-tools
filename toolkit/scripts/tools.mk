@@ -79,11 +79,11 @@ license_scan_dependency = license-scan
 endif
 
 .PHONY: go-imagecustomizer-acl-root-verity
-##help:target:go-imagecustomizer-acl-root-verity=Builds the experimental ACL root-verity binary.
+##help:target:go-imagecustomizer-acl-root-verity=Builds the internal ACL root-verity binary.
 go-imagecustomizer-acl-root-verity: $(license_scan_dependency)
 	cd $(TOOLS_DIR) && \
-		go test -tags prod,acl_root_verity ./imagecustomizerapi \
-			-run 'Test(AclRootVerity|RequireAclRootVerity|PreviewFeature)' && \
+		go test -tags prod,acl_root_verity ./imagecustomizerapi ./pkg/imagecustomizerlib \
+			-count=1 -run 'Test(AclRootVerity|RequireAclRootVerity|PreviewFeature|ConvertAclRootVerity)' && \
 		CGO_ENABLED=0 go build \
 			-ldflags="$(go_ldflags)" \
 			-tags prod,acl_root_verity \

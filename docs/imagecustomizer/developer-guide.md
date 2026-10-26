@@ -20,12 +20,10 @@ Run:
 sudo make -C ./toolkit go-imagecustomizer
 ```
 
-### Experimental ACL root-verity build
+### Internal ACL root-verity build
 
-The `acl_root_verity` Go build tag reserves support for future ACL root-verity
-conversion. This foundation does not add conversion behavior or configuration fields.
-Normal builds reject the `acl-root-verity` preview feature; tagged builds accept it
-but do not change image processing.
+The `acl_root_verity` Go build tag is for internal, special-purpose ACL customization.
+This foundation does not implement conversion or add configuration fields.
 
 ```console
 make -C toolkit go-imagecustomizer-acl-root-verity
@@ -35,15 +33,17 @@ This target combines `prod,acl_root_verity` and writes the separately named
 `toolkit/out/tools/imagecustomizer-acl-root-verity` binary. Its `--version` output
 identifies the build feature. Normal build and release targets remain unchanged.
 
-Future conversion implementations and registration must live in
-`//go:build acl_root_verity` files, with rejecting stubs in `!acl_root_verity` files.
-Before any conversion work, library entry points must call `RequireAclRootVerity`
-with the resolved preview features. The build tag alone is not runtime opt-in.
-Conversion API and schema changes belong in a later change.
+The internal library entrypoint is
+`convertAclRootVerity(ctx context.Context, rc *ResolvedConfig) error`.
+Normal builds compile a rejecting stub from `aclrootverity_disabled.go`.
+Special builds select `aclrootverity_enabled.go`, require the `acl-root-verity`
+runtime opt-in through `RequireAclRootVerity`, then return "not implemented".
+The entrypoint is not wired into image processing yet.
 
-CI checks default, `prod`, `acl_root_verity`, and `prod,acl_root_verity` builds on
-both architectures. These are focused gate checks; the existing full API suite
-continues to run without `prod`.
+Future conversion stages and registration belong only in `//go:build acl_root_verity`
+files, behind this runtime gate. Conversion API and schema changes belong in a
+later change. The local Make target runs focused gate tests; existing workflows
+are unchanged.
 
 ### Update the API schema
 

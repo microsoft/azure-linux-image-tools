@@ -8,7 +8,7 @@ import (
 	"slices"
 )
 
-// BuildFeatures lists preview features requiring a special build.
+// BuildFeatures lists capabilities requiring a special build.
 func BuildFeatures() []PreviewFeature {
 	if aclRootVerityCompiled {
 		return []PreviewFeature{PreviewFeatureAclRootVerity}
