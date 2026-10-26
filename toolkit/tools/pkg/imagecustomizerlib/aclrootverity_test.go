@@ -33,7 +33,7 @@ func TestConvertAclRootVerity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expectedErr := tt.expectedErr
-			if !slices.Contains(imagecustomizerapi.BuildFeatures(), imagecustomizerapi.PreviewFeatureAclRootVerity) {
+			if imagecustomizerapi.PreviewFeatureAclRootVerity.IsValid() != nil {
 				expectedErr = ErrAclRootVerityUnsupportedBuild
 			}
 			assert.ErrorIs(t, convertAclRootVerity(t.Context(), tt.config), expectedErr)

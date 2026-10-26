@@ -5,4 +5,16 @@
 
 package imagecustomizerapi
 
-const aclRootVerityCompiled = true
+import (
+	"fmt"
+	"slices"
+)
+
+const AclRootVerityVersionSuffix = " (build features: [acl-root-verity])"
+
+func RequireAclRootVerity(previewFeatures []PreviewFeature) error {
+	if !slices.Contains(previewFeatures, PreviewFeatureAclRootVerity) {
+		return fmt.Errorf("preview feature (%s) must be enabled", PreviewFeatureAclRootVerity)
+	}
+	return nil
+}

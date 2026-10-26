@@ -12,7 +12,7 @@ import (
 )
 
 func TestAclRootVerityBuildDisabled(t *testing.T) {
-	assert.Empty(t, BuildFeatures())
+	assert.Empty(t, AclRootVerityVersionSuffix)
 	assert.ErrorContains(t, PreviewFeatureAclRootVerity.IsValid(), "requires the acl_root_verity Go build tag")
 	assert.ErrorContains(t, (&Config{PreviewFeatures: []PreviewFeature{PreviewFeatureAclRootVerity}}).IsValid(),
 		"requires the acl_root_verity Go build tag")

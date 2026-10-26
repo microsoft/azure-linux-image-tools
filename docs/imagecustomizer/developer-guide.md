@@ -38,7 +38,7 @@ The internal library entrypoint is
 Normal builds compile a rejecting stub from `aclrootverity_disabled.go`.
 Special builds select `aclrootverity_enabled.go`, require the `acl-root-verity`
 runtime opt-in through `RequireAclRootVerity`, then return "not implemented".
-The entrypoint is not wired into image processing yet.
+Only unit tests call the entrypoint; it is not wired into image processing yet.
 
 Future conversion stages and registration belong only in `//go:build acl_root_verity`
 files, behind this runtime gate. Conversion API and schema changes belong in a

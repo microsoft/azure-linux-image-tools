@@ -12,7 +12,7 @@ import (
 )
 
 func TestAclRootVerityBuildEnabled(t *testing.T) {
-	assert.Equal(t, []PreviewFeature{PreviewFeatureAclRootVerity}, BuildFeatures())
+	assert.Equal(t, " (build features: [acl-root-verity])", AclRootVerityVersionSuffix)
 	assert.NoError(t, PreviewFeatureAclRootVerity.IsValid())
 	assert.NoError(t, (&Config{PreviewFeatures: []PreviewFeature{PreviewFeatureAclRootVerity}}).IsValid())
 }
