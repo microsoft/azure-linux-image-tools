@@ -26,7 +26,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
@@ -499,11 +498,13 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	return kernelToInitramfs, nil
 }
 
-func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHandler) error {
+func createUki(ctx context.Context, buildDir string, ukiConfig *imagecustomizerapi.Uki,
+	osImageConnection *osImageConnection, distroHandler DistroHandler,
+) error {
 	logger.Log.Infof("Creating UKIs")
 
 	// If mode is 'passthrough', skip UKI creation to preserve existing UKIs
-	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
+	if ukiConfig != nil && ukiConfig.Mode == imagecustomizerapi.UkiModePassthrough {
 		logger.Log.Infof("UKI mode is 'passthrough', skipping UKI creation")
 		return nil
 	}
@@ -518,13 +519,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 		return err
 	}
 
-	loopback, err := safeloopback.NewLoopback(rc.RawImageFile)
-	if err != nil {
-		return fmt.Errorf("failed to connect to image file to provision UKI:\n%w", err)
-	}
-	defer loopback.Close()
-
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskPartitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return err
 	}
@@ -534,17 +529,17 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 		return err
 	}
 
-	systemBootPartitionTmpDir := filepath.Join(rc.BuildDirAbs, tmpEspPartitionDirName)
+	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
-	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
-	addonStubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiAddonStubBinary)
-	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")
-	cmdlineFilePath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
+	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
+	addonStubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiAddonStubBinary)
+	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
 	// Read the kernel information (kernels, initramfs, and command line args) from the file created during prepareUki.
 	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
@@ -553,7 +548,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	}
 
 	// The UKIs are rebuilt from their recorded layouts, so later changes would be lost.
-	err = checkUkiLayoutsUnchanged(systemBootPartitionTmpDir, kernelInfo, rc.BuildDirAbs)
+	err = checkUkiLayoutsUnchanged(systemBootPartitionTmpDir, kernelInfo, buildDir)
 	if err != nil {
 		return err
 	}
@@ -570,29 +565,24 @@ func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHand
 	}
 
 	for kernel, info := range kernelInfo {
-		err := buildUki(kernel, info, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
+		err := buildUki(kernel, info, osSubreleaseFullPath, stubPath, addonStubPath, buildDir,
 			systemBootPartitionTmpDir)
 		if err != nil {
 			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
 		}
 	}
 
-	err = distroHandler.FinalizeUkis(systemBootPartitionTmpDir, addonStubPath, kernelInfo, rc.BuildDirAbs)
+	err = distroHandler.FinalizeUkis(systemBootPartitionTmpDir, addonStubPath, kernelInfo, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to finalize UKIs:\n%w", err)
 	}
 
-	err = cleanupUkiBuildDir(rc.BuildDirAbs)
+	err = cleanupUkiBuildDir(buildDir)
 	if err != nil {
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
 
 	err = systemBootPartitionMount.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	err = loopback.CleanClose()
 	if err != nil {
 		return err
 	}

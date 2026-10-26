@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
@@ -25,13 +24,13 @@ var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 		"'passthrough' mode preserves the existing kernel and initramfs. "+
 		"Use 'mode: create' to regenerate UKIs with updated kernels")
 
-func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
+func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, osImageConnection *osImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 	toolsChroot *safechroot.Chroot,
 ) error {
 	var err error
 
-	imageChroot := imageConnection.Chroot()
+	imageChroot := osImageConnection.Chroot()
 
 	buildTime := time.Now()
 
@@ -172,7 +171,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false, distroHandler)
+	err = handleBootLoader(ctx, rc, osImageConnection.imageConnection, partitionsLayout, false, distroHandler)
 	if err != nil {
 		return err
 	}

@@ -20,9 +20,15 @@ var (
 	ErrResizeDisk           = NewImageCustomizerError("Partitions:ResizeDisk", "failed to resize disk and partitions")
 )
 
+// Handles any partition customization requested.
+//
+// Returns
+// - partitionsCustomized: True if the partitions' metadata was changed/updated.
+// - partIdToPartUuid: Mapping from config partition ID to partition UUID.
+// - osImageConnection: If not nil, a connection to the new OS image, with the chroot disconnected.
 func customizePartitions(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
-	buildImageFile string, distroHandler DistroHandler,
-) (bool, string, map[string]string, error) {
+	osImageConnection *osImageConnection, distroHandler DistroHandler,
+) (bool, map[string]string, *osImageConnection, error) {
 	switch {
 	case storage.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")
@@ -32,36 +38,34 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 
 		newBuildImageFile := filepath.Join(buildDir, PartitionCustomizedImageName)
 
-		// If there is no known way to create the new partition layout from the old one,
-		// then fallback to creating the new partitions from scratch and doing a file copy.
-		partIdToPartUuid, err := customizePartitionsUsingFileCopy(ctx, buildDir, storage,
-			buildImageFile, newBuildImageFile, distroHandler)
+		partIdToPartUuid, newOsImageConnection, err := customizePartitionsUsingFileCopy(ctx, buildDir, storage,
+			osImageConnection, newBuildImageFile, distroHandler)
 		if err != nil {
 			os.Remove(newBuildImageFile)
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)
+			return false, nil, nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)
 		}
 
-		return true, newBuildImageFile, partIdToPartUuid, nil
+		return true, partIdToPartUuid, newOsImageConnection, nil
 
 	case storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
-		err := resetPartitionsUuids(ctx, buildImageFile, buildDir)
+		err := resetPartitionsUuids(ctx, osImageConnection, buildDir)
 		if err != nil {
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
+			return false, nil, nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
 		}
 
-		return true, buildImageFile, nil, nil
+		return true, nil, nil, nil
 
 	case storage.ResizeDisk != nil:
-		err := resizeDiskAndPartitions(ctx, buildImageFile, buildDir, *storage.ResizeDisk)
+		err := resizeDiskAndPartitions(ctx, osImageConnection, buildDir, *storage.ResizeDisk)
 		if err != nil {
-			return false, "", nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
+			return false, nil, nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
 		}
 
-		return false, buildImageFile, nil, nil
+		return false, nil, nil, nil
 
 	default:
 		// No changes to make to the partitions.
 		// So, just use the original disk.
-		return false, buildImageFile, nil, nil
+		return false, nil, nil, nil
 	}
 }

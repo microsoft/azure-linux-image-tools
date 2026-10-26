@@ -96,19 +96,25 @@ func CreateImage(ctx context.Context, baseConfigPath string, config imagecustomi
 		return fmt.Errorf("invalid config for image distro:\n%w", err)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(
+	partIdToPartUuid, osImageConnection, err := createNewImage(
 		distroHandler, rc.RawImageFile,
 		diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
+	defer osImageConnection.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create disk and partitions:\n%w", err)
 	}
 
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, options.ToolsDir,
-		distroHandler)
+		distroHandler, osImageConnection)
+	if err != nil {
+		return fmt.Errorf("failed to populate and customize OS image:\n%w", err)
+	}
+
+	err = osImageConnection.CleanClose()
 	if err != nil {
 		return err
 	}
