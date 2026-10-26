@@ -481,6 +481,10 @@ func qemuImgEscapeOptionValue(value string) string {
 }
 
 func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *safechroot.Chroot) (imageMetadata, error) {
+	if slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAclRootVerity) {
+		return convertAclRootVerity(ctx, rc)
+	}
+
 	im := imageMetadata{}
 
 	// If there are OS customizations, then we proceed as usual.

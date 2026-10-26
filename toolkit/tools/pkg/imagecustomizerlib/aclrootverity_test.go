@@ -36,7 +36,40 @@ func TestConvertAclRootVerity(t *testing.T) {
 			if imagecustomizerapi.PreviewFeatureAclRootVerity.IsValid() != nil {
 				expectedErr = ErrAclRootVerityUnsupportedBuild
 			}
-			assert.ErrorIs(t, convertAclRootVerity(t.Context(), tt.config), expectedErr)
+			im, err := convertAclRootVerity(t.Context(), tt.config)
+			assert.ErrorIs(t, err, expectedErr)
+			assert.Empty(t, im)
+		})
+	}
+}
+
+func TestConvertAclRootVerityDispatch(t *testing.T) {
+	tests := []struct {
+		name     string
+		features []imagecustomizerapi.PreviewFeature
+	}{
+		{"no opt-in", nil},
+		{"unrelated opt-in", []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureUki}},
+		{"opted in", []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureAclRootVerity}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &ResolvedConfig{
+				InputImage:      imagecustomizerapi.InputImage{Path: "input.iso"},
+				PreviewFeatures: tt.features,
+			}
+			im, err := customizeOSContents(t.Context(), rc, nil)
+			if slices.Contains(tt.features, imagecustomizerapi.PreviewFeatureAclRootVerity) {
+				expectedErr := ErrAclRootVerityNotImplemented
+				if imagecustomizerapi.PreviewFeatureAclRootVerity.IsValid() != nil {
+					expectedErr = ErrAclRootVerityUnsupportedBuild
+				}
+				assert.ErrorIs(t, err, expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Empty(t, im)
 		})
 	}
 }
@@ -55,7 +88,13 @@ func TestConvertAclRootVerityDoesNotModifyImage(t *testing.T) {
 	before := *rc
 	before.PreviewFeatures = slices.Clone(rc.PreviewFeatures)
 
-	require.Error(t, convertAclRootVerity(t.Context(), rc))
+	expectedErr := ErrAclRootVerityNotImplemented
+	if imagecustomizerapi.PreviewFeatureAclRootVerity.IsValid() != nil {
+		expectedErr = ErrAclRootVerityUnsupportedBuild
+	}
+	im, err := customizeOSContents(t.Context(), rc, nil)
+	require.ErrorIs(t, err, expectedErr)
+	assert.Empty(t, im)
 
 	actual, err := os.ReadFile(image)
 	require.NoError(t, err)

@@ -33,12 +33,14 @@ This target combines `prod,acl_root_verity` and writes the separately named
 `toolkit/out/tools/imagecustomizer-acl-root-verity` binary. Its `--version` output
 identifies the build feature. Normal build and release targets remain unchanged.
 
-The internal library entrypoint is
-`convertAclRootVerity(ctx context.Context, rc *ResolvedConfig) error`.
+`customizeOSContents` dispatches to `convertAclRootVerity(ctx, rc)` when
+`acl-root-verity` is requested, before ordinary OS processing. It receives the resolved
+configuration and working raw image, and returns `(imageMetadata, error)` to the common
+output stages.
 Normal builds compile a rejecting stub from `aclrootverity_disabled.go`.
 Special builds select `aclrootverity_enabled.go`, require the `acl-root-verity`
 runtime opt-in through `RequireAclRootVerity`, then return "not implemented".
-Only unit tests call the entrypoint; it is not wired into image processing yet.
+Errors return immediately without falling through to ordinary customization.
 
 Future conversion stages and registration belong only in `//go:build acl_root_verity`
 files, behind this runtime gate. Conversion API and schema changes belong in a

@@ -7,6 +7,6 @@ package imagecustomizerlib
 
 import "context"
 
-func convertAclRootVerity(_ context.Context, _ *ResolvedConfig) error {
-	return ErrAclRootVerityUnsupportedBuild
+func convertAclRootVerity(_ context.Context, _ *ResolvedConfig) (imageMetadata, error) {
+	return imageMetadata{}, ErrAclRootVerityUnsupportedBuild
 }
