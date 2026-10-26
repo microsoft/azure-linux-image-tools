@@ -135,6 +135,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 			if entry.Target == verity.Mount.MountPath {
 				// Replace mount's source with verity device.
 				entry.Source = verityDevicePath(verity)
+				entry.PassNo = 0
 
 				// Update subvol= option if this is a BTRFS subvolume mount.
 				if verity.Mount.SubvolumePath != "" {

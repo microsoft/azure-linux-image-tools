@@ -15,14 +15,60 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
+
+func TestUpdateFstabForVerityDisablesFsck(t *testing.T) {
+	const original = "PARTUUID=root / ext4 ro 1 1\n" +
+		"PARTUUID=usr /usr ext4 ro,nodev 0 2\n" +
+		"PARTUUID=state /var ext4 defaults,noatime 1 2\n"
+
+	for _, test := range []struct {
+		name      string
+		mountPath string
+		expected  string
+	}{
+		{
+			name:      "root",
+			mountPath: "/",
+			expected: "/dev/mapper/root / ext4 ro 1 0\n" +
+				"PARTUUID=usr /usr ext4 ro,nodev 0 2\n" +
+				"PARTUUID=state /var ext4 defaults,noatime 1 2\n",
+		},
+		{
+			name:      "usr",
+			mountPath: "/usr",
+			expected: "PARTUUID=root / ext4 ro 1 1\n" +
+				"/dev/mapper/usr /usr ext4 ro,nodev 0 0\n" +
+				"PARTUUID=state /var ext4 defaults,noatime 1 2\n",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			rootDir := t.TempDir()
+			fstabPath := filepath.Join(rootDir, "etc/fstab")
+			require.NoError(t, os.MkdirAll(filepath.Dir(fstabPath), 0o755))
+			require.NoError(t, os.WriteFile(fstabPath, []byte(original), 0o644))
+			verity := []imagecustomizerapi.Verity{{
+				Name:  test.name,
+				Mount: &imagecustomizerapi.VerityMount{MountPath: test.mountPath},
+			}}
+
+			err := updateFstabForVerity(verity, safechroot.NewChroot(rootDir, true))
+			require.NoError(t, err)
+			actual, err := os.ReadFile(fstabPath)
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, string(actual))
+		})
+	}
+}
 
 func TestCustomizeImageVerity(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
