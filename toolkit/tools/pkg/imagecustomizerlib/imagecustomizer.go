@@ -498,34 +498,38 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	distroHandler, err := validateTargetOs(ctx, rc)
+	osImageConnection, distroHandler, err := validateTargetOs(ctx, rc)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
+	defer osImageConnection.Close()
 
 	// Save target OS information
 	im.distroHandler = distroHandler
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.Storage, rc.RawImageFile, im.distroHandler)
+	partitionsCustomized, partIdToPartUuid, newOsImageConnection, err := customizePartitions(ctx,
+		rc.BuildDirAbs, rc.Storage, osImageConnection, im.distroHandler)
 	if err != nil {
 		return im, err
 	}
 
-	if rc.RawImageFile != newRawImageFile {
+	if newOsImageConnection != nil {
+		defer newOsImageConnection.Close()
+		osImageConnection = newOsImageConnection
+
 		os.Remove(rc.RawImageFile)
-		rc.RawImageFile = newRawImageFile
+		rc.RawImageFile = osImageConnection.Loopback().DiskFilePath()
 	}
 
 	// Customize the raw image file.
-	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, im.distroHandler, toolsChroot)
+	readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
+		partitionsCustomized, im.distroHandler, toolsChroot, osImageConnection)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
 
-	if len(baseImageVerityMetadata) > 0 {
+	if len(osImageConnection.verityMetadata) > 0 {
 		previewFeatureEnabled := slices.Contains(rc.PreviewFeatures,
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 		if !previewFeatureEnabled {
@@ -533,21 +537,21 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 		}
 	}
 
-	im.partitionsLayout = partitionsLayout
+	im.partitionsLayout = osImageConnection.partitionsLayout
 	im.osRelease = osRelease
 
-	configVerityMetadata, err := collectVerityMetadataFromImage(rc.Storage.Verity, rc.RawImageFile, partIdToPartUuid)
+	configVerityMetadata, err := collectVerityMetadataFromImage(rc.Storage.Verity, osImageConnection, partIdToPartUuid)
 	if err != nil {
-		return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
+		return im, err
 	}
 
-	verityMetadata := slices.Concat(baseImageVerityMetadata, configVerityMetadata)
+	verityMetadata := slices.Concat(osImageConnection.verityMetadata, configVerityMetadata)
 
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
 		// For customize subcommand, we control the image creation, so filesystems always cover their partitions.
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids,
+		partitionOriginalSizes, err := shrinkFilesystems(ctx, osImageConnection, readonlyPartUuids,
 			verityMetadata, false /*isExternalImage*/)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
@@ -557,8 +561,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 
 	if len(verityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
-			shrinkPartitions, verityMetadata, readonlyPartUuids, partitionsLayout, im.distroHandler)
+		err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, osImageConnection,
+			shrinkPartitions, verityMetadata, readonlyPartUuids, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -567,7 +571,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	}
 
 	if rc.Uki != nil {
-		err = createUki(ctx, rc, im.distroHandler)
+		err = createUki(ctx, rc.BuildDirAbs, rc.Uki, osImageConnection, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}
@@ -577,7 +581,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	var osPackages []cosiapi.OsPackage
 	var cosiBootMetadata *cosiapi.Bootloader
 	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout,
+		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, osImageConnection,
 			im.distroHandler, toolsChroot)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
@@ -587,9 +591,15 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	}
 
 	// Check file systems for corruption.
-	err = checkFileSystems(ctx, rc.RawImageFile)
+	err = checkFileSystems(ctx, osImageConnection)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCheckFilesystems, err)
+	}
+
+	// Close image.
+	err = osImageConnection.CleanClose()
+	if err != nil {
+		return im, err
 	}
 
 	return im, nil
@@ -734,8 +744,8 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
-	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
-) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
+	distroHandler DistroHandler, toolsChroot *safechroot.Chroot, osImageConnection *osImageConnection,
+) ([]string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
@@ -747,24 +757,25 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		imageMountPoint = filepath.Join(rc.Options.ToolsDir, toolsRootImageDir)
 	}
 
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, imageMountPoint, true, false, readOnlyVerity, false, distroHandler)
+	readonlyPartUuids, err := osImageConnection.ConnectChroot(rc.BuildDirAbs, imageMountPoint,
+		true /*includeDefaultMounts*/, false /*readonly*/, readOnlyVerity, distroHandler)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
-	defer imageConnection.Close()
+
+	imageConnection := osImageConnection.imageConnection
 
 	// Clear btrfs read-only subvolume properties so that IC can write to
 	// partitions that were sealed at build time (e.g. ACL's USR-A).
 	// The property will be restored later when verity is recalculated.
 	err = clearBtrfsReadOnlyProperties(imageConnection)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
 	distro, version := osinfo.GetDistroAndVersion(imageConnection.Chroot().RootDir())
@@ -773,40 +784,41 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	err = validateUkiMode(imageConnection, rc.Uki, distroHandler)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
-	err = validateVerityMountPaths(imageConnection, rc.Storage, partitionsLayout, baseImageVerityMetadata)
+	err = validateVerityMountPaths(osImageConnection, rc.Storage)
 	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
+		return nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChroot)
+	err = doOsCustomizations(ctx, rc, osImageConnection, partitionsCustomized, osImageConnection.partitionsLayout,
+		distroHandler, toolsChroot)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
 	warnOnLowFreeSpace(rc.BuildDirAbs, imageConnection)
 
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
 	// Trim filesystems, to cleanup any dirty unused blocks.
 	err = trimFileSystems(imageConnection)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
-	err = imageConnection.CleanClose()
+	err = imageConnection.DisconnectChroot()
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, "", err
 	}
 
-	return partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
+	return readonlyPartUuids, osRelease, nil
 }
 
-func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
+func collectOSInfo(ctx context.Context, buildDir string, osImageConnection *osImageConnection,
 	distroHandler DistroHandler, toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, *cosiapi.Bootloader, error) {
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
@@ -814,19 +826,19 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 		imageMountPoint = filepath.Join(toolsChroot.ChrootDir(), toolsRootImageDir)
 	}
 
-	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, false,
-		partitionsLayout, distroHandler)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer imageConnection.Close()
-
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, toolsChroot)
+	_, err := osImageConnection.ConnectChroot(buildDir, imageMountPoint, true, /*includeDefaultMounts*/
+		true /*readonly*/, false /*readOnlyVerity*/, distroHandler)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = imageConnection.CleanClose()
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, osImageConnection.imageConnection,
+		distroHandler, toolsChroot)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = osImageConnection.DisconnectChroot()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -946,26 +958,38 @@ func CheckEnvironmentVars() error {
 // validateTargetOs checks if the current distro/version is supported and has the required preview
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
-) (DistroHandler, error) {
+) (*osImageConnection, DistroHandler, error) {
+	ok := false
 	imageMountPoint := filepath.Join(rc.BuildDirAbs, "imageroot")
 
-	existingImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
+	osImageConnection, _, distroHandler, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		imageMountPoint, false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer existingImageConnection.Close()
+	defer func() {
+		if !ok {
+			osImageConnection.Close()
+		}
+	}()
 
-	err = validateBaseImagePackageManifest(rc, existingImageConnection.Chroot().RootDir())
+	err = validateBaseImagePackageManifest(rc, osImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = distroHandler.ValidateConfig(rc)
 	if err != nil {
-		return nil, fmt.Errorf("invalid config for image distro:\n%w", err)
+		return nil, nil, fmt.Errorf("invalid config for image distro:\n%w", err)
 	}
 
-	return distroHandler, nil
+	// Disconnect the chroot, since it was mounted as read-only.
+	err = osImageConnection.DisconnectChroot()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ok = true
+	return osImageConnection, distroHandler, nil
 }

@@ -21,36 +21,49 @@ var (
 	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
 )
 
+// Create a new partition layout and copy the files from the base image into the new layout.
+//
+// Returns:
+// - partIdToPartUuid: Mapping from config partition ID to partition UUID.
+// - osImageConnection: A connection to the new OS image, with chroot disconnected.
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
-	buildImageFile string, newBuildImageFile string, distroHandler DistroHandler,
-) (map[string]string, error) {
+	osImageConnection *osImageConnection, newBuildImageFile string, distroHandler DistroHandler,
+) (map[string]string, *osImageConnection, error) {
+	ok := false
+
 	imageMountPoint := filepath.Join(buildDir, "imageroot")
 
-	existingImageConnection, _, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, imageMountPoint,
-		false, true, false, false, distroHandler)
+	_, err := osImageConnection.ConnectChroot(buildDir, imageMountPoint, false, /*includeDefaultMounts*/
+		true /*readonly*/, false /*readOnlyVerity*/, distroHandler)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer existingImageConnection.Close()
 
 	diskConfig := storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
-		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
+		return copyFilesIntoNewDisk(osImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(distroHandler, newBuildImageFile, diskConfig, storage.FileSystems,
-		buildDir, "newimageroot", installOSFunc)
+	partIdToPartUuid, newOsImageConnection, err := createNewImage(distroHandler, newBuildImageFile, diskConfig,
+		storage.FileSystems, buildDir, "newimageroot", installOSFunc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	defer func() {
+		if !ok {
+			newOsImageConnection.Close()
+		}
+	}()
 
-	err = existingImageConnection.CleanClose()
+	// Close the original image.
+	err = osImageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partIdToPartUuid, nil
+	ok = true
+	return partIdToPartUuid, newOsImageConnection, nil
 }
 
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
