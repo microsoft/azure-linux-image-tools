@@ -1,0 +1,13 @@
+previewFeatures:
+- reinitialize-verity
+- resize-disk
+
+storage:
+  reinitializeVerity: all
+
+  resizeDisk:
+    partitions:
+    - ref:
+        idType: part-label
+        id: usr
+      freeSpace: 4G
