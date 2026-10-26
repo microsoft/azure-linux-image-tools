@@ -62,6 +62,16 @@ func (c *ImageConnection) DisconnectChroot() error {
 		c.chroot = nil
 	}
 
+	for len(c.ownedDirectories) > 0 {
+		dir := c.ownedDirectories[len(c.ownedDirectories)-1]
+		err := os.RemoveAll(dir)
+		if err != nil {
+			return fmt.Errorf("failed to remove image connection directory (%s):\n%w", dir, err)
+		}
+
+		c.ownedDirectories = c.ownedDirectories[:len(c.ownedDirectories)-1]
+	}
+
 	return nil
 }
 
@@ -96,26 +106,12 @@ func (c *ImageConnection) Close() {
 }
 
 func (c *ImageConnection) CleanClose() error {
-	if c.chroot != nil {
-		err := c.chroot.Close()
-		if err != nil {
-			return err
-		}
-
-		c.chroot = nil
+	err := c.DisconnectChroot()
+	if err != nil {
+		return err
 	}
 
-	for len(c.ownedDirectories) > 0 {
-		dir := c.ownedDirectories[len(c.ownedDirectories)-1]
-		err := os.RemoveAll(dir)
-		if err != nil {
-			return fmt.Errorf("failed to remove image connection directory (%s):\n%w", dir, err)
-		}
-
-		c.ownedDirectories = c.ownedDirectories[:len(c.ownedDirectories)-1]
-	}
-
-	err := c.loopback.CleanClose()
+	err = c.loopback.CleanClose()
 	if err != nil {
 		return err
 	}

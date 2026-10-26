@@ -100,10 +100,10 @@ func CreateImage(ctx context.Context, baseConfigPath string, config imagecustomi
 		distroHandler, rc.RawImageFile,
 		diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
-	defer osImageConnection.Close()
 	if err != nil {
 		return fmt.Errorf("failed to create disk and partitions:\n%w", err)
 	}
+	defer osImageConnection.Close()
 
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)

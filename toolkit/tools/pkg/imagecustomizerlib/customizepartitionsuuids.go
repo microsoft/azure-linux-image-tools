@@ -31,7 +31,9 @@ var (
 	ErrPartitionUnsupportedFilesystem = NewImageCustomizerError("PartitionUUID:UnsupportedFilesystem", "unsupported filesystem for UUID reset")
 )
 
-func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnection, buildDir string) error {
+func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnection, buildDir string,
+	distroHandler DistroHandler,
+) error {
 	logger.Log.Infof("Resetting partition UUIDs")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reset_partitions_uuids")
@@ -81,7 +83,7 @@ func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnect
 	}
 
 	// Fix /etc/fstab file.
-	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir)
+	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir, distroHandler, osImageConnection)
 	if err != nil {
 		return err
 	}
@@ -159,7 +161,7 @@ func resetPartitionUuid(device string, partNum int) (string, error) {
 }
 
 func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids []string, newPartUuids []string,
-	buildDir string,
+	buildDir string, distroHandler DistroHandler, osImageConnection *osImageConnection,
 ) error {
 	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
@@ -234,6 +236,21 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	if err != nil {
 		return err
 	}
+
+	// Refresh osImageConnection metadata.
+	partitions, err = diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
+	if err != nil {
+		return err
+	}
+
+	partitionsLayout, verityMetadata, _, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
+		false /*ignoreOverlays*/, rootfsPartition, rootfsPath, distroHandler)
+	if err != nil {
+		return fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+	}
+
+	osImageConnection.partitionsLayout = partitionsLayout
+	osImageConnection.verityMetadata = verityMetadata
 
 	return nil
 }

@@ -48,7 +48,7 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 		return true, partIdToPartUuid, newOsImageConnection, nil
 
 	case storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
-		err := resetPartitionsUuids(ctx, osImageConnection, buildDir)
+		err := resetPartitionsUuids(ctx, osImageConnection, buildDir, distroHandler)
 		if err != nil {
 			return false, nil, nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
 		}

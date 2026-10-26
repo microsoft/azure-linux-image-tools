@@ -23,15 +23,6 @@ func (c *osImageConnection) DisconnectChroot() error {
 	return c.imageConnection.DisconnectChroot()
 }
 
-func (c *osImageConnection) SetPartitionLayout(partitionsLayout []fstabEntryPartNum) error {
-	if c.Chroot() != nil {
-		return fmt.Errorf("internal error: cannot set partition layout when chroot is active")
-	}
-
-	c.partitionsLayout = partitionsLayout
-	return nil
-}
-
 func (c *osImageConnection) ConnectChroot(buildDir string, rootMountPoint string, includeDefaultMounts bool,
 	readonly bool, readOnlyVerity bool, distroHandler DistroHandler,
 ) ([]string, error) {
