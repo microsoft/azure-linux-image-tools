@@ -33,8 +33,10 @@ The URI used is:
 | ------------ | --------------------------------------------------------------- |
 | 2.0          | mcr.microsoft.com/azurelinux/2.0/image/`<VARIANT>`:latest       |
 | 3.0          | mcr.microsoft.com/azurelinux/3.0/image/`<VARIANT>`:latest       |
+| 4            | mcr.microsoft.com/azurelinux/catalog/`<VARIANT>`:4              |
 | 2.0.`<DATE>` | mcr.microsoft.com/azurelinux/2.0/image/`<VARIANT>`:2.0.`<DATE>` |
 | 3.0.`<DATE>` | mcr.microsoft.com/azurelinux/3.0/image/`<VARIANT>`:3.0.`<DATE>` |
+| 4-`<DATE>`   | mcr.microsoft.com/azurelinux/catalog/`<VARIANT>`:`<DATE>`       |
 
 The list of Azure Linux image versions is available on MCR.
 For example: the
@@ -44,6 +46,8 @@ When using this API, you must specify
 [--image-cache-dir](../cli/customize.md#--image-cache-dir) on the command line.
 
 Added in v1.1.
+
+Azure Linux 4.0 support was added in v1.8.
 
 ## version [string]
 
@@ -55,10 +59,14 @@ Supported values include:
 
 - `2.0`
 - `3.0`
+- `4`
 - `2.0.<DATE>` (e.g. `2.0.20251010`)
 - `3.0.<DATE>` (e.g. `3.0.20250910`)
+- `4-<DATE>` (e.g. `4-2026102701`)
 
 Added in v1.1.
+
+Azure Linux 4.0 support was added in v1.8.
 
 ## variant [string]
 
