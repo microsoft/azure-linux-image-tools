@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 )
@@ -83,7 +84,7 @@ func (d *Disk) IsValid() error {
 
 		if partition.Type == PartitionTypeBiosGrub {
 			if *partition.Start != diskutils.MiB {
-				return fmt.Errorf("BIOS boot partition must start at 1 MiB")
+				logger.Log.Infof("It is recommended to place the BIOS boot partition at the start of the disk")
 			}
 		}
 	}

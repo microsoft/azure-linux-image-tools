@@ -35,61 +35,65 @@ type installOSFunc func(imageChroot *safechroot.Chroot) error
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, mountPath string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
 	distroHandler DistroHandler,
-) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
+) (*osImageConnection, []string, DistroHandler, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
-	imageConnection := imageconnection.NewImageConnection()
-
-	partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, err := connectToExistingImageHelper(imageConnection,
-		imageFilePath, buildDir, mountPath, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
-		distroHandler)
-	if err != nil {
-		imageConnection.Close()
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
+	osImageConnection := &osImageConnection{
+		imageConnection: imageconnection.NewImageConnection(),
 	}
 
-	return imageConnection, partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
+	readonlyPartUuids, distroHandler, err := connectToExistingImageHelper(
+		osImageConnection, imageFilePath, buildDir, mountPath, includeDefaultMounts, readonly, readOnlyVerity,
+		ignoreOverlays, distroHandler)
+	if err != nil {
+		osImageConnection.Close()
+		return nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
+	}
+
+	return osImageConnection, readonlyPartUuids, distroHandler, nil
 }
 
-func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
+func connectToExistingImageHelper(osImageConnection *osImageConnection, imageFilePath string,
 	buildDir string, mountPath string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
 	ignoreOverlays bool, distroHandler DistroHandler,
-) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
+) ([]string, DistroHandler, error) {
 	// Connect to image file using loopback device.
-	err := imageConnection.ConnectLoopback(imageFilePath)
+	err := osImageConnection.imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	partitionTable, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
+	partitionTable, err := diskutils.ReadDiskPartitionTable(osImageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
 	}
 
 	if partitionTable == nil {
-		return nil, nil, nil, nil, fmt.Errorf("image does not contain a partition table")
+		return nil, nil, fmt.Errorf("image does not contain a partition table")
 	}
 
-	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	partitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
 	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
 	partitionsLayout, verityMetadata, distroHandler, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
 		ignoreOverlays, rootfsPartition, rootfsPath, distroHandler)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
+	osImageConnection.partitionsLayout = partitionsLayout
+	osImageConnection.verityMetadata = verityMetadata
 
 	if distroHandler == nil {
 		// The Azure Container Linux image doesn't create empty directories for some of the standard Linux partitions,
@@ -100,30 +104,22 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		// :-(
 		targetOs, err := getInstalledTargetOsFromPartitionLayout(partitions, partitionsLayout, buildDir)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
+			return nil, nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
 		}
 
 		distroHandler, err = NewDistroHandler(targetOs)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 
-	mountPoints, readonlyPartUuids, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, partitions,
-		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts, mountPath)
+	readonlyPartUuids, err := osImageConnection.ConnectChroot(buildDir, mountPath, includeDefaultMounts,
+		readonly, readOnlyVerity, distroHandler)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
+		return nil, nil, err
 	}
 
-	imageConnection.AddOwnedDirectories(tempDirectories...)
-
-	// Create chroot environment.
-	err = imageConnection.ConnectChroot(mountPath, false, []string(nil), mountPoints, includeDefaultMounts)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	return partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
+	return readonlyPartUuids, distroHandler, nil
 }
 
 func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, mountPath string,
@@ -183,29 +179,44 @@ func reconnectToExistingImageHelper(imageFilePath string, buildDir string, mount
 	return imageConnection, readonlyPartUuids, nil
 }
 
-func CreateNewImage(distroHandler DistroHandler, filename string, diskConfig imagecustomizerapi.Disk,
+// createNewImage is a helper function for creating a new OS image from scratch.
+//
+// Returns:
+// - partIdToPartUuid: Mapping from config partition ID to partition UUID.
+// - osImageConnection: A connection to the new OS image, with chroot disconnected.
+func createNewImage(distroHandler DistroHandler, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
-) (map[string]string, error) {
-	imageConnection := imageconnection.NewImageConnection()
-	defer imageConnection.Close()
+) (map[string]string, *osImageConnection, error) {
+	ok := false
 
-	partIdToPartUuid, err := createNewImageHelper(distroHandler, imageConnection, filename, diskConfig, fileSystems,
+	osImageConnection := &osImageConnection{
+		imageConnection: imageconnection.NewImageConnection(),
+	}
+	defer func() {
+		if !ok {
+			osImageConnection.Close()
+		}
+	}()
+
+	partIdToPartUuid, err := createNewImageHelper(distroHandler, osImageConnection, filename, diskConfig, fileSystems,
 		buildDir, chrootDirName, installOS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new image:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to create new image:\n%w", err)
 	}
 
-	// Close image.
-	err = imageConnection.CleanClose()
+	// Disconnect the chroot.
+	// This will allow the caller to reconnect with their own settings. (For example, includeDefaultMounts=true).
+	err = osImageConnection.DisconnectChroot()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partIdToPartUuid, nil
+	ok = true
+	return partIdToPartUuid, osImageConnection, nil
 }
 
-func createNewImageHelper(distroHandler DistroHandler, imageConnection *imageconnection.ImageConnection,
+func createNewImageHelper(distroHandler DistroHandler, osImageConnection *osImageConnection,
 	filename string, diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
@@ -221,20 +232,20 @@ func createNewImageHelper(distroHandler DistroHandler, imageConnection *imagecon
 	}
 
 	// Create imager boilerplate.
-	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(distroHandler, imageConnection, filename, buildDir,
+	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(distroHandler, osImageConnection, filename, buildDir,
 		chrootDirName, imagerDiskConfig, imagerPartitionSettings, fileSystems)
 	if err != nil {
 		return nil, err
 	}
 
 	// Install the OS.
-	err = installOS(imageConnection.Chroot())
+	err = installOS(osImageConnection.Chroot())
 	if err != nil {
 		return nil, err
 	}
 
 	// Move the fstab file into the image.
-	imageFstabFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
+	imageFstabFilePath := filepath.Join(osImageConnection.Chroot().RootDir(), "etc/fstab")
 
 	err = file.Move(tmpFstabFile, imageFstabFilePath)
 	if err != nil {
@@ -298,7 +309,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	return nil
 }
 
-func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imageconnection.ImageConnection,
+func createImageBoilerplate(distroHandler DistroHandler, osImageConnection *osImageConnection,
 	filename string, buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
 	imagerPartitionSettings []configuration.PartitionSetting, fileSystems []imagecustomizerapi.FileSystem,
 ) (map[string]string, string, error) {
@@ -309,17 +320,17 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 	}
 
 	// Connect raw disk image file.
-	err = imageConnection.ConnectLoopback(filename)
+	err = osImageConnection.imageConnection.ConnectLoopback(filename)
 	if err != nil {
 		return nil, "", err
 	}
 
 	// Set up partitions.
 	partIDToDevPathMap, partIDToFsTypeMap, _, err := diskutils.CreatePartitions(
-		distroHandler.GetTargetOs(), imageConnection.Loopback().DevicePath(), imagerDiskConfig,
+		distroHandler.GetTargetOs(), osImageConnection.Loopback().DevicePath(), imagerDiskConfig,
 		configuration.RootEncryption{})
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
+		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", osImageConnection.Loopback().DevicePath(), err)
 	}
 
 	// Create BTRFS subvolumes for any file systems that have them defined.
@@ -329,7 +340,7 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 	}
 
 	// Read the disk partitions.
-	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	diskPartitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return nil, "", err
 	}
@@ -376,24 +387,18 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 		return nil, "", err
 	}
 
-	partitionsLayout, _, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, nil, "",
-		distroHandler)
+	partitionsLayout, verityMetadata, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false,
+		nil, "", distroHandler)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
 
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
+	osImageConnection.partitionsLayout = partitionsLayout
+	osImageConnection.verityMetadata = verityMetadata
 
-	mountPoints, _, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, diskPartitions, false, false,
-		distroHandler, buildDir, false, imageChrootDir)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to find mount info for disk:\n%w", err)
-	}
-
-	imageConnection.AddOwnedDirectories(tempDirectories...)
-
-	// Create chroot environment.
-	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, false)
+	_, err = osImageConnection.ConnectChroot(buildDir, imageChrootDir, false, /*includeDefaultMounts*/
+		false /*readonly*/, false /*readOnlyVerity*/, distroHandler)
 	if err != nil {
 		return nil, "", err
 	}

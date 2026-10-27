@@ -214,12 +214,12 @@ in front of any HTTP endpoints.
 
 11. Query HTTP endpoint:
 
-   ```bash
-   IP_ADDRESS_JSON="$(az vm list-ip-addresses -g "$VM_RG" -n "$VM_NAME")"
-   IP_ADDRESS="$(jq -r '.[0].virtualMachine.network.publicIpAddresses.[0].ipAddress' <<< "$IP_ADDRESS_JSON")"
+    ```bash
+    IP_ADDRESS_JSON="$(az vm list-ip-addresses -g "$VM_RG" -n "$VM_NAME")"
+    IP_ADDRESS="$(jq -r '.[0].virtualMachine.network.publicIpAddresses.[0].ipAddress' <<< "$IP_ADDRESS_JSON")"
 
-   curl -sSL "$IP_ADDRESS"
-   ```
+    curl -sSL "$IP_ADDRESS"
+    ```
 
 ## Helpful links
 

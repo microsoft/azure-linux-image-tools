@@ -790,14 +790,8 @@ func growAclUsrFilesystem(imageConnection *imageconnection.ImageConnection) erro
 // aclUsrVerityDataSize returns the data size the grown USR partition should be sealed at, and
 // whether the image uses inline verity. Used to override the base-image verity metadata so verity
 // is re-sealed to match the grown partition.
-func aclUsrVerityDataSize(rawImageFile string) (uint64, bool, error) {
-	loopback, err := safeloopback.NewLoopback(rawImageFile)
-	if err != nil {
-		return 0, false, err
-	}
-	defer loopback.Close()
-
-	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+func aclUsrVerityDataSize(devicePath string) (uint64, bool, error) {
+	partitions, err := diskutils.GetDiskPartitions(devicePath)
 	if err != nil {
 		return 0, false, err
 	}
@@ -813,11 +807,6 @@ func aclUsrVerityDataSize(rawImageFile string) (uint64, bool, error) {
 	}
 
 	dataSize, inlineVerity, err := aclUsrFilesystemSize(partitions, usrPart)
-	if err != nil {
-		return 0, false, err
-	}
-
-	err = loopback.CleanClose()
 	if err != nil {
 		return 0, false, err
 	}
@@ -846,8 +835,8 @@ func findAclUsrPartition(partitions []diskutils.PartitionInfo) (diskutils.Partit
 // With inline verity the hash offset moves with the data and must be rewritten too. With a
 // dedicated hash partition there is no offset, and it is left at zero so no hash-offset reaches the
 // rebuilt UKI command line.
-func overrideAclUsrVerityMetadata(rawImageFile string, verityMetadata []verityDeviceMetadata) error {
-	dataSize, inlineVerity, err := aclUsrVerityDataSize(rawImageFile)
+func overrideAclUsrVerityMetadata(devicePath string, verityMetadata []verityDeviceMetadata) error {
+	dataSize, inlineVerity, err := aclUsrVerityDataSize(devicePath)
 	if err != nil {
 		return err
 	}

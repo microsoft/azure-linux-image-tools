@@ -11,8 +11,12 @@ You must enable this feature by specifying `resize-disk` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Contains options for resizing a disk and partitions without changing the
-partition layout or partition metadata (e.g. partition UUID, filesystem UUID,
+partition ordering or partition metadata (e.g. partition UUID, filesystem UUID,
 etc.).
+
+When resizing partitions, a partition will not be moved unless another partition
+encroaches into its territory. If a partition is moved, then it is placed
+directly behind the partition in front of it (with an alignment of 1 MiB).
 
 Added in v1.8.
 
