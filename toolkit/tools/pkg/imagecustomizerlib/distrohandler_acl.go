@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -143,6 +144,11 @@ func (d *aclDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot,
 	return d.packageManager.getPackageInformation(imageChroot, toolsChroot, packageName)
 }
 
+func (d *aclDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl3, purlNamespaceAzureLinux)
+}
+
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
@@ -236,23 +242,11 @@ func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *saf
 	return newAclEtcOverlay(ctx, imageChroot.RootDir(), reinitializeVerity)
 }
 
-func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	_, statErr := os.Stat(addonFilePath)
-	if statErr == nil {
-		return extractCmdlineFromSinglePE(addonFilePath, buildDir)
-	}
-	if os.IsNotExist(statErr) {
-		// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
-		// Start with empty cmdline; modifyUkiAddon will create the addon.
-		logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
-		return "", nil
-	}
-	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
-}
-
-// GetUkiAddonSpecs splits the command line across ACL's persistent and first-boot addons.
-func (d *aclDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return aclGetUkiAddonSpecs(kernel, cmdline)
+// FinalizeUkis updates the root hash in ACL's A/B slot addon templates.
+func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
+	buildDir string,
+) error {
+	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

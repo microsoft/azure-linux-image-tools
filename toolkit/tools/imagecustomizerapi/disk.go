@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 )
@@ -44,6 +45,10 @@ func (d *Disk) IsValid() error {
 	}
 
 	if d.MaxSize != nil {
+		if err := d.MaxSize.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'maxSize' value:\n%w", err)
+		}
+
 		if *d.MaxSize <= 0 {
 			return fmt.Errorf("a disk's maxSize value (%d) must be a positive non-zero number", *d.MaxSize)
 		}
@@ -79,7 +84,7 @@ func (d *Disk) IsValid() error {
 
 		if partition.Type == PartitionTypeBiosGrub {
 			if *partition.Start != diskutils.MiB {
-				return fmt.Errorf("BIOS boot partition must start at 1 MiB")
+				logger.Log.Infof("It is recommended to place the BIOS boot partition at the start of the disk")
 			}
 		}
 	}

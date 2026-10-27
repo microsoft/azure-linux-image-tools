@@ -59,10 +59,24 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageI
 		return
 	}
 
-	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir)
+	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir, false /*resized*/)
+
+	// Resize disk/partitions.
+	configFile2 := filepath.Join(testDir, "partitions-resize-root.yaml")
+	outImageFilePath2 := filepath.Join(testTmpDir, "image2.raw")
+
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2,
+		"raw", baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyEfiPartitionsImage(t, outImageFilePath2, baseImageInfo, buildDir, true /*resized*/)
 }
 
-func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo, buildDir string) {
+func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo, buildDir string,
+	resized bool,
+) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
@@ -129,11 +143,25 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 		assert.Equal(t, "b921b045-1df0-41c3-af44-4c6f280d3fae", partitions[3].PartitionTypeUuid) // root (arm64)
 	}
 
+	// Check disk size.
+	diskFileInfo, err := os.Stat(outImageFilePath)
+	if assert.NoError(t, err) {
+		if resized {
+			assert.Equal(t, int64(53*diskutils.GiB), diskFileInfo.Size())
+		} else {
+			assert.Equal(t, int64(4*diskutils.GiB), diskFileInfo.Size())
+		}
+	}
+
 	// Check the partition sizes.
-	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)
-	assert.Equal(t, uint64(991*diskutils.MiB), partitions[2].SizeInBytes)
-	assert.Equal(t, uint64(1024*diskutils.MiB), partitions[3].SizeInBytes)
-	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
+	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)  // esp
+	assert.Equal(t, uint64(991*diskutils.MiB), partitions[2].SizeInBytes) // xbootldr
+	if resized {
+		assert.Equal(t, uint64(50*diskutils.GiB), partitions[3].SizeInBytes) // root
+	} else {
+		assert.Equal(t, uint64(1*diskutils.GiB), partitions[3].SizeInBytes) // root
+	}
+	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes) // var
 
 	// Check filesystem features
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
@@ -392,7 +420,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 		return
 	}
 
-	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir)
+	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir, false /*resized*/)
 }
 
 func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo, buildDir string) {
@@ -1024,7 +1052,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 			return
 		}
 
-		verifyEfiPartitionsImage(t, outImageFilePath2, baseImageInfo, buildDir)
+		verifyEfiPartitionsImage(t, outImageFilePath2, baseImageInfo, buildDir, false /*resized*/)
 	}
 
 	// Recustomize and convert to COSI.
@@ -1219,7 +1247,7 @@ func getDiskPartitionsMap(devicePath string) (map[int]diskutils.PartitionInfo, e
 			continue
 		}
 
-		num, err := getPartitionNum(partition.Path)
+		num, err := diskutils.GetPartitionNum(partition.Path)
 		if err != nil {
 			return nil, err
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -30,6 +31,8 @@ type ubuntuDistroHandler struct {
 const (
 	grubEfiPackageDebianAmd64 = "grub-efi-amd64"
 	grubEfiPackageDebianArm64 = "grub-efi-arm64"
+
+	purlNamespaceUbuntu = string(targetos.Ubuntu)
 )
 
 var (
@@ -112,6 +115,10 @@ func (d *ubuntuDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 		return ErrUnsupportedPackageSnapshotTime
 	}
 
+	if rc.PackageManifestMode == imagecustomizerapi.PackageManifestModeCreate {
+		return ErrUnsupportedPackageManifestCreate
+	}
+
 	return nil
 }
 
@@ -126,7 +133,8 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 func (d *ubuntuDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot,
 ) error {
-	return debRemovePackageManagerTools(imageChroot, packageManagementPackagesDeb)
+	err := debRemovePackageManagerTools(imageChroot, packageManagementPackagesDeb)
+	return err
 }
 
 func (d *ubuntuDistroHandler) RemovePackageManagerFiles(ctx context.Context, imageChroot *safechroot.Chroot,
@@ -152,6 +160,11 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
 	return getAllPackagesFromChrootDeb(imageChroot)
+}
+
+func (d *ubuntuDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
+) ([]spdxmanifest.Package, error) {
+	return nil, ErrUnsupportedPackageManifestCreate
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
@@ -200,12 +213,10 @@ func (d *ubuntuDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *
 	return nil, nil
 }
 
-func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *ubuntuDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
+	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
 }
 
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

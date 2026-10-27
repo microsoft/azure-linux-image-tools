@@ -30,9 +30,10 @@ const (
 	SSHDirectoryName          = ".ssh"
 	SSHAuthorizedKeysFileName = "authorized_keys"
 
-	SshDirectoryPerm   os.FileMode = 0o700
-	AuthorizedKeysPerm os.FileMode = 0o600
-	HomeDirectoryPerm  os.FileMode = 0o755
+	SshDirectoryPerm        os.FileMode = 0o700
+	AuthorizedKeysPerm      os.FileMode = 0o600
+	HomeDirectoryPerm       os.FileMode = 0o700
+	HomeParentDirectoryPerm os.FileMode = 0o755
 )
 
 func HashPassword(password string) (string, error) {
@@ -286,12 +287,13 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		return
 	}
 
-	userSSHKeyDir, err := UserSSHDirectory(installChroot.RootDir(), username)
+	userHomeDir, err := UserHomeDirectory(installChroot.RootDir(), username)
 	if err != nil {
 		return fmt.Errorf("failed to get user's (%s) home directory:\n%w", username, err)
 	}
 
-	userSSHKeyDirFullPath := filepath.Join(installChroot.RootDir(), userSSHKeyDir)
+	userHomeDirFullPath := filepath.Join(installChroot.RootDir(), userHomeDir)
+	userSSHKeyDirFullPath := filepath.Join(userHomeDirFullPath, SSHDirectoryName)
 	authorizedKeysFullPath := filepath.Join(userSSHKeyDirFullPath, SSHAuthorizedKeysFileName)
 
 	allSSHKeys := []string(nil)
@@ -337,28 +339,38 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		return err
 	}
 
-	// Ensure the user's home directory exists before creating the .ssh directory.
-	// A user may pre-exist in the base image (so IC neither creates it nor is allowed to set its
-	// home directory) while that home directory is not materialized in the image, e.g. Azure
-	// Container Linux populates /home/<user> lazily at first boot. In that case a bare Mkdir of
-	// .ssh fails because its parent home directory is absent, so create the home directory tree
-	// here, owned by the user.
-	userHomeDirFullPath := filepath.Dir(userSSHKeyDirFullPath)
 	homeDirExists, err := file.PathExists(userHomeDirFullPath)
 	if err != nil {
 		return fmt.Errorf("failed to check if user's home directory (%s) exists:\n%w", userHomeDirFullPath, err)
 	}
 
 	if !homeDirExists {
-		err = os.MkdirAll(userHomeDirFullPath, HomeDirectoryPerm)
-		if err != nil {
-			return fmt.Errorf("failed to create user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		missingDirs := []string{userHomeDirFullPath}
+		for parent := filepath.Dir(userHomeDirFullPath); ; parent = filepath.Dir(parent) {
+			exists, err := file.PathExists(parent)
+			if err != nil {
+				return fmt.Errorf("failed to check user's home parent directory (%s):\n%w", parent, err)
+			}
+			if exists {
+				break
+			}
+			missingDirs = append(missingDirs, parent)
 		}
 
-		// Reapply the permissions to avoid the umask changing the value.
-		err = os.Chmod(userHomeDirFullPath, HomeDirectoryPerm)
-		if err != nil {
-			return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", userHomeDirFullPath, err)
+		for i := len(missingDirs) - 1; i >= 0; i-- {
+			dir := missingDirs[i]
+			permissions := HomeParentDirectoryPerm
+			if dir == userHomeDirFullPath {
+				permissions = HomeDirectoryPerm
+			}
+			err = os.Mkdir(dir, permissions)
+			if err != nil {
+				return fmt.Errorf("failed to create user's home directory (%s):\n%w", dir, err)
+			}
+			err = os.Chmod(dir, permissions)
+			if err != nil {
+				return fmt.Errorf("failed to set permissions on user's home directory (%s):\n%w", dir, err)
+			}
 		}
 
 		err = os.Chown(userHomeDirFullPath, uid, gid)

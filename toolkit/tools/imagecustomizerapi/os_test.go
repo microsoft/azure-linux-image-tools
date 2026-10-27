@@ -119,6 +119,17 @@ func TestOSIsValidInvalidUser(t *testing.T) {
 	assert.ErrorContains(t, err, "user () is invalid")
 }
 
+func TestOSIsValidInvalidPackages(testContext *testing.T) {
+	osConfig := OS{
+		Packages: Packages{
+			Manifest: &PackageManifest{Mode: "invalid"},
+		},
+	}
+
+	err := osConfig.IsValid()
+	assert.ErrorContains(testContext, err, "invalid packages:\n")
+}
+
 func TestOSIsValidInvalidServices(t *testing.T) {
 	os := OS{
 		Services: Services{
@@ -273,7 +284,7 @@ func TestOSInvalidUkiInvalidMode(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid uki mode value (invalid-mode)")
 }
 
-func TestOSValidUkiUnspecifiedMode(t *testing.T) {
+func TestOSInvalidUkiUnspecifiedMode(t *testing.T) {
 	os := OS{
 		BootLoader: BootLoader{
 			ResetType: ResetBootLoaderTypeHard,
@@ -284,5 +295,7 @@ func TestOSValidUkiUnspecifiedMode(t *testing.T) {
 	}
 
 	err := os.IsValid()
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki")
+	assert.ErrorContains(t, err, "invalid uki mode value ()")
 }

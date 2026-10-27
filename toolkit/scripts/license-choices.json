@@ -1,0 +1,10 @@
+{
+    "github.com/spdx/tools-golang@v0.5.7": {
+        "selected": "Apache-2.0",
+        "licenses": [
+            "Apache-2.0",
+            "GPL-2.0-only"
+        ],
+        "source": "https://github.com/spdx/tools-golang/blob/v0.5.7/LICENSE.code"
+    }
+}

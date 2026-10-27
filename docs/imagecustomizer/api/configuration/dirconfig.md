@@ -16,6 +16,7 @@ os:
   additionalDirs:
   - source: "home/files/targetDir"
     destination: "usr/project/targetDir"
+    symlinkMode: preserve
 ```
 
 Added in v0.3.
@@ -31,6 +32,31 @@ Added in v0.3.
 The absolute path in the target OS that the source directory will be copied to.
 
 Added in v0.3.
+
+## symlinkMode [string]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `symlink-mode` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+Controls how symbolic links inside the source directory are copied.
+
+When `symlinkMode` is omitted, symbolic links are dereferenced, preserving the behavior
+of existing `additionalDirs` configurations.
+
+Supported values:
+
+- `dereference`: Follow symbolic links and copy their target contents. This is also the
+  behavior when `symlinkMode` is omitted.
+- `preserve`: Recreate each symbolic link in the target OS with the same target string
+  without reading the link target on the build host. This mode supports dangling links
+  and links to special files.
+
+The permission fields (`newDirPermissions`, `mergedDirPermissions`, and
+`childFilePermissions`) are not applied to symbolic links when using `preserve`.
+
+Added in v1.7.
 
 ## newDirPermissions [string]
 

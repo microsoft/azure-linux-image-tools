@@ -10,6 +10,13 @@ kramdown:
   gfm_quirks:
     # Don't convert `--` to em-dash.
   - no_auto_typographic
+plugins:
+- jekyll-default-layout
+- jekyll-github-metadata
+- jekyll-optional-front-matter
+- jekyll-readme-index
+- jekyll-relative-links
+- jekyll-titles-from-headings
 
 aux_links:
   "GitHub Repo":
@@ -21,3 +28,8 @@ gh_edit_repository: "https://github.com/microsoft/azure-linux-image-tools"
 gh_edit_branch: main
 gh_edit_source: docs
 gh_edit_view_mode: edit
+
+sass:
+  quiet_deps: true
+  silenceDeprecations:
+  - import

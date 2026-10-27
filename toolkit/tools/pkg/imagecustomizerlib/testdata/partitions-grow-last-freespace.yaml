@@ -1,0 +1,8 @@
+previewFeatures:
+- resize-disk
+
+storage:
+  resizeDisk:
+    partitions:
+    - ref: last
+      freeSpace: 50G

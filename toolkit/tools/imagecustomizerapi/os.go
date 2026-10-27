@@ -127,9 +127,8 @@ func (s *OS) IsValid() error {
 		}
 	}
 
-	err = s.Packages.SnapshotTime.IsValid()
-	if err != nil {
-		return fmt.Errorf("invalid package snapshot time:\n%w", err)
+	if err := s.Packages.IsValid(); err != nil {
+		return fmt.Errorf("invalid packages:\n%w", err)
 	}
 
 	return nil
