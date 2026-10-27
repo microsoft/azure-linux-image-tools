@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateAzureLinuxOciUriAZL2Latest(t *testing.T) {
@@ -31,6 +32,15 @@ func TestGenerateAzureLinuxOciUriAZL3Latest(t *testing.T) {
 	assert.Equal(t, "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest", ociImage.Uri)
 }
 
+func TestGenerateAzureLinuxOciUriAZL4Latest(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/catalog/minimal-os:4", ociImage.Uri)
+}
+
 func TestGenerateAzureLinuxOciUriAZL2Date(t *testing.T) {
 	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
 		Variant: "minimal-os",
@@ -49,12 +59,30 @@ func TestGenerateAzureLinuxOciUriAZL3Date(t *testing.T) {
 	assert.Equal(t, "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:3.0.20250910", ociImage.Uri)
 }
 
-func TestParseInputImageAZLValid(t *testing.T) {
+func TestGenerateAzureLinuxOciUriAZL4Date(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4-2026102701",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/catalog/minimal-os:4-2026102701", ociImage.Uri)
+}
+
+func TestParseInputImageAZL3Valid(t *testing.T) {
 	inputImage, err := parseInputImage("azurelinux:minimal-os:3.0")
 	assert.NoError(t, err)
 	if assert.NotNil(t, inputImage.AzureLinux) {
 		assert.Equal(t, "minimal-os", inputImage.AzureLinux.Variant)
 		assert.Equal(t, "3.0", inputImage.AzureLinux.Version)
+	}
+}
+
+func TestParseInputImageAZL4Valid(t *testing.T) {
+	inputImage, err := parseInputImage("azurelinux:minimal-os:4-2026102701")
+	assert.NoError(t, err)
+	if assert.NotNil(t, inputImage.AzureLinux) {
+		assert.Equal(t, "minimal-os", inputImage.AzureLinux.Variant)
+		assert.Equal(t, "4-2026102701", inputImage.AzureLinux.Version)
 	}
 }
 
@@ -77,13 +105,33 @@ func TestParseInputImageAZLEmptyVariant(t *testing.T) {
 }
 
 func TestCustomizeImageAZLBaseImageConfigValid(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageAZLBaseImageConfigValid(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageAZLBaseImageConfigValid(t *testing.T, baseImageInfo testBaseImageInfo) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAZLBaseImageConfigValid")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAZLBaseImageConfigValid"+baseImageInfo.ImageName)
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	configFile := filepath.Join(testDir, "azurelinux-base-image.yaml")
+
+	var configFile string
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2:
+		configFile = filepath.Join(testDir, "base-image-azl2.yaml")
+
+	case baseImageVersionAzl3:
+		configFile = filepath.Join(testDir, "base-image-azl3.yaml")
+
+	case baseImageVersionAzl4:
+		configFile = filepath.Join(testDir, "base-image-azl4.yaml")
+	}
+
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	options := ImageCustomizerOptions{
@@ -100,10 +148,8 @@ func TestCustomizeImageAZLBaseImageConfigValid(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, baseImageInfo.MountPoints)
+	require.NoError(t, err)
 	defer imageConnection.Close()
 
 	// Ensure hostname was correctly set.
