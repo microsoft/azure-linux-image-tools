@@ -38,19 +38,26 @@ func generateAzureLinuxOciUri(inputImage imagecustomizerapi.AzureLinuxImage) (im
 		return imagecustomizerapi.OciImage{}, err
 	}
 
-	tag := "latest"
-	if date != "" {
-		tag = majorMinor + "." + date
+	var uri string
+	if majorMinor == "4.0" {
+		// Azure Linux 4 uses the catalog repository and a different tag format.
+		tag := "4"
+		if date != "" {
+			tag = "4-" + date
+		}
+		uri = fmt.Sprintf("mcr.microsoft.com/azurelinux/catalog/%s:%s", inputImage.Variant, tag)
+	} else {
+		tag := "latest"
+		if date != "" {
+			tag = majorMinor + "." + date
+		}
+
+		// Note: 'majorMinor', 'tag' and 'variant' are already sanitized.
+		// So, there is no need to escape the values.
+		uri = fmt.Sprintf("mcr.microsoft.com/azurelinux/%s/image/%s:%s", majorMinor, inputImage.Variant, tag)
 	}
 
-	// Note: 'majorMinor', 'tag' and 'variant' are already sanitized.
-	// So, there is no need to escape the values.
-	uri := fmt.Sprintf("mcr.microsoft.com/azurelinux/%s/image/%s:%s", majorMinor, inputImage.Variant, tag)
-	ociImage := imagecustomizerapi.OciImage{
-		Uri: uri,
-	}
-
-	return ociImage, nil
+	return imagecustomizerapi.OciImage{Uri: uri}, nil
 }
 
 func parseInputImageAzureLinuxValue(value string) (imagecustomizerapi.InputImage, error) {

@@ -148,3 +148,20 @@ func TestCustomizeImageAZLBaseImageCliValid(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "blue-tongued-skink", string(actualHostname))
 }
+func TestGenerateAzureLinuxOciUriAZL4Latest(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4.0",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/catalog/minimal-os:4", ociImage.Uri)
+}
+
+func TestGenerateAzureLinuxOciUriAZL4Date(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4.0.2026101604",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/catalog/minimal-os:4-2026101604", ociImage.Uri)
+}
