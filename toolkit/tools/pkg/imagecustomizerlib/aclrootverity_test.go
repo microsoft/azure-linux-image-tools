@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConvertAclRootVerity(t *testing.T) {
+func TestPrepareAclRootVerity(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *ResolvedConfig
@@ -36,14 +36,13 @@ func TestConvertAclRootVerity(t *testing.T) {
 			if imagecustomizerapi.PreviewFeatureAclRootVerity.IsValid() != nil {
 				expectedErr = ErrAclRootVerityUnsupportedBuild
 			}
-			im, err := convertAclRootVerity(t.Context(), tt.config)
+			err := prepareAclRootVerity(t.Context(), tt.config)
 			assert.ErrorIs(t, err, expectedErr)
-			assert.Empty(t, im)
 		})
 	}
 }
 
-func TestConvertAclRootVerityDispatch(t *testing.T) {
+func TestPrepareAclRootVerityDispatch(t *testing.T) {
 	tests := []struct {
 		name     string
 		features []imagecustomizerapi.PreviewFeature
@@ -74,7 +73,7 @@ func TestConvertAclRootVerityDispatch(t *testing.T) {
 	}
 }
 
-func TestConvertAclRootVerityDoesNotModifyImage(t *testing.T) {
+func TestPrepareAclRootVerityDoesNotModifyImage(t *testing.T) {
 	directory := t.TempDir()
 	image := filepath.Join(directory, "input.raw")
 	contents := []byte("unchanged input image")

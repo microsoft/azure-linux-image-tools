@@ -481,11 +481,13 @@ func qemuImgEscapeOptionValue(value string) string {
 }
 
 func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *safechroot.Chroot) (imageMetadata, error) {
-	if slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAclRootVerity) {
-		return convertAclRootVerity(ctx, rc)
-	}
-
 	im := imageMetadata{}
+	aclRootVerity := slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAclRootVerity)
+	if aclRootVerity {
+		if err := prepareAclRootVerity(ctx, rc); err != nil {
+			return im, err
+		}
+	}
 
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
@@ -495,7 +497,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 	// not support them until there is an actual need/a future time.
 	// We explicitly inform the user of the lack of support earlier during
 	// mic parameter validation (see createResolvedConfig()).
-	if !rc.CustomizeOSPartitions && rc.InputIsIso() {
+	if !rc.CustomizeOSPartitions && rc.InputIsIso() && !aclRootVerity {
 		return im, nil
 	}
 

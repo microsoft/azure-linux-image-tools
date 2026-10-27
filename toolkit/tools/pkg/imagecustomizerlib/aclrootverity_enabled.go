@@ -12,12 +12,13 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func convertAclRootVerity(_ context.Context, rc *ResolvedConfig) (imageMetadata, error) {
+// Prepare only the source/layout; customization and finalization stay in the shared pipeline.
+func prepareAclRootVerity(_ context.Context, rc *ResolvedConfig) error {
 	if rc == nil {
-		return imageMetadata{}, fmt.Errorf("%w: resolved configuration is required", ErrInvalidParameters)
+		return fmt.Errorf("%w: resolved configuration is required", ErrInvalidParameters)
 	}
 	if err := imagecustomizerapi.RequireAclRootVerity(rc.PreviewFeatures); err != nil {
-		return imageMetadata{}, fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
+		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}
-	return imageMetadata{}, ErrAclRootVerityNotImplemented
+	return ErrAclRootVerityNotImplemented
 }

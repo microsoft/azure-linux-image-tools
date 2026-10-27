@@ -83,7 +83,7 @@ endif
 go-imagecustomizer-acl-root-verity: $(license_scan_dependency)
 	cd $(TOOLS_DIR) && \
 		go test -tags prod,acl_root_verity ./imagecustomizerapi ./pkg/imagecustomizerlib \
-			-count=1 -run 'Test(AclRootVerity|RequireAclRootVerity|PreviewFeature|ConvertAclRootVerity)' && \
+			-count=1 -run 'Test(AclRootVerity|RequireAclRootVerity|PreviewFeature|PrepareAclRootVerity)' && \
 		CGO_ENABLED=0 go build \
 			-ldflags="$(go_ldflags)" \
 			-tags prod,acl_root_verity \
