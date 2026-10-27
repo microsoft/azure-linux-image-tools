@@ -16,10 +16,12 @@ import (
 
 const (
 	osEspDir           = "/boot/efi"
+	osXbootldrDir      = "/boot"
 	espBootloaderDir   = "EFI/BOOT"
 	osEspBootloaderDir = osEspDir + "/" + espBootloaderDir
 	isoBootloaderDir   = "/efi/boot"
 	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi"
+	loaderEntriesDir   = "loader/entries"
 
 	bootx64Binary  = "bootx64.efi"
 	bootAA64Binary = "bootaa64.efi"
@@ -87,6 +89,8 @@ type BootFilesArchConfig struct {
 	ukiEfiStubBinaryPath        string
 	ukiAddonStubBinary          string
 	ukiAddonStubBinaryPath      string
+	blsEntriesEspPath           string
+	blsEntriesXbootldrPath      string
 }
 
 var bootloaderFilesConfigAzureLinux = map[string]BootFilesArchConfig{
@@ -105,6 +109,8 @@ var bootloaderFilesConfigAzureLinux = map[string]BootFilesArchConfig{
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
 		ukiAddonStubBinary:          ukiAddonStubx64Binary,
 		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+		blsEntriesEspPath:           osEspDir + "/" + loaderEntriesDir,
+		blsEntriesXbootldrPath:      osXbootldrDir + "/" + loaderEntriesDir,
 	},
 	"arm64": {
 		bootBinary:                  bootAA64Binary,
@@ -121,6 +127,8 @@ var bootloaderFilesConfigAzureLinux = map[string]BootFilesArchConfig{
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
 		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
 		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+		blsEntriesEspPath:           osEspDir + "/" + loaderEntriesDir,
+		blsEntriesXbootldrPath:      osXbootldrDir + "/" + loaderEntriesDir,
 	},
 }
 
