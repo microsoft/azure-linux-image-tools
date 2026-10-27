@@ -711,7 +711,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraComma
 			VfsOptions: 0x1,
 			FsOptions:  "",
 			Freq:       0,
-			PassNo:     2,
+			PassNo:     0,
 		},
 		{
 			Source:     "PARTUUID=" + partitions[6].PartUuid,
@@ -819,7 +819,7 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, extraC
 			VfsOptions: 0x1,
 			FsOptions:  "",
 			Freq:       0,
-			PassNo:     1,
+			PassNo:     0,
 		},
 		{
 			Source:     "PARTUUID=" + partitions[2].PartUuid,
