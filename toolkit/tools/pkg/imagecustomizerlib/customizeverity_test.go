@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
@@ -105,6 +107,16 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	}
 
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
+
+	// Resize the partitions and make no other changes.
+	configFile = filepath.Join(testDir, "verity-root-resize.yaml")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
 }
 
 func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
@@ -179,7 +191,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+	verifyVerityGrub(t, bootPath, rootDevice, partitions[3].SizeInBytes, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "root", baseImageInfo, "panic-on-corruption",
 		false /*inlineVerity*/)
 
@@ -363,8 +375,8 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, baseImageInfo testB
 	defer bootMount.Close()
 
 	// Verify that verity is configured correctly.
-	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
-		"PARTLABEL=roothash", "root", baseImageInfo, "panic-on-corruption", false /*inlineVerity*/)
+	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), uint64(rootStat.Size()), hashDevice.DevicePath(),
+		"PARTLABEL=root", "PARTLABEL=roothash", "root", baseImageInfo, "panic-on-corruption", false /*inlineVerity*/)
 
 	verifyGrubCmdlineArgs(t, bootMountPath, baseImageInfo, []string{"rd.info"}, nil /*absentCommandLine*/)
 }
@@ -388,8 +400,8 @@ func rootVerityPartLabelsConfigFile(t *testing.T, baseImageInfo testBaseImageInf
 	}
 }
 
-func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevice string, dataId string, hashId string,
-	verityType string, baseImageInfo testBaseImageInfo, corruptionOption string,
+func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, dataDeviceSize uint64, hashDevice string,
+	dataId string, hashId string, verityType string, baseImageInfo testBaseImageInfo, corruptionOption string,
 	inlineVerity bool,
 ) {
 	distroHandler, err := NewDistroHandler(baseImageInfo.TargetOs())
@@ -408,8 +420,8 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	}
 
 	// Verify verity.
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
-		inlineVerity)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, dataDeviceSize, hashDevice, dataId, hashId, verityType,
+		corruptionOption, inlineVerity)
 }
 
 // verifyGrubCmdlineArgs reads the kernel command line for every kernel from the GRUB boot config at bootPath and checks
@@ -464,7 +476,7 @@ func assertKernelCmdlineArgs(t *testing.T, kernelToArgs map[string]string, extra
 	}
 }
 
-func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
+func verifyVerityUki(t *testing.T, espPath string, dataDevice string, dataDeviceSize uint64,
 	hashDevice string, dataId string, hashId string, verityType string, buildDir string,
 	corruptionOption string, inlineVerity bool,
 ) {
@@ -481,18 +493,18 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	}
 
 	// Verify verity
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
-		inlineVerity)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, dataDeviceSize, hashDevice, dataId, hashId, verityType,
+		corruptionOption, inlineVerity)
 }
 
-func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string,
+func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string, dataDeviceSize uint64,
 	hashDevice string, dataId string, hashId string, verityType string, corruptionOption string,
 	inlineVerity bool,
 ) {
 	assert.GreaterOrEqual(t, len(kernelArgsList), 1)
 
 	hash := ""
-	hashOffset := ""
+	hashOffsetStr := ""
 	for _, kernelArgs := range kernelArgsList {
 		var hashRegexp *regexp.Regexp
 		var optionsRegexp *regexp.Regexp
@@ -530,7 +542,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 					return strings.HasPrefix(option, "hash-offset=")
 				})
 				assert.True(t, hasHashOffset)
-				hashOffset = strings.TrimPrefix(hashOffsetOption, "hash-offset=")
+				hashOffsetStr = strings.TrimPrefix(hashOffsetOption, "hash-offset=")
 			}
 		}
 
@@ -546,19 +558,43 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 		}
 	}
 
-	if assert.NotEqual(t, "", hash) {
-		// Verify verity hashes.
-		args := []string{"verify"}
-
-		if inlineVerity {
-			args = append(args, fmt.Sprintf("--hash-offset=%s", hashOffset))
-		}
-
-		args = append(args, dataDevice, hashDevice, hash)
-
-		err := shell.ExecuteLive(false, "veritysetup", args...)
-		assert.NoError(t, err)
+	if !assert.NotEqual(t, "", hash) {
+		return
 	}
+
+	hashOffset := uint64(0)
+	if inlineVerity {
+		var err error
+		hashOffset, err = strconv.ParseUint(hashOffsetStr, 10, 64)
+		if !assert.NoError(t, err) {
+			return
+		}
+	}
+
+	// Verify that the verity hash tree covers the entire data partition.
+	dataSize := dataDeviceSize
+	if inlineVerity {
+		dataSize = hashOffset
+	}
+
+	veritySuperBlock, err := verityutils.ReadVeritySuperblock(hashDevice, hashOffset)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, dataSize, uint64(veritySuperBlock.DataBlockSize)*veritySuperBlock.DataBlocks)
+
+	// Verify verity hashes.
+	args := []string{"verify"}
+
+	if inlineVerity {
+		args = append(args, fmt.Sprintf("--hash-offset=%d", hashOffset))
+	}
+
+	args = append(args, dataDevice, hashDevice, hash)
+
+	err = shell.ExecuteLive(false, "veritysetup", args...)
+	assert.NoError(t, err)
 }
 
 func TestCustomizeImageVerityUsr(t *testing.T) {
@@ -635,7 +671,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	usrDevice := testutils.PartitionDevPath(imageConnection, 2)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 3)
-	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[2].Uuid,
+	verifyVerityGrub(t, bootPath, usrDevice, partitions[2].SizeInBytes, hashDevice, "UUID="+partitions[2].Uuid,
 		"UUID="+partitions[3].Uuid, "usr", baseImageInfo, corruptionOption, false /*inlineVerity*/)
 
 	verifyGrubCmdlineArgs(t, bootPath, baseImageInfo, extraCommandLine, absentCommandLine)
@@ -968,8 +1004,9 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 	}
 	defer bootMount.Close()
 
-	verifyVerityGrub(t, bootMountDir, rootPartitionPath, hashPartitionPath, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", baseImageInfo, "panic-on-corruption", false)
+	verifyVerityGrub(t, bootMountDir, rootPartitionPath, partitions[3].SizeInBytes, hashPartitionPath,
+		"PARTUUID="+partitions[3].PartUuid, "PARTUUID="+partitions[4].PartUuid, "root", baseImageInfo,
+		"panic-on-corruption", false)
 
 	verifyGrubCmdlineArgs(t, bootMountDir, baseImageInfo, extraCommandLine, absentCommandLine)
 
@@ -1116,7 +1153,7 @@ func verifyRootInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, build
 	// This helps verify that verity-enabled images can be recustomized.
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
-	verifyVerityGrub(t, bootPath, rootDevice, rootDevice, "PARTUUID="+partitions[3].PartUuid,
+	verifyVerityGrub(t, bootPath, rootDevice, partitions[3].SizeInBytes, rootDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[3].PartUuid, "root", baseImageInfo, "panic-on-corruption",
 		true /*inlineVerity*/)
 
@@ -1174,6 +1211,17 @@ func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, base
 	}
 
 	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
+
+	// Resize usr partition.
+	configFile = filepath.Join(testDir, "verity-usr-inline-resize.yaml")
+
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
 }
 
 func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
@@ -1212,7 +1260,7 @@ func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildD
 	// This helps verify that verity-enabled images can be recustomized.
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	usrDevice := testutils.PartitionDevPath(imageConnection, 2)
-	verifyVerityGrub(t, bootPath, usrDevice, usrDevice, "PARTUUID="+partitions[2].PartUuid,
+	verifyVerityGrub(t, bootPath, usrDevice, partitions[2].SizeInBytes, usrDevice, "PARTUUID="+partitions[2].PartUuid,
 		"PARTUUID="+partitions[2].PartUuid, "usr", baseImageInfo, "ignore-corruption",
 		true /*inlineVerity*/)
 
@@ -1374,7 +1422,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	defer espMount.Close()
 
 	// Verify that verity is configured correctly.
-	verifyVerityUki(t, espMountPath, rootDevice.DevicePath(), rootDevice.DevicePath(),
+	verifyVerityUki(t, espMountPath, rootDevice.DevicePath(), uint64(rootStat.Size()), rootDevice.DevicePath(),
 		"UUID="+metadata.Images[2].FsUuid, "UUID="+metadata.Images[2].FsUuid, "root", buildDir,
 		"panic-on-corruption", true /*inlineVerity*/)
 

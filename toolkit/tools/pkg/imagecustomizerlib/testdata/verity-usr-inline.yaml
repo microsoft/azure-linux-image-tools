@@ -6,12 +6,15 @@ storage:
     - id: esp
       type: esp
       size: 32M
+      label: esp
 
     - id: usr
       size: 2G
+      label: usr
     
     - id: root
       size: 2G
+      label: root
 
   verity:
   - id: verityusr

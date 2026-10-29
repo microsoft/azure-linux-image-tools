@@ -1157,3 +1157,27 @@ func HumanReadable[I ~uint64 | ~int64](size I) string {
 		return fmt.Sprintf("%d bytes", size)
 	}
 }
+
+func GetXfsDataBlockSize(path string) (uint64, error) {
+	stdout, _, err := shell.NewExecBuilder("xfs_info", path).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get xfs metadata (path='%s'):\n%w", path, err)
+	}
+
+	blockSizeRegexp := regexp.MustCompile(`(?m)^\s*data\s+=\s+bsize=(\d+)\s+`)
+	matches := blockSizeRegexp.FindStringSubmatch(stdout)
+	if matches == nil {
+		return 0, fmt.Errorf("failed to parse xfs metadata")
+	}
+
+	blockSizeStr := matches[1]
+	blockSize, err := strconv.ParseUint(blockSizeStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse block size (value='%s', path='%s'):\n%s", stdout, path, err)
+	}
+
+	return blockSize, nil
+}

@@ -6,18 +6,23 @@ storage:
     - id: esp
       type: esp
       size: 32M
+      label: esp
 
     - id: boot
       size: 1G
+      label: boot
 
     - id: root
       size: 2G
+      label: root
 
     - id: roothash
       size: 100M
+      label: roothash
 
     - id: var
       size: 2G
+      label: var
 
   verity:
   - id: verityroot

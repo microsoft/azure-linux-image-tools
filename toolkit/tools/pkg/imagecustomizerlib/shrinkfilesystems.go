@@ -255,15 +255,19 @@ func addVeritySuffixSize(fileSystemSizeInBytes uint64, verityMetadata []verityDe
 	}
 
 	metadata := &verityMetadata[verityIndex]
+
+	// Round up the filesystem size to the nearest verity data block size.
+	dataBlocks := mathutils.DivRoundUp(fileSystemSizeInBytes, uint64(metadata.formatSettings.dataBlockSizeBytes))
+	fileSystemSizeInBytes = dataBlocks * uint64(metadata.formatSettings.dataBlockSizeBytes)
+
 	if !metadata.formatSettings.IsInlineVerity() {
 		// Verity is not inline.
+		// Ensure the hash tree covers the partition's new size.
+		metadata.formatSettings.dataSizeBytes = 0
 		return fileSystemSizeInBytes, nil
 	}
 
 	// Calculate the size of the verity footer.
-	// Round up data size to nearest verity data block.
-	dataBlocks := mathutils.DivRoundUp(fileSystemSizeInBytes, uint64(metadata.formatSettings.dataBlockSizeBytes))
-
 	veritySizeInBytes, err := verityutils.CalculateHashSizeInBytes(dataBlocks,
 		uint32(metadata.formatSettings.hashBlockSizeBytes), metadata.formatSettings.hashAlgorithm)
 	if err != nil {

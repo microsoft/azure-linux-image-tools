@@ -23,8 +23,11 @@ type verityFormatSettings struct {
 	hashAlgorithm      string
 	dataBlockSizeBytes uint32
 	hashBlockSizeBytes uint32
-	dataSizeBytes      uint64
-	hashOffsetBytes    uint64
+	// The size of the data covered by the verity tree. The value should be a multiple of dataBlockSizeBytes.
+	// A value of 0 means the entire partition is covered.
+	dataSizeBytes uint64
+	// If inline verity is used, the offset within the partition that contains the start of verity tree. Otherwise, 0.
+	hashOffsetBytes uint64
 }
 
 func (s *verityFormatSettings) IsInlineVerity() bool {

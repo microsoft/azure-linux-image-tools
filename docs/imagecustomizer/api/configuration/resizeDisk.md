@@ -18,6 +18,10 @@ When resizing partitions, a partition will not be moved unless another partition
 encroaches into its territory. If a partition is moved, then it is placed
 directly behind the partition in front of it (with an alignment of 1 MiB).
 
+If a verity data partition is resized, then
+[.storage.reinitializeVerity](./storage.md#reinitializeverity-string) must be
+set to `all`.
+
 Added in v1.8.
 
 ## diskSize [string]

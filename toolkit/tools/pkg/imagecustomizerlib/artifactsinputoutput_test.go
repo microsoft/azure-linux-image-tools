@@ -364,8 +364,8 @@ func testOutputAndInjectArtifactsCosiHelper(t *testing.T, baseImageInfo testBase
 	rootHashUuid = strings.TrimSpace(rootHashUuid)
 
 	verifyInjectedFiles(t, espMountPath, espFiles)
-	verifyVerityUki(t, espMountPath, rootPartitionPath, rootHashPartitionPath, "UUID="+rootUuid, "UUID="+rootHashUuid,
-		"root", buildDir, "restart-on-corruption", false /*inlineVerity*/)
+	verifyVerityUki(t, espMountPath, rootPartitionPath, uint64(rootStat.Size()), rootHashPartitionPath,
+		"UUID="+rootUuid, "UUID="+rootHashUuid, "root", buildDir, "restart-on-corruption", false /*inlineVerity*/)
 }
 
 func verifyAndSignOutputtedArtifacts(t *testing.T, baseImageInfo testBaseImageInfo, outputArtifactsDir string, expectVerityHash bool) []string {

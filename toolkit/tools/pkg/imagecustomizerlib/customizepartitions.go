@@ -56,7 +56,8 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 		return true, nil, nil, nil
 
 	case storage.ResizeDisk != nil:
-		err := resizeDiskAndPartitions(ctx, osImageConnection, buildDir, *storage.ResizeDisk)
+		err := resizeDiskAndPartitions(ctx, storage.ReinitializeVerity, osImageConnection, buildDir,
+			*storage.ResizeDisk)
 		if err != nil {
 			return false, nil, nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
 		}
