@@ -238,7 +238,7 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 }
 
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
-	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string, distroHandler DistroHandler,
 ) error {
 	_, err := os.Stat(grubCfgFullPath)
 	if err != nil {
@@ -260,7 +260,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 	// So, instead we just modify the /boot/grub2/grub.cfg file directly.
 	grubMkconfigEnabled := isGrubMkconfigConfig(grub2Config)
 
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, verityKernelArgsToRemove, newArgs)
+	grub2Config, err = distroHandler.UpdateKernelCommandLineArgsAll(grub2Config, verityKernelArgsToRemove, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to set verity kernel command line args:\n%w", err)
 	}
@@ -272,7 +272,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 		rootDevicePath := imagecustomizerapi.VerityRootDevicePath
 
 		if grubMkconfigEnabled {
-			grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{"root"},
+			grub2Config, err = distroHandler.UpdateKernelCommandLineArgsAll(grub2Config, []string{"root"},
 				[]string{"root=" + rootDevicePath})
 			if err != nil {
 				return fmt.Errorf("failed to set verity root command-line arg:\n%w", err)

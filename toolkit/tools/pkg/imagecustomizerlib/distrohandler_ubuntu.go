@@ -262,7 +262,7 @@ func (d *ubuntuDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 
 func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return ErrUbuntuUnsupportedBootloaderHardReset
@@ -282,26 +282,26 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	buildDir string, bootUuid string,
 ) error {
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.DebianGrubCfgRelPath)
-	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType,
 ) (string, error) {
-	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+	return updateGrubCfgForIso(grubCfgContent, initramfsType, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
 	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
 ) (string, error) {
-	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl, d)
 }
 
 func (d *ubuntuDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
@@ -341,4 +341,27 @@ func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
 
 func (d *ubuntuDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
+}
+
+func (d *ubuntuDistroHandler) AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return commonAddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *ubuntuDistroHandler) AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return commonAppendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *ubuntuDistroHandler) UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *ubuntuDistroHandler) UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return commonUpdateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, nil)
 }

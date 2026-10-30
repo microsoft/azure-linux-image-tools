@@ -296,10 +296,10 @@ func (d *azureLinux4DistroHandler) RegenerateInitramfs(ctx context.Context, imag
 
 func (d *azureLinux4DistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, true /*forceGrubMkconfig*/, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4,
 		false /*allowHostGrubInstallFallback*/, grubToolsPackageFedora, grubPcModulesPackageFedora)
@@ -388,4 +388,27 @@ func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {
 
 func (d *azureLinux4DistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzl4)
+}
+
+func (d *azureLinux4DistroHandler) AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return commonAddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *azureLinux4DistroHandler) AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return commonAppendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *azureLinux4DistroHandler) UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *azureLinux4DistroHandler) UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return commonUpdateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, nil)
 }

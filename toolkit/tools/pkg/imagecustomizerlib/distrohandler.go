@@ -131,7 +131,7 @@ type DistroHandler interface {
 	// ConfigureDiskBootLoader performs the full bootloader configuration for a disk image.
 	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-		selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+		selinuxConfig imagecustomizerapi.SELinux,
 		currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool) error
 
 	// ReadGrubConfigLinuxArgs reads kernel command-line arguments from the distro's boot configuration, returning them
@@ -189,6 +189,15 @@ type DistroHandler interface {
 	// GetBootArchConfig returns the boot-files configuration appropriate for this distro on the current runtime
 	// architecture.
 	GetBootArchConfig() (BootFilesArchConfig, error)
+
+	AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCommandLine string) (string, error)
+
+	AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string) (string, error)
+
+	UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string, argsToRemove []string, newArgs []string,
+	) (string, error)
+
+	UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, newArgs []string) (string, error)
 }
 
 // NewDistroHandler creates a distro handler directly from TargetOs

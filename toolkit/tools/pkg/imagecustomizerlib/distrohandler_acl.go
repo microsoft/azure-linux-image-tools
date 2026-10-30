@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -280,7 +281,7 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")
@@ -308,19 +309,19 @@ func (d *aclDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, b
 	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions, d)
 }
 
 func (d *aclDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType,
 ) (string, error) {
-	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+	return updateGrubCfgForIso(grubCfgContent, initramfsType, d)
 }
 
 func (d *aclDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
 	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
 ) (string, error) {
-	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl, d)
 }
 
 func (d *aclDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
@@ -357,4 +358,31 @@ func (d *aclDistroHandler) RootMissingMountDirectories() bool {
 
 func (d *aclDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
+}
+
+func (d *aclDistroHandler) GrubFindCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, error) {
+	return azl3GrubFindCommandLineInsertAt(argTokens, defaultValue)
+}
+
+func (d *aclDistroHandler) AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return commonAddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *aclDistroHandler) AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return commonAppendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *aclDistroHandler) UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *aclDistroHandler) UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return commonUpdateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, nil)
 }

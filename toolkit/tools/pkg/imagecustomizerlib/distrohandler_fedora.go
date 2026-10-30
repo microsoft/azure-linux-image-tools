@@ -304,10 +304,10 @@ func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 
 func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsFedora,
 		false /* allowHostGrubInstallFallback */, grubToolsPackageFedora, grubPcModulesPackageFedora)
@@ -390,4 +390,27 @@ func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
 
 func (d *fedoraDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
+}
+
+func (d *fedoraDistroHandler) AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return commonAddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *fedoraDistroHandler) AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return commonAppendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *fedoraDistroHandler) UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *fedoraDistroHandler) UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return commonUpdateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, nil)
 }

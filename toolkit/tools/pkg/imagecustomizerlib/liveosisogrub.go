@@ -138,7 +138,7 @@ func expandBLSEntriesToPxeGrubMenu(bootDir string) error {
 }
 
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string,
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, distroHandler DistroHandler,
 ) (string, error) {
 	inputContentString, err := replaceSearchCommandAll(inputContentString, isogenerator.DefaultVolumeId)
 	if err != nil {
@@ -200,7 +200,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 		// Remove 'root' so that no pivoting takes place.
 		argsToRemove := []string{"root"}
 		newArgs := []string{}
-		inputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
+		inputContentString, err = distroHandler.UpdateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
@@ -219,7 +219,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 
 	if disableSELinux {
 		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString,
-			imagecustomizerapi.SELinuxModeDisabled)
+			imagecustomizerapi.SELinuxModeDisabled, distroHandler)
 		if err != nil {
 			return "", fmt.Errorf("failed to set SELinux mode:\n%w", err)
 		}
@@ -228,7 +228,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	savedArgs := GrubArgsToString(savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
+	inputContentString, err = distroHandler.AppendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
 	if err != nil {
 		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the live OS grub.cfg:\n%w", err)
 	}
@@ -236,7 +236,9 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	return inputContentString, nil
 }
 
-func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType) (outputContentString string, err error) {
+func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
+	distroHandler DistroHandler,
+) (outputContentString string, err error) {
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		// No changes
@@ -246,7 +248,7 @@ func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecust
 		rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
 		argsToRemove := []string{"root"}
 		newArgs := []string{"root=" + rootValue}
-		outputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
+		outputContentString, err = distroHandler.UpdateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 		}
@@ -257,7 +259,7 @@ func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecust
 }
 
 func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string,
-	bootstrapFileUrl string,
+	bootstrapFileUrl string, distroHandler DistroHandler,
 ) (string, error) {
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
 	inputContentString, err := removeCommandAll(inputContentString, "search")
@@ -276,7 +278,7 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
 		}
-		inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeBootstrapKernelsArgs)
+		inputContentString, err = distroHandler.AppendKernelCommandLineArgsAll(inputContentString, pxeBootstrapKernelsArgs)
 		if err != nil {
 			return "", fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeBootstrapKernelsArgs, err)
 		}

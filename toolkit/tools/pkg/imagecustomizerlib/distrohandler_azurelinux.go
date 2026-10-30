@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
@@ -229,7 +230,7 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 
 func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	// Azure Linux 3.0+ always uses grub2-mkconfig.
@@ -237,7 +238,7 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	// And for new images, always use grub2-mkconfig.
 	forceGrubMkconfig := newImage || d.targetOs.VersionId != "2.0"
 
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, forceGrubMkconfig, d, resources.AssetsGrubDefFileAzl3, installutils.FedoraGrubEnvRelPath,
 		resources.AssetsGrubStubFileAzl3, installutils.GrubStubDirsAzl3, true, /*allowHostGrubInstallFallback*/
 		grubInstallPackageAzl3, grubModulesPackageAzl3)
@@ -258,26 +259,26 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 ) error {
 	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
 	grubCfgFullPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
-	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid, d)
 }
 
 func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions, d)
 }
 
 func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType,
 ) (string, error) {
-	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+	return updateGrubCfgForIso(grubCfgContent, initramfsType, d)
 }
 
 func (d *azureLinuxDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
 	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
 ) (string, error) {
-	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl, d)
 }
 
 func (d *azureLinuxDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
@@ -312,4 +313,92 @@ func (d *azureLinuxDistroHandler) RootMissingMountDirectories() bool {
 
 func (d *azureLinuxDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
+}
+
+// Within the grub.cfg and /etc/default/grub files, Azure Linux 2.0 and 3.0 have a "$kernelopts" value. Image Customizer
+// has traditionally added args before "$kernelopts" if it exists. This function helps maintains this behavior for
+// back-compat purposes.
+func azl3GrubFindCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, error) {
+	if len(argTokens) <= 0 {
+		return defaultValue, nil
+	}
+
+	insertAtTokens := []grub.Token(nil)
+	for i := range argTokens {
+		argToken := argTokens[i]
+		if argToken.Type != grub.WORD {
+			return 0, fmt.Errorf("unexpected token (%s) in grub config linux command",
+				grub.TokenTypeString(argToken.Type))
+		}
+
+		if len(argToken.SubWords) == 1 &&
+			argToken.SubWords[0].Type == grub.VAR_EXPANSION &&
+			argToken.SubWords[0].Value == grubKernelOpts {
+			// Found the $kernelopts arg.
+			// Any new args to be inserted, will be inserted immediately before this token.
+			insertAtTokens = append(insertAtTokens, argToken)
+		}
+	}
+
+	if len(insertAtTokens) < 1 {
+		// Could not find the grubKernelOpts.
+		// So, insert at the end.
+		return argTokens[len(argTokens)-1].Loc.End.Index, nil
+	}
+	if len(insertAtTokens) > 1 {
+		return 0, fmt.Errorf("too many $%s tokens found in linux command line", grubKernelOpts)
+	}
+
+	insertAtToken := insertAtTokens[0]
+	insertAt := insertAtToken.Loc.Start.Index
+	return insertAt, nil
+}
+
+// For Azure Linux 2.0 and 3.0, add the new args to GRUB_CMDLINE_LINUX_DEFAULT instead of GRUB_CMDLINE_LINUX.
+// This is mainly done for back-compat purposes.
+func (d *azureLinuxDistroHandler) AddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	defaultFileArgs, err := getDefaultGrubFileLinuxArgs(defaultGrubFileContent)
+	if err != nil {
+		return "", err
+	}
+
+	if defaultFileArgs.recoveryVar.varAssign != nil {
+		// Look for the "$kernelopts" value in the GRUB_CMDLINE_LINUX_DEFAULT and insert the new args before it if it
+		// exists.
+		grubTokens, err := grub.TokenizeConfig(defaultFileArgs.recoveryVar.varAssign.Value)
+		if err != nil {
+			err = fmt.Errorf("failed to parse %s's value:\n%w", defaultFileArgs.recoveryVar.varName, err)
+			return "", err
+		}
+
+		defaultFileArgs.recoveryVar.insertAt, err = azl3GrubFindCommandLineInsertAt(grubTokens, defaultFileArgs.recoveryVar.insertAt)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Add to GRUB_CMDLINE_LINUX_DEFAULT.
+	return addExtraCommandLineToDefaultGrubFileVar(defaultGrubFileContent, defaultFileArgs.recoveryVar,
+		extraCommandLine)
+}
+
+func (d *azureLinuxDistroHandler) AppendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return commonAppendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, azl3GrubFindCommandLineInsertAt)
+}
+
+// Note: We don't need special handling of "$kernelopts" here since new args are added to GRUB_CMDLINE_LINUX instead of
+// GRUB_CMDLINE_LINUX_DEFAULT and GRUB_CMDLINE_LINUX shouldn't have a "$kernelopts" value.
+func (d *azureLinuxDistroHandler) UpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *azureLinuxDistroHandler) UpdateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return commonUpdateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, azl3GrubFindCommandLineInsertAt)
 }

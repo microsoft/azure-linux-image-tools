@@ -4,9 +4,9 @@
 package imagecustomizerlib
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 const (
@@ -27,20 +28,27 @@ const (
 type defaultGrubFileVarName string
 
 const (
-	defaultGrubFileVarNameCmdlineLinux        defaultGrubFileVarName = "GRUB_CMDLINE_LINUX"
-	defaultGrubFileVarNameCmdlineLinuxDefault defaultGrubFileVarName = "GRUB_CMDLINE_LINUX_DEFAULT"
-
-	// The variable in the /etc/default/grub file that contains the SELinux args.
-	defaultGrubFileVarNameCmdlineForSELinux = defaultGrubFileVarNameCmdlineLinux
+	defaultGrubFileVarNameCmdlineLinuxNormal   defaultGrubFileVarName = "GRUB_CMDLINE_LINUX"
+	defaultGrubFileVarNameCmdlineLinuxRecovery defaultGrubFileVarName = "GRUB_CMDLINE_LINUX_DEFAULT"
 )
-
-var errDefaultGrubFileVarNotFound = errors.New("default grub variable not found")
 
 type defaultGrubFileVarAssign struct {
 	Token grub.Token
 	Line  grub.Line
 	Name  string
 	Value string
+}
+
+type defaultGrubFileCmdlineVarArgs struct {
+	varName   defaultGrubFileVarName
+	varAssign *defaultGrubFileVarAssign
+	args      []grubConfigLinuxArg
+	insertAt  int
+}
+
+type defaultGrubFileCmdlineArgs struct {
+	normalVar   defaultGrubFileCmdlineVarArgs
+	recoveryVar defaultGrubFileCmdlineVarArgs
 }
 
 // Takes the string contents of a /etc/default/grub file and looks for all the variable assignment statements.
@@ -115,21 +123,6 @@ func findDefaultGrubFileVarAssigns(defaultGrubFileContent string) ([]defaultGrub
 	return varAssigns, nil
 }
 
-// findDefaultGrubFileVarAssign takes the list of variable assignments in a /etc/default/grub file and looks for the
-// assignment to the variable that matches the provided name.
-func findDefaultGrubFileVarAssign(varAssigns []defaultGrubFileVarAssign, name defaultGrubFileVarName,
-) (defaultGrubFileVarAssign, error) {
-	for _, varAssign := range varAssigns {
-		if varAssign.Name == string(name) {
-			return varAssign, nil
-		}
-	}
-
-	err := fmt.Errorf("failed to find %s variable assignment (%s): %w", installutils.GrubDefFile, name,
-		errDefaultGrubFileVarNotFound)
-	return defaultGrubFileVarAssign{}, err
-}
-
 // Takes the string contents of a /etc/default/grub file and the name of the command-line args variable (either
 // "GRUB_CMDLINE_LINUX" or "GRUB_CMDLINE_LINUX_DEFAULT") and returns a list of kernel command-line args.
 //
@@ -142,18 +135,40 @@ func findDefaultGrubFileVarAssign(varAssigns []defaultGrubFileVarAssign, name de
 //   - cmdLineVarAssign: The variable assignment that matches 'varName'.
 //   - args: The list of kernel command-line args.
 //   - insertAt: An index that new kernel command-line args can be inserted at.
-func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultGrubFileVarName,
-) (defaultGrubFileVarAssign, []grubConfigLinuxArg, int, error) {
+func getDefaultGrubFileLinuxArgs(defaultGrubFileContent string) (defaultGrubFileCmdlineArgs, error) {
 	varAssigns, err := findDefaultGrubFileVarAssigns(defaultGrubFileContent)
 	if err != nil {
 		err = fmt.Errorf("failed to parse %s file:\n%w", installutils.GrubDefFile, err)
-		return defaultGrubFileVarAssign{}, nil, 0, err
+		return defaultGrubFileCmdlineArgs{}, err
 	}
 
-	// Find the variable's (e.g. GRUB_CMDLINE_LINUX) line.
-	cmdLineVarAssign, err := findDefaultGrubFileVarAssign(varAssigns, varName)
+	normalVar, err := getDefaultGrubFileLinuxVarArgs(varAssigns, defaultGrubFileVarNameCmdlineLinuxNormal)
 	if err != nil {
-		return defaultGrubFileVarAssign{}, nil, 0, err
+		return defaultGrubFileCmdlineArgs{}, err
+	}
+
+	recoveryVar, err := getDefaultGrubFileLinuxVarArgs(varAssigns, defaultGrubFileVarNameCmdlineLinuxRecovery)
+	if err != nil {
+		return defaultGrubFileCmdlineArgs{}, err
+	}
+
+	result := defaultGrubFileCmdlineArgs{
+		normalVar:   normalVar,
+		recoveryVar: recoveryVar,
+	}
+	return result, nil
+}
+
+func getDefaultGrubFileLinuxVarArgs(varAssigns []defaultGrubFileVarAssign, varName defaultGrubFileVarName,
+) (defaultGrubFileCmdlineVarArgs, error) {
+	// Find the variable's (e.g. GRUB_CMDLINE_LINUX) line.
+	cmdLineVarAssign, foundVarAssign := sliceutils.FindValueFunc(varAssigns, func(varAssign defaultGrubFileVarAssign) bool {
+		return varAssign.Name == string(varName)
+	})
+	if !foundVarAssign {
+		return defaultGrubFileCmdlineVarArgs{
+			varName: varName,
+		}, nil
 	}
 
 	// The (parsed) string value of the variable is copied verbatim into the grub.cfg file.
@@ -162,25 +177,27 @@ func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultG
 	grubTokens, err := grub.TokenizeConfig(argsString)
 	if err != nil {
 		err = fmt.Errorf("failed to parse %s's value:\n%w", varName, err)
-		return defaultGrubFileVarAssign{}, nil, 0, err
-	}
-
-	insertAt, err := findCommandLineInsertAt(grubTokens, len(argsString))
-	if err != nil {
-		err = fmt.Errorf("failed to parse %s's value args:\n%w", varName, err)
-		return defaultGrubFileVarAssign{}, nil, 0, err
+		return defaultGrubFileCmdlineVarArgs{}, err
 	}
 
 	args, err := ParseCommandLineArgs(grubTokens)
 	if err != nil {
 		err = fmt.Errorf("failed to parse %s's value args:\n%w", varName, err)
-		return defaultGrubFileVarAssign{}, nil, 0, err
+		return defaultGrubFileCmdlineVarArgs{}, err
 	}
 
-	return cmdLineVarAssign, args, insertAt, nil
+	varArgs := defaultGrubFileCmdlineVarArgs{
+		varName:   varName,
+		varAssign: &cmdLineVarAssign,
+		args:      args,
+		// Insert new args at the end.
+		insertAt: len(argsString),
+	}
+
+	return varArgs, nil
 }
 
-// GetDefaultGrubFileLinuxArgsFromMultipleVars attempts to get Linux kernel command-line args from both
+// getDefaultGrubFileLinuxArgsFromMultipleVars attempts to get Linux kernel command-line args from both
 // GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT variables. It merges arguments from all found variables,
 // allowing args to be distributed across multiple GRUB variables.
 //
@@ -190,88 +207,121 @@ func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultG
 // Returns:
 //   - args: The merged list of kernel command-line args from all found variables.
 //     If neither variable exists, an empty list is returned.
-func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) ([]grubConfigLinuxArg, error) {
-	var allArgs []grubConfigLinuxArg
-
-	// Check both standard GRUB variables in order of preference from low to high
-	varNames := []defaultGrubFileVarName{
-		defaultGrubFileVarNameCmdlineLinuxDefault, // GRUB_CMDLINE_LINUX_DEFAULT
-		defaultGrubFileVarNameCmdlineLinux,        // GRUB_CMDLINE_LINUX
+func getDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string,
+) ([]grubConfigLinuxArg, error) {
+	defaultFileArgs, err := getDefaultGrubFileLinuxArgs(defaultGrubFileContent)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, varName := range varNames {
-		_, args, _, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
-		if err != nil {
-			// Variable not found or parsing error, try next variable
-			continue
-		}
-
-		// Merge the args from this variable
-		allArgs = append(allArgs, args...)
-	}
-
+	allArgs := slices.Concat(defaultFileArgs.recoveryVar.args, defaultFileArgs.normalVar.args)
 	return allArgs, nil
 }
 
 // Takes the string contents of /etc/default/grub file and inserts the provided command-line args.
-func addExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCommandLine string) (string, error) {
-	cmdLineVarAssign, _, insertAt, err := getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent,
-		defaultGrubFileVarNameCmdlineLinuxDefault)
+func commonAddExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCommandLine string,
+) (string, error) {
+	defaultFileArgs, err := getDefaultGrubFileLinuxArgs(defaultGrubFileContent)
 	if err != nil {
 		return "", err
 	}
 
-	argsString := cmdLineVarAssign.Value
+	// Add to GRUB_CMDLINE_LINUX.
+	return addExtraCommandLineToDefaultGrubFileVar(defaultGrubFileContent, defaultFileArgs.normalVar,
+		extraCommandLine)
+}
+
+func addExtraCommandLineToDefaultGrubFileVar(defaultGrubFileContent string, varInfo defaultGrubFileCmdlineVarArgs,
+	extraCommandLine string,
+) (string, error) {
+	argsString := ""
+	if varInfo.varAssign != nil {
+		argsString = varInfo.varAssign.Value
+	}
+
+	insertAt := varInfo.insertAt
 
 	// Add the extra command-line args.
 	argsString = argsString[:insertAt] + " " + extraCommandLine + " " + argsString[insertAt:]
 
 	// Write the variable, creating it if it doesn't exist.
-	return UpdateDefaultGrubFileVariable(defaultGrubFileContent, string(defaultGrubFileVarNameCmdlineLinuxDefault), argsString)
-}
-
-// getDefaultGrubFileLinuxArgsOrEmpty is like GetDefaultGrubFileLinuxArgs but treats a missing variable as having an
-// empty value instead of returning an error. Real parse errors are still returned.
-func getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent string, varName defaultGrubFileVarName,
-) (defaultGrubFileVarAssign, []grubConfigLinuxArg, int, error) {
-	cmdLineVarAssign, args, insertAt, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
-	if errors.Is(err, errDefaultGrubFileVarNotFound) {
-		// Variable doesn't exist — treat as empty.
-		return defaultGrubFileVarAssign{}, nil, 0, nil
-	} else if err != nil {
-		return defaultGrubFileVarAssign{}, nil, 0, err
-	}
-
-	return cmdLineVarAssign, args, insertAt, nil
+	return updateDefaultGrubFileVariable(defaultGrubFileContent, string(varInfo.varName), argsString)
 }
 
 // Takes the string contents of the /etc/default/grub file and replaces a set of command-line args.
 //
 // Params:
 //   - defaultGrubContent: The string contents of the /etc/default/grub file.
-//   - varName: The name of the variable assignment to modify. Either "GRUB_CMDLINE_LINUX" or
-//     "GRUB_CMDLINE_LINUX_DEFAULT".
 //   - argsToRemove: A list of arg names to remove from the kernel command-line.
 //   - newArgs: A list of new arg values to add to the kernel command-line.
 //
 // Returns:
 //   - defaultGrubContent: The new string contents of the /etc/default/grub file.
-func updateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string, varName defaultGrubFileVarName,
-	argsToRemove []string, newArgs []string,
+func commonUpdateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string, argsToRemove []string, newArgs []string,
 ) (string, error) {
-	cmdLineVarAssign, args, insertAt, err := getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent, varName)
+	defaultFileArgs, err := getDefaultGrubFileLinuxArgs(defaultGrubFileContent)
 	if err != nil {
 		return "", err
 	}
 
-	value := cmdLineVarAssign.Value
-	value, err = updateKernelCommandLineArgsHelper(value, args, insertAt, argsToRemove, newArgs)
+	foundRemoveArgsInNormal := findMatchingCommandLineArgs(defaultFileArgs.normalVar.args, argsToRemove)
+	foundRemoveArgsInRecovery := findMatchingCommandLineArgs(defaultFileArgs.recoveryVar.args, argsToRemove)
+
+	switch {
+	case len(foundRemoveArgsInRecovery) > 0:
+		// argsToRemove found in GRUB_CMDLINE_LINUX_DEFAULT.
+
+		if len(foundRemoveArgsInNormal) > 0 {
+			// argsToRemove found in both variables. So, remove them from GRUB_CMDLINE_LINUX and replace them in
+			// GRUB_CMDLINE_LINUX_DEFAULT.
+			defaultGrubFileContent, err = updateDefaultGrubVarCmdlineArgs(defaultGrubFileContent,
+				defaultFileArgs.normalVar, argsToRemove, nil)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		// Replace the args in GRUB_CMDLINE_LINUX_DEFAULT.
+		defaultGrubFileContent, err = updateDefaultGrubVarCmdlineArgs(defaultGrubFileContent,
+			defaultFileArgs.recoveryVar, argsToRemove, newArgs)
+		if err != nil {
+			return "", err
+		}
+
+	default:
+		// Replace the args in GRUB_CMDLINE_LINUX.
+		defaultGrubFileContent, err = updateDefaultGrubVarCmdlineArgs(defaultGrubFileContent,
+			defaultFileArgs.normalVar, argsToRemove, newArgs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return defaultGrubFileContent, nil
+}
+
+func updateDefaultGrubVarCmdlineArgs(defaultGrubFileContent string, varArgs defaultGrubFileCmdlineVarArgs,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	varValue := ""
+	if varArgs.varAssign != nil {
+		varValue = varArgs.varAssign.Value
+	}
+
+	newVarValue, err := updateKernelCommandLineArgsHelper(varValue, varArgs.args, varArgs.insertAt, argsToRemove,
+		newArgs)
 	if err != nil {
 		return "", err
 	}
 
 	// Write the variable, creating it if it doesn't exist.
-	return UpdateDefaultGrubFileVariable(defaultGrubFileContent, string(varName), value)
+	defaultGrubFileContent, err = updateDefaultGrubFileVariable(defaultGrubFileContent, string(varArgs.varName),
+		newVarValue)
+	if err != nil {
+		return "", err
+	}
+
+	return defaultGrubFileContent, nil
 }
 
 // Takes the string contents of the /etc/default/grub file and rewrites one of the variable assignments lines.
@@ -329,7 +379,7 @@ func insertDefaultGrubFileVarAssign(defaultGrubFileContent string, insertAfterLi
 
 // Sets the value of a variable in the /etc/default/grub file, either replacing the existing variable value (if one
 // exists) or adding a new one.
-func UpdateDefaultGrubFileVariable(defaultGrubFileContent string, varName string, newValue string) (string, error) {
+func updateDefaultGrubFileVariable(defaultGrubFileContent string, varName string, newValue string) (string, error) {
 	varAssigns, err := findDefaultGrubFileVarAssigns(defaultGrubFileContent)
 	if err != nil {
 		err = fmt.Errorf("failed to parse %s file:\n%w", installutils.GrubDefFile, err)
