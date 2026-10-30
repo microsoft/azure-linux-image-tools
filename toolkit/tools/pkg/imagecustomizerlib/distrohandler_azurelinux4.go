@@ -389,3 +389,26 @@ func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {
 func (d *azureLinux4DistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzl4)
 }
+
+func (d *azureLinux4DistroHandler) AddExtraCmdlineToDefaultGrub(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return addExtraCmdlineToDefaultGrub(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *azureLinux4DistroHandler) AppendKernelCmdlineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return appendKernelCmdlineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *azureLinux4DistroHandler) UpdateDefaultGrubCmdlineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return updateDefaultGrubCmdlineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *azureLinux4DistroHandler) UpdateKernelCmdlineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return updateKernelCmdlineArgsAll(grub2Config, argsToRemove, newArgs, nil)
+}

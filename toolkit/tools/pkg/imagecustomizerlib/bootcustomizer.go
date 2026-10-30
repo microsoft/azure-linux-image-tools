@@ -127,7 +127,7 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
-		defaultGrubFileContent, err := addExtraCommandLineToDefaultGrubFile(b.defaultGrubFileContent, combinedArgs)
+		defaultGrubFileContent, err := b.distroHandler.AddExtraCmdlineToDefaultGrub(b.defaultGrubFileContent, combinedArgs)
 		if err != nil {
 			return err
 		}
@@ -136,7 +136,7 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	case bootConfigTypeGrubLegacy:
 		// Add the args directly to the /boot/grub2/grub.cfg file.
-		grubCfgContent, err := appendKernelCommandLineArgsAll(b.grubCfgContent, combinedArgs)
+		grubCfgContent, err := b.distroHandler.AppendKernelCmdlineArgsAll(b.grubCfgContent, combinedArgs)
 		if err != nil {
 			return err
 		}
@@ -173,13 +173,13 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 	case bootConfigTypeGrubMkconfig:
 		// Check both GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT variables
 		// and merge arguments from both if they exist
-		args, err = GetDefaultGrubFileLinuxArgsFromMultipleVars(b.defaultGrubFileContent)
+		args, err = getDefaultGrubFileLinuxArgsFromMultipleVars(b.defaultGrubFileContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false, fmt.Errorf("failed to find SELinux args in grub file (%s):\n%w", installutils.GrubDefFile, err)
 		}
 
 	case bootConfigTypeGrubLegacy:
-		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
+		args, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false,
 				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.FedoraGrubCfgFile, err)
@@ -234,7 +234,7 @@ func (b *BootCustomizer) UpdateSELinuxCommandLine(selinuxMode imagecustomizerapi
 		return err
 	}
 
-	err = b.UpdateKernelCommandLineArgs(defaultGrubFileVarNameCmdlineForSELinux, selinuxArgNames, newSELinuxArgs)
+	err = b.UpdateKernelCommandLineArgs(selinuxArgNames, newSELinuxArgs)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (b *BootCustomizer) UpdateSELinuxCommandLineForEMU(selinuxMode imagecustomi
 		return err
 	}
 
-	err = b.UpdateKernelCommandLineArgs(defaultGrubFileVarNameCmdlineForSELinux, selinuxArgNames, newSELinuxArgs)
+	err = b.UpdateKernelCommandLineArgs(selinuxArgNames, newSELinuxArgs)
 	if err != nil {
 		return err
 	}
@@ -257,13 +257,11 @@ func (b *BootCustomizer) UpdateSELinuxCommandLineForEMU(selinuxMode imagecustomi
 	return nil
 }
 
-func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defaultGrubFileVarName,
-	argsToRemove []string, newArgs []string,
-) error {
+func (b *BootCustomizer) UpdateKernelCommandLineArgs(argsToRemove []string, newArgs []string) error {
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
-		defaultGrubFileContent, err := updateDefaultGrubFileKernelCommandLineArgs(b.defaultGrubFileContent,
-			defaultGrubFileVarName, argsToRemove, newArgs)
+		defaultGrubFileContent, err := b.distroHandler.UpdateDefaultGrubCmdlineArgs(b.defaultGrubFileContent,
+			argsToRemove, newArgs)
 		if err != nil {
 			return err
 		}
@@ -271,7 +269,7 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 		b.defaultGrubFileContent = defaultGrubFileContent
 
 	case bootConfigTypeGrubLegacy:
-		grubCfgContent, err := updateKernelCommandLineArgsAll(b.grubCfgContent, argsToRemove, newArgs)
+		grubCfgContent, err := b.distroHandler.UpdateKernelCmdlineArgsAll(b.grubCfgContent, argsToRemove, newArgs)
 		if err != nil {
 			return err
 		}
@@ -299,7 +297,7 @@ func (b *BootCustomizer) PrepareForVerity() error {
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
 		// Force root command-line arg to be referenced by /dev path instead of by UUID.
-		defaultGrubFileContent, err := UpdateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DISABLE_UUID",
+		defaultGrubFileContent, err := updateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DISABLE_UUID",
 			"true")
 		if err != nil {
 			return err
@@ -307,7 +305,7 @@ func (b *BootCustomizer) PrepareForVerity() error {
 
 		// For rootfs verity, the root device will always be "/dev/mapper/root"
 		rootDevicePath := imagecustomizerapi.VerityRootDevicePath
-		defaultGrubFileContent, err = UpdateDefaultGrubFileVariable(defaultGrubFileContent, "GRUB_DEVICE",
+		defaultGrubFileContent, err = updateDefaultGrubFileVariable(defaultGrubFileContent, "GRUB_DEVICE",
 			rootDevicePath)
 		if err != nil {
 			return err
@@ -358,7 +356,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 }
 
 func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
-	updatedGrubFileContent, err := UpdateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DEVICE", rootDevice)
+	updatedGrubFileContent, err := updateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DEVICE", rootDevice)
 	if err != nil {
 		return err
 	}

@@ -189,6 +189,21 @@ type DistroHandler interface {
 	// GetBootArchConfig returns the boot-files configuration appropriate for this distro on the current runtime
 	// architecture.
 	GetBootArchConfig() (BootFilesArchConfig, error)
+
+	// Adds extra kernel cmdline args to a /etc/default/grub file.
+	AddExtraCmdlineToDefaultGrub(defaultGrubFileContent string, extraCommandLine string) (string, error)
+
+	// Adds extra kernel cmdline args to all the 'linux' lines in a grub.cfg file.
+	AppendKernelCmdlineArgsAll(inputGrubCfgContent string, extraCommandLine string) (string, error)
+
+	// Updates a /etc/default/grub file, removing a set of kernel cmdline args and replacing them with a new set of args
+	// in the same location as the old args (or at the end if no args to remove were found).
+	UpdateDefaultGrubCmdlineArgs(defaultGrubFileContent string, argsToRemove []string, newArgs []string,
+	) (string, error)
+
+	// Updates a grub.cfg file, removing a set of kernel cmdline args and replacing them with a new set of args
+	// in the same location as the old args (or at the end if no args to remove were found).
+	UpdateKernelCmdlineArgsAll(grub2Config string, argsToRemove []string, newArgs []string) (string, error)
 }
 
 // NewDistroHandler creates a distro handler directly from TargetOs

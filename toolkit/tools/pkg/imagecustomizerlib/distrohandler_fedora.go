@@ -391,3 +391,26 @@ func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
 func (d *fedoraDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
 }
+
+func (d *fedoraDistroHandler) AddExtraCmdlineToDefaultGrub(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return addExtraCmdlineToDefaultGrub(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *fedoraDistroHandler) AppendKernelCmdlineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return appendKernelCmdlineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *fedoraDistroHandler) UpdateDefaultGrubCmdlineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return updateDefaultGrubCmdlineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *fedoraDistroHandler) UpdateKernelCmdlineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return updateKernelCmdlineArgsAll(grub2Config, argsToRemove, newArgs, nil)
+}

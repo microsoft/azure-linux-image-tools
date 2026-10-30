@@ -282,26 +282,26 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	buildDir string, bootUuid string,
 ) error {
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.DebianGrubCfgRelPath)
-	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForLiveOS(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType, disableSELinux bool, savedConfigs *SavedConfigs,
 	kernelVersions []string,
 ) (string, error) {
-	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions)
+	return updateGrubCfgForLiveOS(grubCfgContent, initramfsType, disableSELinux, savedConfigs, kernelVersions, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForIso(grubCfgContent string, bootDir string,
 	initramfsType imagecustomizerapi.InitramfsImageType,
 ) (string, error) {
-	return updateGrubCfgForIso(grubCfgContent, initramfsType)
+	return updateGrubCfgForIso(grubCfgContent, initramfsType, d)
 }
 
 func (d *ubuntuDistroHandler) UpdateLiveOSGrubCfgForPxe(grubCfgContent string,
 	initramfsType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string, bootstrapFileUrl string,
 ) (string, error) {
-	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl)
+	return updateGrubCfgForPxe(grubCfgContent, initramfsType, bootstrapBaseUrl, bootstrapFileUrl, d)
 }
 
 func (d *ubuntuDistroHandler) FinalizeLiveOSPxeBootConfig(pxeBootDir string,
@@ -341,4 +341,27 @@ func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
 
 func (d *ubuntuDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
 	return bootArchConfigFromMap(bootloaderFilesConfigAzureLinux)
+}
+
+func (d *ubuntuDistroHandler) AddExtraCmdlineToDefaultGrub(defaultGrubFileContent string,
+	extraCommandLine string,
+) (string, error) {
+	return addExtraCmdlineToDefaultGrub(defaultGrubFileContent, extraCommandLine)
+}
+
+func (d *ubuntuDistroHandler) AppendKernelCmdlineArgsAll(inputGrubCfgContent string, extraCommandLine string,
+) (string, error) {
+	return appendKernelCmdlineArgsAll(inputGrubCfgContent, extraCommandLine, nil)
+}
+
+func (d *ubuntuDistroHandler) UpdateDefaultGrubCmdlineArgs(defaultGrubFileContent string,
+	argsToRemove []string, newArgs []string,
+) (string, error) {
+	return updateDefaultGrubCmdlineArgs(defaultGrubFileContent, argsToRemove, newArgs)
+}
+
+func (d *ubuntuDistroHandler) UpdateKernelCmdlineArgsAll(grub2Config string, argsToRemove []string,
+	newArgs []string,
+) (string, error) {
+	return updateKernelCmdlineArgsAll(grub2Config, argsToRemove, newArgs, nil)
 }
