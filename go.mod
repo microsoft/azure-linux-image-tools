@@ -27,7 +27,7 @@ require (
 	golang.org/x/sys v0.49.0
 	gonum.org/v1/gonum v0.17.0
 	gopkg.in/ini.v1 v1.67.3
-	oras.land/oras-go/v2 v2.6.4
+	oras.land/oras-go/v2 v2.7.0
 )
 
 require (
