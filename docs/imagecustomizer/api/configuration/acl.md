@@ -57,6 +57,9 @@ Grows ACL's `/usr` partitions. ACL uses an A/B `/usr` (`USR-A` and `USR-B`); bot
 grown to the same size to keep the A/B pair symmetric. Only the active `/usr` filesystem (btrfs) is
 resized and re-sealed; the A/B second copy keeps its original, self-consistent verity seal.
 
+Dedicated `HASH-A` and `HASH-B` slots keep equal capacity: at least the required tree size or
+the larger existing slot. COSI export preserves that allocated capacity.
+
 Added in v1.6.
 
 ## esp [[aclPartitionGrow](#aclpartitiongrow-type)]
