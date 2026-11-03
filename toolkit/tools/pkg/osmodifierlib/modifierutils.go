@@ -144,7 +144,7 @@ func updateDefaultGrubForVerity(verity *osmodifierapi.Verity, bootCustomizer *im
 		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
 	}
 
-	err = bootCustomizer.UpdateKernelCommandLineArgs("GRUB_CMDLINE_LINUX", []string{"rd.systemd.verity",
+	err = bootCustomizer.UpdateKernelCommandLineArgs([]string{"rd.systemd.verity",
 		"systemd.verity_root_data", "systemd.verity_root_hash", "systemd.verity_root_options"}, newArgs)
 	if err != nil {
 		return err
@@ -175,8 +175,7 @@ func updateGrubConfigForOverlay(overlays []osmodifierapi.Overlay, bootCustomizer
 		fmt.Sprintf("rd.overlayfs=%s", concatenatedOverlays),
 	}
 
-	err = bootCustomizer.UpdateKernelCommandLineArgs("GRUB_CMDLINE_LINUX", []string{"rd.overlayfs"},
-		newArgs)
+	err = bootCustomizer.UpdateKernelCommandLineArgs([]string{"rd.overlayfs"}, newArgs)
 	if err != nil {
 		return err
 	}

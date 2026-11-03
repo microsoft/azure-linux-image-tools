@@ -47,7 +47,7 @@ func modifyDefaultGrub() error {
 	}
 
 	// Stamp verity, selinux and overlayfs values to /etc/default/grub
-	err = bootCustomizer.UpdateKernelCommandLineArgs("GRUB_CMDLINE_LINUX", grubArgs, values)
+	err = bootCustomizer.UpdateKernelCommandLineArgs(grubArgs, values)
 	if err != nil {
 		return err
 	}
