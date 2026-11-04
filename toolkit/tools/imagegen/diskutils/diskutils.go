@@ -722,7 +722,8 @@ func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partD
 			fsType = "vfat"
 		}
 
-		mkfsOptions, err := getFileSystemOptions(targetOs, fsType, isBootPartition, partDevPath, partition.FsSize)
+		mkfsOptions, err := getFileSystemOptions(targetOs, fsType, isBootPartition, partDevPath, partition.FsSize,
+			partition.IsVerityData)
 		if err != nil {
 			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s) and target os (%s):\n%w", fsType,
 				targetOs, err)
