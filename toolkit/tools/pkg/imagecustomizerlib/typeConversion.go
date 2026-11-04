@@ -130,6 +130,7 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		TypeUUID:        typeUuid,
 		IsBootPartition: isBootPartition,
 		FsSize:          imagerFsSize,
+		IsVerityData:    fileSystem.DeviceId != fileSystem.PartitionId,
 	}
 	return imagerPartition, nil
 }
