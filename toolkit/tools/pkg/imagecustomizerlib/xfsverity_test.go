@@ -71,6 +71,8 @@ filesystems:
 	return storage
 }
 
+// Check configured device relationships, not mount paths: direct filesystem references
+// stay unmarked, while root, /usr and inline verity resolve to their data partition.
 func TestPartitionToImagerVerityData(t *testing.T) {
 	for _, mountPath := range []string{"/", "/usr"} {
 		for _, verity := range []bool{false, true} {
@@ -88,6 +90,10 @@ func TestPartitionToImagerVerityData(t *testing.T) {
 	}
 }
 
+// A 512-byte-sector XFS filesystem mounts raw but fails with ENOSYS on dm-verity's
+// 4096-byte logical sectors. Check the on-disk XFS sector size, then seal, verify
+// and mount the mapping to read back a marker. Root, /usr and inline XFS cover
+// verity layouts; plain XFS and ext4/Btrfs guard unchanged formatting elsewhere.
 func TestFormatVerityFileSystems(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Short mode enabled")
