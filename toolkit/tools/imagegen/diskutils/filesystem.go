@@ -441,7 +441,7 @@ var (
 // - filesystemType: The requested filesystem type.
 // - isBootPartition: Will the partition contain the /boot directory?
 func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool, partDevPath string,
-	fsSizeMiB uint64, isVerityData bool,
+	fsSizeMiB uint64, logicalBlockSize uint64,
 ) ([]string, error) {
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
 	if err != nil {
@@ -478,7 +478,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 
 	case "xfs":
 		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB,
-			isVerityData)
+			logicalBlockSize)
 		if err != nil {
 			return nil, err
 		}
@@ -657,7 +657,7 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 }
 
 func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
-	partDevPath string, fsSizeMiB uint64, isVerityData bool,
+	partDevPath string, fsSizeMiB uint64, logicalBlockSize uint64,
 ) ([]string, error) {
 	mkfsXfsVersion, err := getMkfsXfsVersion()
 	if err != nil {
@@ -729,9 +729,8 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 
 	args := []string{"mkfs.xfs", "-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
 
-	if isVerityData {
-		// XFS sectors must accommodate dm-verity's 4096-byte logical sectors.
-		args = append(args, "-s", "size=4096")
+	if logicalBlockSize != 0 {
+		args = append(args, "-s", fmt.Sprintf("size=%d", logicalBlockSize))
 	}
 
 	if fsSizeMiB != 0 {

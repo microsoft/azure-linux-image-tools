@@ -34,8 +34,9 @@ type Partition struct {
 	// A value of 0 means the filesystem fills the entire partition.
 	// This field is useful when implementing inline verity.
 	FsSize uint64 `json:"FsSize"`
-	// Set internally when the partition backs a configured verity filesystem.
-	IsVerityData bool `json:"-"`
+	// Logical block size of the device on which the filesystem will be mounted, in bytes.
+	// Zero leaves the formatter's default geometry unchanged.
+	LogicalBlockSize uint64 `json:"-"`
 }
 
 // HasFlag returns true if a given partition has a specific flag set.
