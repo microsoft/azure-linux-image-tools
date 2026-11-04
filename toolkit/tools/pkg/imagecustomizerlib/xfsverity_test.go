@@ -71,20 +71,26 @@ filesystems:
 	return storage
 }
 
-// Check configured device relationships, not mount paths: direct filesystem references
-// stay unmarked, while root, /usr and inline verity resolve to their data partition.
-func TestPartitionToImagerVerityData(t *testing.T) {
-	for _, mountPath := range []string{"/", "/usr"} {
-		for _, verity := range []bool{false, true} {
-			for _, inline := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s/verity=%v/inline=%v", mountPath, verity, inline), func(t *testing.T) {
-					storage := verityFileSystemTestStorage(t, "xfs", mountPath, verity, inline)
-					disk, err := diskConfigToImager(storage.Disks[0], storage.FileSystems)
-					require.NoError(t, err)
-					assert.Equal(t, verity, disk.Partitions[1].IsVerityData)
-					assert.False(t, disk.Partitions[0].IsVerityData)
-					assert.False(t, disk.Partitions[2].IsVerityData)
-				})
+// Resolve the logical-block constraint from device relationships for every filesystem.
+// Direct references leave it unset; verity uses the same data-block size as the sealer.
+func TestPartitionToImagerLogicalBlockSize(t *testing.T) {
+	for _, fsType := range []string{"xfs", "ext4", "btrfs"} {
+		for _, mountPath := range []string{"/", "/usr"} {
+			for _, verity := range []bool{false, true} {
+				for _, inline := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/%s/verity=%v/inline=%v", fsType, mountPath, verity, inline), func(t *testing.T) {
+						storage := verityFileSystemTestStorage(t, fsType, mountPath, verity, inline)
+						disk, err := diskConfigToImager(storage.Disks[0], storage.FileSystems)
+						require.NoError(t, err)
+						expected := uint64(0)
+						if verity {
+							expected = imagecustomizerapi.DefaultVerityDataBlockSize
+						}
+						assert.Equal(t, expected, disk.Partitions[1].LogicalBlockSize)
+						assert.Zero(t, disk.Partitions[0].LogicalBlockSize)
+						assert.Zero(t, disk.Partitions[2].LogicalBlockSize)
+					})
+				}
 			}
 		}
 	}
@@ -143,7 +149,7 @@ func TestFormatVerityFileSystems(t *testing.T) {
 				require.NoError(t, err)
 				expected := uint16(512)
 				if test.verity {
-					expected = 4096
+					expected = imagecustomizerapi.DefaultVerityDataBlockSize
 				}
 				assert.Equal(t, expected, binary.BigEndian.Uint16(sector))
 			}
@@ -160,12 +166,17 @@ func TestFormatVerityFileSystems(t *testing.T) {
 
 			hashPath := devices["hash"]
 			offsetArgs := []string(nil)
-			formatArgs := []string{"format", "--data-block-size=4096", "--hash-block-size=4096"}
+			formatArgs := []string{
+				"format",
+				fmt.Sprintf("--data-block-size=%d", imagecustomizerapi.DefaultVerityDataBlockSize),
+				fmt.Sprintf("--hash-block-size=%d", imagecustomizerapi.DefaultVerityHashBlockSize),
+			}
 			if test.inline {
 				hashPath = dataPath
 				dataSize := storage.FileSystems[1].Size
 				offsetArgs = []string{"--hash-offset", fmt.Sprint(dataSize)}
-				formatArgs = append(formatArgs, "--data-blocks", fmt.Sprint(dataSize/4096))
+				formatArgs = append(formatArgs, "--data-blocks",
+					fmt.Sprint(dataSize/imagecustomizerapi.DefaultVerityDataBlockSize))
 			}
 			formatArgs = append(formatArgs, offsetArgs...)
 			output, _, err := shell.Execute("veritysetup", append(formatArgs, dataPath, hashPath)...)
@@ -184,7 +195,7 @@ func TestFormatVerityFileSystems(t *testing.T) {
 			mappedPath := filepath.Join("/dev/mapper", name)
 			logicalSector, _, err = shell.Execute("blockdev", "--getss", mappedPath)
 			require.NoError(t, err)
-			require.Equal(t, "4096", strings.TrimSpace(logicalSector))
+			require.Equal(t, fmt.Sprint(imagecustomizerapi.DefaultVerityDataBlockSize), strings.TrimSpace(logicalSector))
 			mappedMount, err := safemount.NewMount(mappedPath, mountPath, test.fsType, unix.MS_RDONLY, "", true)
 			require.NoError(t, err)
 			t.Cleanup(mappedMount.Close)
