@@ -23,6 +23,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
@@ -737,6 +738,23 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		return err
 	}
 
+	fixedHashSlots := false
+	if shrinkHashPartition && distroHandler.GetTargetOs().Distro == targetos.AzureContainerLinux {
+		byLabel := partitionsByLabel(diskPartitions)
+		hashA, hasA := byLabel[aclPartLabelHashA]
+		hashB, hasB := byLabel[aclPartLabelHashB]
+		if hasA != hasB {
+			return fmt.Errorf("%w: both HASH-A and HASH-B are required", ErrAclGrowUnexpectedLayout)
+		}
+		if hasA {
+			if hashA.SizeInBytes != hashB.SizeInBytes {
+				return fmt.Errorf("%w: hash slots have different sizes (HASH-A=%d, HASH-B=%d)",
+					ErrAclGrowUnexpectedLayout, hashA.SizeInBytes, hashB.SizeInBytes)
+			}
+			fixedHashSlots = true
+		}
+	}
+
 	devicePath := osImageConnection.Loopback().DevicePath()
 
 	sectorSize, _, err := diskutils.GetSectorSize(devicePath)
@@ -765,8 +783,12 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 			}
 
 			// Format hash partition.
+			shrinkCurrentHash := shrinkHashPartition
+			if fixedHashSlots && (hashPartition.PartLabel == aclPartLabelHashA || hashPartition.PartLabel == aclPartLabelHashB) {
+				shrinkCurrentHash = false
+			}
 			rootHash, err := verityFormat(devicePath, dataPartition.Path, hashPartition.Path,
-				shrinkHashPartition, sectorSize, metadata.name, metadata.formatSettings)
+				shrinkCurrentHash, sectorSize, metadata.name, metadata.formatSettings)
 			if err != nil {
 				return err
 			}

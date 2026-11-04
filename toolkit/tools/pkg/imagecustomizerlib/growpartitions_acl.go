@@ -441,6 +441,7 @@ func resolveAclRequestedSizes(acl *imagecustomizerapi.Acl, table *aclPartitionTa
 				hashLabel := aclUsrHashPartLabels[usrLabel]
 				if _, ok := currentSizes[hashLabel]; ok {
 					hashLabels = append(hashLabels, hashLabel)
+					hashSize = max(hashSize, currentSizes[hashLabel])
 				}
 			}
 

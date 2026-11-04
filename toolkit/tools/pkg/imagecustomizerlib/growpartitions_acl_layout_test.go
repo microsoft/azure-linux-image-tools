@@ -209,6 +209,30 @@ func TestResolveAclRequestedSizesKeepsOversizedHashPartition(t *testing.T) {
 	assert.NotContains(t, sizes, aclPartLabelHashB)
 }
 
+func TestResolveAclRequestedSizesSynchronizesHashCapacity(t *testing.T) {
+	for _, larger := range []string{aclPartLabelHashA, aclPartLabelHashB} {
+		t.Run(larger, func(t *testing.T) {
+			table := parseAclDump(t, aclSampleDumpWithHash)
+			for _, partition := range table.partitions {
+				if partition.label == larger {
+					partition.sizeSect = 64 * 1024 * 1024 / table.sectorSize
+				}
+			}
+			acl := &imagecustomizerapi.Acl{
+				Usr: &imagecustomizerapi.AclPartitionGrow{Size: imagecustomizerapi.DiskSize(2 * 1024 * 1024 * 1024)},
+			}
+			sizes, err := resolveAclRequestedSizes(acl, table)
+			require.NoError(t, err)
+			other := aclPartLabelHashA
+			if larger == aclPartLabelHashA {
+				other = aclPartLabelHashB
+			}
+			assert.NotContains(t, sizes, larger)
+			assert.Equal(t, uint64(64*1024*1024), sizes[other])
+		})
+	}
+}
+
 // Growing the partitions must keep every partition's identity and leave the ones that are not
 // growing at their original size, regardless of how many partitions the layout has.
 func TestApplyAclGrownLayoutWithHashPartitions(t *testing.T) {
