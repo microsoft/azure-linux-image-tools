@@ -16,20 +16,40 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/filescanner"
 )
 
+type Mode int
+
+const (
+	// Parse the file as a grub.cfg file.
+	ModeGrub Mode = iota
+
+	// Extend the parsing to handle some Bash specific syntax. This doesn't handle the full Bash syntax and is only
+	// enough to handle common /etc/default/grub files.
+	ModeBash
+)
+
 // TokenizeConfigFile parses a grub config file into tokens.
 func TokenizeConfigFile(name string) ([]Token, error) {
+	return TokenizeFile(name, ModeGrub)
+}
+
+func TokenizeFile(name string, mode Mode) ([]Token, error) {
 	configContent, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read grub config file:\n%w", err)
 	}
 
-	return TokenizeConfig(string(configContent))
+	return Tokenize(string(configContent), mode)
 }
 
 // TokenizeConfig parses a grub config file's content into tokens.
 func TokenizeConfig(configContent string) ([]Token, error) {
+	return Tokenize(configContent, ModeGrub)
+}
+
+func Tokenize(configContent string, mode Mode) ([]Token, error) {
 	scanner := filescanner.NewFileScanner(configContent)
 	tokenizer := grubConfigTokenizer{
+		mode:    mode,
 		scanner: scanner,
 	}
 
@@ -42,6 +62,7 @@ func TokenizeConfig(configContent string) ([]Token, error) {
 }
 
 type grubConfigTokenizer struct {
+	mode     Mode
 	scanner  *filescanner.FileScanner
 	tokens   []Token
 	subWords []SubWord
@@ -444,6 +465,29 @@ loop:
 
 	varName := sb.String()
 	if usesBraces {
+		if t.mode == ModeBash {
+			// Burn through any common special characters.
+			// The Bash parsing rules for ${} variable expansions is far more complex than this. But this is suffient
+			// to deal with Ubuntu's GRUB_DISTRIBUTOR variable in the /etc/default/grub file.
+		loop2:
+			for {
+				c, eof := t.scanner.Peek()
+				if eof {
+					break loop2
+				}
+
+				switch {
+				case (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' ||
+					c == '-' || c == '=' || c == ':':
+
+					t.scanner.Next()
+
+				default:
+					break loop2
+				}
+			}
+		}
+
 		c, eof := t.scanner.Peek()
 		if eof {
 			return fmt.Errorf("unexpected end-of-file while parsing variable expansion (%d:%d)", t.scanner.Line(),
