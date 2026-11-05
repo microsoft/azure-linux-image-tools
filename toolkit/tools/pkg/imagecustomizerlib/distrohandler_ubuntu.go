@@ -262,7 +262,7 @@ func (d *ubuntuDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 
 func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return ErrUbuntuUnsupportedBootloaderHardReset

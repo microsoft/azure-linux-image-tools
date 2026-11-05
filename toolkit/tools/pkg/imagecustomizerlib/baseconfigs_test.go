@@ -65,7 +65,15 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 }
 
 func TestBaseConfigsFullRun(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testBaseConfigsFullRun(t, baseImageInfo)
+		})
+	}
+}
+
+func testBaseConfigsFullRun(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
@@ -75,7 +83,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun"+baseImageInfo.Name)
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -266,7 +274,9 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
 
 	// Verify kernel commandline
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"console=tty0", "console=ttyS0", "rd.info"}, []string{})
+	verifyKernelCommandLine(t, imageConnection, hasUkis,
+		[]string{"console=tty1", "console=ttyS1", "rd.info", "rd.debug", "loglevel=7"},
+		[]string{"console=tty0", "console=ttyS0"})
 
 	// Verify image history doesn't exist.
 	historyFileExists, err := file.PathExists(filepath.Join(imageConnection.Chroot().RootDir(), customizerLoggingDir, historyFileName))
