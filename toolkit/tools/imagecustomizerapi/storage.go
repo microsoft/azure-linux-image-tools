@@ -464,6 +464,7 @@ func checkDeviceTreeFileSystemItem(filesystem *FileSystem, deviceMap map[string]
 	switch device := device.(type) {
 	case *Partition:
 		filesystem.PartitionId = filesystem.DeviceId
+		filesystem.LogicalBlockSize = 0
 		checkDeviceLabelCount := false
 
 		// Check partition label requirements for main mount point
@@ -494,6 +495,7 @@ func checkDeviceTreeFileSystemItem(filesystem *FileSystem, deviceMap map[string]
 
 	case *Verity:
 		filesystem.PartitionId = device.DataDeviceId
+		filesystem.LogicalBlockSize = DefaultVerityDataBlockSize
 
 		// Check filesystem mount point for verity devices
 		if filesystem.MountPoint != nil && filesystem.MountPoint.IdType != MountIdentifierTypeDefault {

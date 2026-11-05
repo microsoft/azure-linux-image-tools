@@ -50,8 +50,10 @@ func TestStorageIsValidCoreEfi(t *testing.T) {
 		},
 	}
 
+	value.FileSystems[1].LogicalBlockSize = 8192
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[1].LogicalBlockSize)
 }
 
 func TestStorageIsValidDuplicatePartitionID(t *testing.T) {
@@ -949,6 +951,8 @@ func TestStorageIsValidVerityRoot(t *testing.T) {
 
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[0].LogicalBlockSize)
+	assert.Equal(t, uint64(DefaultVerityDataBlockSize), value.FileSystems[1].LogicalBlockSize)
 }
 
 func TestStorageIsValidVerityUsr(t *testing.T) {
@@ -1024,6 +1028,8 @@ func TestStorageIsValidVerityUsr(t *testing.T) {
 
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[1].LogicalBlockSize)
+	assert.Equal(t, uint64(DefaultVerityDataBlockSize), value.FileSystems[2].LogicalBlockSize)
 }
 
 func TestStorageIsValidVerityRootWrongIdType(t *testing.T) {
