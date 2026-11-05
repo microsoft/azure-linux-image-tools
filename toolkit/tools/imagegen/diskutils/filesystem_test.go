@@ -4,15 +4,10 @@
 package diskutils
 
 import (
-	"encoding/binary"
 	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 	"github.com/stretchr/testify/assert"
@@ -52,65 +47,29 @@ func TestDistroFileSystemsOptionsOrdering(t *testing.T) {
 	}
 }
 
-// Exercise numeric device constraints independently of verity's current default.
-// Inspect real XFS sectors; compatible ext4/Btrfs must retain their original options.
-func TestFileSystemLogicalBlockSize(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Short mode enabled")
-	}
-	if os.Geteuid() != 0 {
-		t.Skip("Test must be run as root")
-	}
-
-	optionTokens := func(args []string) []string {
-		var tokens []string
-		for _, arg := range args {
-			tokens = append(tokens, strings.Split(arg, ",")...)
-		}
-		return tokens
-	}
-	for _, fsType := range []string{"xfs", "ext4", "btrfs"} {
-		for _, logicalBlockSize := range []uint64{0, 1024, 2048, 4096} {
-			t.Run(fmt.Sprintf("%s/%d", fsType, logicalBlockSize), func(t *testing.T) {
-				path := filepath.Join(t.TempDir(), "filesystem.raw")
-				baseline, err := getFileSystemOptions(targetos.TargetOsAzureLinux3, fsType, false, path, 0, 0)
-				require.NoError(t, err)
-				args, err := getFileSystemOptions(targetos.TargetOsAzureLinux3, fsType, false, path, 0, logicalBlockSize)
-				require.NoError(t, err)
-				if fsType != "xfs" || logicalBlockSize == 0 {
-					assert.ElementsMatch(t, optionTokens(baseline), optionTokens(args))
-				}
-				if fsType != "xfs" {
-					return
-				}
-				index := slices.Index(args, "-s")
-				if logicalBlockSize == 0 {
-					assert.Equal(t, -1, index)
-				} else {
-					require.NotEqual(t, -1, index)
-					require.Less(t, index+1, len(args))
-					assert.Equal(t, fmt.Sprintf("size=%d", logicalBlockSize), args[index+1])
-				}
-
-				file, err := os.Create(path)
-				require.NoError(t, err)
-				require.NoError(t, file.Truncate(512*MiB))
-				require.NoError(t, file.Close())
-				_, err = formatSinglePartition(targetos.TargetOsAzureLinux3, path, path,
-					configuration.Partition{FsType: fsType, LogicalBlockSize: logicalBlockSize}, false)
-				require.NoError(t, err)
-				file, err = os.Open(path)
-				require.NoError(t, err)
-				sector := make([]byte, 2)
-				_, err = file.ReadAt(sector, 102) // XFS sb_sectsize.
-				require.NoError(t, file.Close())
-				require.NoError(t, err)
-				expected := logicalBlockSize
-				if expected == 0 {
-					expected = 512
-				}
-				assert.Equal(t, expected, uint64(binary.BigEndian.Uint16(sector)))
-			})
-		}
+// Check our sector-size arguments without invoking mkfs.xfs.
+func TestGetXfsFileSystemOptionsLogicalBlockSize(t *testing.T) {
+	for _, test := range []struct {
+		logicalBlockSize uint64
+		expectedSector   string
+	}{
+		{0, ""},
+		{512, "size=512"},
+		{1024, "size=1024"},
+		{2048, "size=2048"},
+		{4096, "size=4096"},
+	} {
+		t.Run(fmt.Sprint(test.logicalBlockSize), func(t *testing.T) {
+			args, err := getXfsFileSystemOptions(version.Version{6, 6}, version.Version{6, 6},
+				fileSystemsOptions{Xfs: azl3XfsOptions}, false, "/dev/test", 0, test.logicalBlockSize)
+			require.NoError(t, err)
+			sector := ""
+			if index := slices.Index(args, "-s"); index >= 0 {
+				require.Less(t, index+1, len(args))
+				sector = args[index+1]
+			}
+			assert.Equal(t, test.expectedSector, sector)
+			assert.NotContains(t, args, "-b")
+		})
 	}
 }

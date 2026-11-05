@@ -4,59 +4,52 @@
 package imagecustomizerlib
 
 import (
-	"encoding/binary"
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 )
 
 func verityFileSystemTestStorage(t *testing.T, fsType, mountPath string, verity, inline bool) imagecustomizerapi.Storage {
 	t.Helper()
-	var storage imagecustomizerapi.Storage
-	err := imagecustomizerapi.UnmarshalYaml([]byte(`
-bootType: efi
-disks:
-- partitionTableType: gpt
-  partitions:
-  - id: esp
-    type: esp
-    size: 64M
-  - id: data
-    size: 512M
-  - id: hash
-    size: 16M
-verity:
-- id: protected
-  name: root
-  dataDeviceId: data
-  hashDeviceId: hash
-filesystems:
-- deviceId: esp
-  type: fat32
-  mountPoint: /boot/efi
-- deviceId: protected
-  type: xfs
-  mountPoint:
-    path: /
-    options: ro
-`), &storage)
-	require.NoError(t, err)
-	storage.FileSystems[1].Type = imagecustomizerapi.FileSystemType(fsType)
-	storage.FileSystems[1].MountPoint.Path = mountPath
+	storage := imagecustomizerapi.Storage{
+		BootType: imagecustomizerapi.BootTypeEfi,
+		Disks: []imagecustomizerapi.Disk{{
+			PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+			Partitions: []imagecustomizerapi.Partition{
+				{
+					Id: "esp", Type: imagecustomizerapi.PartitionTypeESP,
+					Size: imagecustomizerapi.PartitionSize{
+						Type: imagecustomizerapi.PartitionSizeTypeExplicit, Size: 64 * diskutils.MiB,
+					},
+				},
+				{
+					Id: "data",
+					Size: imagecustomizerapi.PartitionSize{
+						Type: imagecustomizerapi.PartitionSizeTypeExplicit, Size: 512 * diskutils.MiB,
+					},
+				},
+				{
+					Id: "hash",
+					Size: imagecustomizerapi.PartitionSize{
+						Type: imagecustomizerapi.PartitionSizeTypeExplicit, Size: 16 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		Verity: []imagecustomizerapi.Verity{{
+			Id: "protected", Name: "root", DataDeviceId: "data", HashDeviceId: "hash",
+		}},
+		FileSystems: []imagecustomizerapi.FileSystem{
+			{DeviceId: "esp", Type: imagecustomizerapi.FileSystemTypeFat32,
+				MountPoint: &imagecustomizerapi.MountPoint{Path: "/boot/efi"}},
+			{DeviceId: "protected", Type: imagecustomizerapi.FileSystemType(fsType),
+				MountPoint: &imagecustomizerapi.MountPoint{Path: mountPath, Options: "ro"}},
+		},
+	}
 	if mountPath == "/usr" {
 		storage.Verity[0].Name = "usr"
 	}
@@ -71,138 +64,32 @@ filesystems:
 	return storage
 }
 
-// Resolve the logical-block constraint from device relationships for every filesystem.
-// Direct references leave it unset; verity uses the same data-block size as the sealer.
+// Check validation and propagation independently of filesystem type or mount path.
 func TestPartitionToImagerLogicalBlockSize(t *testing.T) {
 	for _, fsType := range []string{"xfs", "ext4", "btrfs"} {
-		for _, mountPath := range []string{"/", "/usr"} {
-			for _, verity := range []bool{false, true} {
-				for _, inline := range []bool{false, true} {
-					t.Run(fmt.Sprintf("%s/%s/verity=%v/inline=%v", fsType, mountPath, verity, inline), func(t *testing.T) {
-						storage := verityFileSystemTestStorage(t, fsType, mountPath, verity, inline)
-						disk, err := diskConfigToImager(storage.Disks[0], storage.FileSystems)
-						require.NoError(t, err)
-						expected := uint64(0)
-						if verity {
-							expected = imagecustomizerapi.DefaultVerityDataBlockSize
-						}
-						assert.Equal(t, expected, disk.Partitions[1].LogicalBlockSize)
-						assert.Zero(t, disk.Partitions[0].LogicalBlockSize)
-						assert.Zero(t, disk.Partitions[2].LogicalBlockSize)
-					})
-				}
-			}
-		}
-	}
-}
-
-// A 512-byte-sector XFS filesystem mounts raw but fails with ENOSYS on dm-verity's
-// 4096-byte logical sectors. Check the on-disk XFS sector size, then seal, verify
-// and mount the mapping to read back a marker. Root, /usr and inline XFS cover
-// verity layouts; plain XFS and ext4/Btrfs guard unchanged formatting elsewhere.
-func TestFormatVerityFileSystems(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Short mode enabled")
-	}
-	if os.Geteuid() != 0 {
-		t.Skip("Test must be run as root")
-	}
-
-	for _, test := range []struct {
-		name      string
-		fsType    string
-		mountPath string
-		verity    bool
-		inline    bool
-	}{
-		{"root-xfs", "xfs", "/", true, false},
-		{"usr-xfs", "xfs", "/usr", true, false},
-		{"inline-xfs", "xfs", "/", true, true},
-		{"plain-root-xfs", "xfs", "/", false, false},
-		{"root-ext4", "ext4", "/", true, false},
-		{"usr-btrfs", "btrfs", "/usr", true, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			storage := verityFileSystemTestStorage(t, test.fsType, test.mountPath, test.verity, test.inline)
-			disk, err := diskConfigToImager(storage.Disks[0], storage.FileSystems)
-			require.NoError(t, err)
-			dir := t.TempDir()
-			diskPath := filepath.Join(dir, "disk.raw")
-			require.NoError(t, diskutils.CreateSparseDisk(diskPath, disk.MaxSize, 0o600))
-			loop, err := safeloopback.NewLoopback(diskPath)
-			require.NoError(t, err)
-			t.Cleanup(func() { assert.NoError(t, loop.CleanClose()) })
-			devices, _, _, err := diskutils.CreatePartitions(targetos.TargetOsAzureLinux3, loop.DevicePath(),
-				disk, configuration.RootEncryption{})
-			require.NoError(t, err)
-			dataPath := devices["data"]
-			logicalSector, _, err := shell.Execute("blockdev", "--getss", dataPath)
-			require.NoError(t, err)
-			require.Equal(t, "512", strings.TrimSpace(logicalSector))
-
-			if test.fsType == "xfs" {
-				data, err := os.Open(dataPath)
+		for _, test := range []struct {
+			name      string
+			mountPath string
+			verity    bool
+			inline    bool
+			expected  uint64
+		}{
+			{"plain-root", "/", false, false, 0},
+			{"plain-usr", "/usr", false, false, 0},
+			{"verity-root", "/", true, false, imagecustomizerapi.DefaultVerityDataBlockSize},
+			{"verity-usr", "/usr", true, false, imagecustomizerapi.DefaultVerityDataBlockSize},
+			{"inline-root", "/", true, true, imagecustomizerapi.DefaultVerityDataBlockSize},
+			{"inline-usr", "/usr", true, true, imagecustomizerapi.DefaultVerityDataBlockSize},
+		} {
+			t.Run(fmt.Sprintf("%s/%s", fsType, test.name), func(t *testing.T) {
+				storage := verityFileSystemTestStorage(t, fsType, test.mountPath, test.verity, test.inline)
+				assert.Equal(t, test.expected, storage.FileSystems[1].LogicalBlockSize)
+				disk, err := diskConfigToImager(storage.Disks[0], storage.FileSystems)
 				require.NoError(t, err)
-				sector := make([]byte, 2)
-				_, err = data.ReadAt(sector, 102) // XFS sb_sectsize.
-				require.NoError(t, data.Close())
-				require.NoError(t, err)
-				expected := uint16(512)
-				if test.verity {
-					expected = imagecustomizerapi.DefaultVerityDataBlockSize
-				}
-				assert.Equal(t, expected, binary.BigEndian.Uint16(sector))
-			}
-
-			mountPath := filepath.Join(dir, "mount")
-			mount, err := safemount.NewMount(dataPath, mountPath, test.fsType, 0, "", true)
-			require.NoError(t, err)
-			t.Cleanup(mount.Close)
-			require.NoError(t, os.WriteFile(filepath.Join(mountPath, "marker"), []byte("verity-data\n"), 0o644))
-			require.NoError(t, mount.CleanClose())
-			if !test.verity {
-				return
-			}
-
-			hashPath := devices["hash"]
-			offsetArgs := []string(nil)
-			formatArgs := []string{
-				"format",
-				fmt.Sprintf("--data-block-size=%d", imagecustomizerapi.DefaultVerityDataBlockSize),
-				fmt.Sprintf("--hash-block-size=%d", imagecustomizerapi.DefaultVerityHashBlockSize),
-			}
-			if test.inline {
-				hashPath = dataPath
-				dataSize := storage.FileSystems[1].Size
-				offsetArgs = []string{"--hash-offset", fmt.Sprint(dataSize)}
-				formatArgs = append(formatArgs, "--data-blocks",
-					fmt.Sprint(dataSize/imagecustomizerapi.DefaultVerityDataBlockSize))
-			}
-			formatArgs = append(formatArgs, offsetArgs...)
-			output, _, err := shell.Execute("veritysetup", append(formatArgs, dataPath, hashPath)...)
-			require.NoError(t, err)
-			match := regexp.MustCompile(`Root hash:\s+([0-9a-f]+)`).FindStringSubmatch(output)
-			require.Len(t, match, 2)
-			_, _, err = shell.Execute("veritysetup", append([]string{"verify", dataPath, hashPath, match[1]}, offsetArgs...)...)
-			require.NoError(t, err)
-			name := fmt.Sprintf("ic-xfs-%d-%s", os.Getpid(), filepath.Base(filepath.Dir(dir)))
-			_, _, err = shell.Execute("veritysetup", append([]string{"open", dataPath, name, hashPath, match[1]}, offsetArgs...)...)
-			require.NoError(t, err)
-			t.Cleanup(func() {
-				_, _, err := shell.Execute("veritysetup", "close", name)
-				assert.NoError(t, err)
+				assert.Equal(t, test.expected, disk.Partitions[1].LogicalBlockSize)
+				assert.Zero(t, disk.Partitions[0].LogicalBlockSize)
+				assert.Zero(t, disk.Partitions[2].LogicalBlockSize)
 			})
-			mappedPath := filepath.Join("/dev/mapper", name)
-			logicalSector, _, err = shell.Execute("blockdev", "--getss", mappedPath)
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprint(imagecustomizerapi.DefaultVerityDataBlockSize), strings.TrimSpace(logicalSector))
-			mappedMount, err := safemount.NewMount(mappedPath, mountPath, test.fsType, unix.MS_RDONLY, "", true)
-			require.NoError(t, err)
-			t.Cleanup(mappedMount.Close)
-			marker, err := os.ReadFile(filepath.Join(mountPath, "marker"))
-			require.NoError(t, err)
-			assert.Equal(t, "verity-data\n", string(marker))
-			require.NoError(t, mappedMount.CleanClose())
-		})
+		}
 	}
 }

@@ -119,6 +119,36 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
 }
 
+// Exercise XFS formatting and sealing through the full customization path, then
+// mount the resulting filesystem through dm-verity, including after recustomization.
+func TestCustomizeImageVerityXfsRoot(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+			var config imagecustomizerapi.Config
+			require.NoError(t, imagecustomizerapi.UnmarshalYamlFile(filepath.Join(testDir, "verity-root-base.yaml"), &config))
+			config.Storage.FileSystems[2].Type = imagecustomizerapi.FileSystemTypeXfs
+			config.OS.SELinux.Mode = imagecustomizerapi.SELinuxModeDisabled
+			config.OS.Packages.Install = []string{"openssh-server", "veritysetup", "vim", "device-mapper"}
+
+			testTempDir := filepath.Join(tmpDir, "TestCustomizeImageVerityXfsRoot"+baseImageInfo.Name)
+			defer os.RemoveAll(testTempDir)
+			buildDir := filepath.Join(testTempDir, "build")
+			outImageFilePath := filepath.Join(testTempDir, "image.raw")
+
+			err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+				baseImageInfo.PreviewFeatures)
+			require.NoError(t, err)
+			verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+
+			err = basicCustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, outImageFilePath, "raw",
+				baseImageInfo.PreviewFeatures)
+			require.NoError(t, err)
+			verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+		})
+	}
+}
+
 func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
 	toolsDirSuffix := ""
 	if useToolsDir {
@@ -152,54 +182,56 @@ func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useT
 func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
 	outImageFilePath string, extraCommandLine []string, absentCommandLine []string,
 ) {
-	// Connect to customized image.
-	mountPoints := []testutils.MountPoint{
-		{
-			PartitionNum:   3,
-			Path:           "/",
-			FileSystemType: "ext4",
-			Flags:          unix.MS_RDONLY,
-		},
-		{
-			PartitionNum:   2,
-			Path:           "/boot",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-		{
-			PartitionNum:   5,
-			Path:           "/var",
-			FileSystemType: "ext4",
-		},
-	}
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "ext4", extraCommandLine, absentCommandLine)
+}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer imageConnection.Close()
+func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, buildDir, outImageFilePath,
+	rootFileSystem string, extraCommandLine, absentCommandLine []string,
+) {
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, loopback.CleanClose()) }()
 
-	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
-	assert.NoError(t, err, "get disk partitions")
+	partitions, err := getDiskPartitionsMap(loopback.DevicePath())
+	require.NoError(t, err)
+	bootPath := filepath.Join(buildDir, "verifyboot")
+	bootMount, err := safemount.NewMount(partitions[2].Path, bootPath, "ext4", unix.MS_RDONLY, "", true)
+	require.NoError(t, err)
+	defer bootMount.Close()
 
-	// Verify that verity is configured correctly.
-	// This helps verify that verity-enabled images can be recustomized.
-	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
-	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
-	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityGrub(t, bootPath, rootDevice, partitions[3].SizeInBytes, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+	rootDevice := partitions[3].Path
+	hashDevice := partitions[4].Path
+	hash, hashOffset := verifyVerityGrub(t, bootPath, rootDevice, partitions[3].SizeInBytes, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "root", baseImageInfo, "panic-on-corruption",
 		false /*inlineVerity*/)
-
 	verifyGrubCmdlineArgs(t, bootPath, baseImageInfo, extraCommandLine, absentCommandLine)
 
-	err = imageConnection.CleanClose()
-	if !assert.NoError(t, err) {
-		return
+	mappedPath, closeMapping := openTestVerity(t, rootDevice, hashDevice, hash, hashOffset)
+	defer closeMapping()
+	rootPath := filepath.Join(buildDir, "verifyroot")
+	rootMount, err := safemount.NewMount(mappedPath, rootPath, rootFileSystem, unix.MS_RDONLY, "", true)
+	require.NoError(t, err)
+	defer rootMount.Close()
+	fstabEntries, err := diskutils.ReadFstabFile(filepath.Join(rootPath, "etc/fstab"))
+	require.NoError(t, err)
+	rootEntry := findFstabEntryByTarget(fstabEntries, "/")
+	require.NotNil(t, rootEntry)
+	assert.Equal(t, "/dev/mapper/root", rootEntry.Source)
+	assert.Equal(t, rootFileSystem, rootEntry.FsType)
+	require.NoError(t, rootMount.CleanClose())
+	require.NoError(t, bootMount.CleanClose())
+}
+
+func openTestVerity(t *testing.T, dataDevice, hashDevice, hash string, hashOffset uint64) (string, func()) {
+	t.Helper()
+	require.NotEmpty(t, hash)
+	name := "ic-verity-" + filepath.Base(filepath.Dir(t.TempDir()))
+	_, _, err := shell.Execute("veritysetup", "open", fmt.Sprintf("--hash-offset=%d", hashOffset),
+		dataDevice, name, hashDevice, hash)
+	require.NoError(t, err)
+	return filepath.Join("/dev/mapper", name), func() {
+		_, _, err := shell.Execute("veritysetup", "close", name)
+		assert.NoError(t, err)
 	}
 }
 
@@ -403,15 +435,15 @@ func rootVerityPartLabelsConfigFile(t *testing.T, baseImageInfo testBaseImageInf
 func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, dataDeviceSize uint64, hashDevice string,
 	dataId string, hashId string, verityType string, baseImageInfo testBaseImageInfo, corruptionOption string,
 	inlineVerity bool,
-) {
+) (string, uint64) {
 	distroHandler, err := NewDistroHandler(baseImageInfo.TargetOs())
 	if !assert.NoError(t, err) {
-		return
+		return "", 0
 	}
 
 	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootPath)
 	if !assert.NoError(t, err) {
-		return
+		return "", 0
 	}
 
 	kernelArgsList := []string(nil)
@@ -420,7 +452,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, dataDevi
 	}
 
 	// Verify verity.
-	verifyVerityHelper(t, kernelArgsList, dataDevice, dataDeviceSize, hashDevice, dataId, hashId, verityType,
+	return verifyVerityHelper(t, kernelArgsList, dataDevice, dataDeviceSize, hashDevice, dataId, hashId, verityType,
 		corruptionOption, inlineVerity)
 }
 
@@ -500,7 +532,7 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string, dataDevice
 func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string, dataDeviceSize uint64,
 	hashDevice string, dataId string, hashId string, verityType string, corruptionOption string,
 	inlineVerity bool,
-) {
+) (string, uint64) {
 	assert.GreaterOrEqual(t, len(kernelArgsList), 1)
 
 	hash := ""
@@ -559,7 +591,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 	}
 
 	if !assert.NotEqual(t, "", hash) {
-		return
+		return "", 0
 	}
 
 	hashOffset := uint64(0)
@@ -567,7 +599,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 		var err error
 		hashOffset, err = strconv.ParseUint(hashOffsetStr, 10, 64)
 		if !assert.NoError(t, err) {
-			return
+			return "", 0
 		}
 	}
 
@@ -579,7 +611,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 
 	veritySuperBlock, err := verityutils.ReadVeritySuperblock(hashDevice, hashOffset)
 	if !assert.NoError(t, err) {
-		return
+		return "", 0
 	}
 
 	assert.Equal(t, dataSize, uint64(veritySuperBlock.DataBlockSize)*veritySuperBlock.DataBlocks)
@@ -595,6 +627,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 
 	err = shell.ExecuteLive(false, "veritysetup", args...)
 	assert.NoError(t, err)
+	return hash, hashOffset
 }
 
 func TestCustomizeImageVerityUsr(t *testing.T) {
@@ -1004,7 +1037,7 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 	}
 	defer bootMount.Close()
 
-	verifyVerityGrub(t, bootMountDir, rootPartitionPath, partitions[3].SizeInBytes, hashPartitionPath,
+	hash, hashOffset := verifyVerityGrub(t, bootMountDir, rootPartitionPath, partitions[3].SizeInBytes, hashPartitionPath,
 		"PARTUUID="+partitions[3].PartUuid, "PARTUUID="+partitions[4].PartUuid, "root", baseImageInfo,
 		"panic-on-corruption", false)
 
@@ -1026,7 +1059,9 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 		mountData = "subvol=/" + subvolPath
 	}
 
-	btrfsMount, err := safemount.NewMount(rootPartitionPath, btrfsMountDir, "btrfs", 0, mountData, true)
+	mappedPath, closeMapping := openTestVerity(t, rootPartitionPath, hashPartitionPath, hash, hashOffset)
+	defer closeMapping()
+	btrfsMount, err := safemount.NewMount(mappedPath, btrfsMountDir, "btrfs", unix.MS_RDONLY, mountData, true)
 	if !assert.NoError(t, err) {
 		return
 	}
