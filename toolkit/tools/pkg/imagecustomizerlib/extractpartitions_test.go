@@ -279,7 +279,7 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 		return cosiapi.MetadataJson{}, false
 	}
 
-	assert.Equal(t, "1.2", metadata.Version)
+	assert.Equal(t, "1.3", metadata.Version)
 
 	assert.Equal(t, expectedMetadata.Disk.Size, metadata.Disk.Size)
 	assert.Equal(t, cosiapi.DiskTypeGpt, metadata.Disk.Type)
