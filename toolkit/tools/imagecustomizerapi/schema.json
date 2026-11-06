@@ -329,8 +329,32 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "KernelCmdlineReplace": {
+      "properties": {
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "add": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "KernelCommandLine": {
       "properties": {
+        "replace": {
+          "items": {
+            "$ref": "#/$defs/KernelCmdlineReplace"
+          },
+          "type": "array"
+        },
         "extraCommandLine": {
           "items": {
             "type": "string"

@@ -1,0 +1,6 @@
+{
+    "files.watcherExclude": {
+        "**/_tmp/**": true,
+        "**/build/**": true
+    }
+}

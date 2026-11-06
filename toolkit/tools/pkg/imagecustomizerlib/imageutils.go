@@ -257,7 +257,7 @@ func createNewImageHelper(distroHandler DistroHandler, osImageConnection *osImag
 
 func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool, distroHandler DistroHandler,
 	assetGrubDefFile string, grubEnvRelPath string, assetGrubStubFile string, grubStubDirs []string,
 	allowHostGrubInstallFallback bool, grubInstallPackage string, grubModulesPackage string,
@@ -267,7 +267,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 		return err
 	}
 
-	imagerKernelCommandLine, err := kernelCommandLineToImager(kernelCommandLine, selinuxConfig, currentSELinuxMode)
+	imagerKernelCommandLine, err := kernelCommandLineToImager(selinuxConfig, currentSELinuxMode)
 	if err != nil {
 		return err
 	}

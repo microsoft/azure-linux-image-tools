@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -404,36 +405,12 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 
 	// Update each kernel's cmdline
 	for kernel, info := range kernelInfo {
-		currentCmdline := strings.TrimSpace(info.Cmdline)
-		tokens, err := grub.TokenizeConfig(currentCmdline)
+		newCmdline, err := ukiUpdateKernelCommandLineArgs(info.Cmdline, argsToRemove, newArgs)
 		if err != nil {
-			return fmt.Errorf("failed to tokenize UKI cmdline for kernel (%s):\n%w", kernel, err)
-		}
-		currentArgs, err := ParseCommandLineArgs(tokens)
-		if err != nil {
-			return fmt.Errorf("failed to parse UKI cmdline for kernel (%s):\n%w", kernel, err)
+			return fmt.Errorf("failed to update UKI kernel cmdline (kernel='%s'):\n%w", kernel, err)
 		}
 
-		// Remove args that match any of the argsToRemove prefixes and build string array
-		var argStrings []string
-		for _, arg := range currentArgs {
-			shouldRemove := false
-			for _, removePrefix := range argsToRemove {
-				if arg.Name == removePrefix {
-					shouldRemove = true
-					break
-				}
-			}
-			if !shouldRemove {
-				argStrings = append(argStrings, arg.Arg)
-			}
-		}
-
-		// Append new args
-		argStrings = append(argStrings, newArgs...)
-
-		// Update kernel info
-		info.Cmdline = GrubArgsToString(argStrings)
+		info.Cmdline = newCmdline
 		kernelInfo[kernel] = info
 	}
 
@@ -443,4 +420,44 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 	}
 
 	return nil
+}
+
+// Removes a set of arguments from a kernel cmdline and adds a new set of arguments in their place.
+// The new args will be placed at the last removed arg, or at the end if no args were removed.
+func ukiUpdateKernelCommandLineArgs(cmdline string, argsToRemove []string, newArgs []string) (string, error) {
+	cmdline = strings.TrimSpace(cmdline)
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		return "", fmt.Errorf("failed to tokenize cmdline:\n%w", err)
+	}
+
+	currentArgs, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse cmdline:\n%w", err)
+	}
+
+	// Remove args that match any of the argsToRemove prefixes and build string array
+	var removedArgStrings []string
+	insertIndex := -1
+	for _, arg := range currentArgs {
+		shouldRemove := slices.Contains(argsToRemove, arg.Name)
+		if shouldRemove {
+			insertIndex = len(removedArgStrings)
+		} else {
+			removedArgStrings = append(removedArgStrings, arg.Arg)
+		}
+	}
+
+	if insertIndex < 0 {
+		insertIndex = len(removedArgStrings)
+	}
+
+	// Add new args.
+	newArgStrings := append([]string(nil), removedArgStrings[:insertIndex]...)
+	newArgStrings = append(newArgStrings, newArgs...)
+	newArgStrings = append(newArgStrings, removedArgStrings[insertIndex:]...)
+
+	// Update kernel info
+	newCmdline := GrubArgsToString(newArgStrings)
+	return newCmdline, nil
 }

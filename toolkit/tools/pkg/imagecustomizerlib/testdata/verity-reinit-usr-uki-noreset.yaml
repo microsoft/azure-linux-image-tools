@@ -7,8 +7,14 @@ storage:
 
 os:
   kernelCommandLine:
+    replace:
+    - remove:
+      - console
+      add:
+      - console=ttyAMA0,115200n8
+
     extraCommandLine:
-    - console=ttyAMA0,115200n8
+    - rd.debug
 
   uki:
     mode: create
