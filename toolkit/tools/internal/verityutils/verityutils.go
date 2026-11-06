@@ -4,6 +4,8 @@
 package verityutils
 
 import (
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -11,7 +13,7 @@ import (
 )
 
 func CalculateHashFileSizeInBytes(hashPartitionPath string, hashOffsetBytes uint64) (uint64, error) {
-	superblock, err := ReadVeritySuperblock(hashPartitionPath, hashOffsetBytes)
+	superblock, _, err := ReadVeritySuperblock(hashPartitionPath, hashOffsetBytes)
 	if err != nil {
 		return 0, err
 	}
@@ -25,32 +27,37 @@ func CalculateHashFileSizeInBytes(hashPartitionPath string, hashOffsetBytes uint
 	return sizeInBytes, nil
 }
 
-func ReadVeritySuperblock(hashPartitionPath string, hashOffsetBytes uint64) (VeritySuperBlock, error) {
+func ReadVeritySuperblock(hashPartitionPath string, hashOffsetBytes uint64) (VeritySuperBlock, string, error) {
 	hashPartition, err := os.Open(hashPartitionPath)
 	if err != nil {
-		return VeritySuperBlock{}, fmt.Errorf("failed to open hash partition (%s) block device:\n%w", hashPartitionPath, err)
+		return VeritySuperBlock{}, "", fmt.Errorf("failed to open hash partition (%s) block device:\n%w", hashPartitionPath, err)
 	}
 	defer hashPartition.Close()
 
 	if hashOffsetBytes != 0 {
 		_, err := hashPartition.Seek(int64(hashOffsetBytes), io.SeekStart)
 		if err != nil {
-			return VeritySuperBlock{}, fmt.Errorf("failed to seek to hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
+			return VeritySuperBlock{}, "", fmt.Errorf("failed to seek to hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
 		}
 	}
 
 	superblock := VeritySuperBlock{}
 	err = binary.Read(hashPartition, binary.LittleEndian, &superblock)
 	if err != nil {
-		return VeritySuperBlock{}, fmt.Errorf("failed to read hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
+		return VeritySuperBlock{}, "", fmt.Errorf("failed to read hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
 	}
 
 	err = verifySuperblock(superblock)
 	if err != nil {
-		return VeritySuperBlock{}, err
+		return VeritySuperBlock{}, "", err
 	}
 
-	return superblock, nil
+	rootHash, err := calculateRootHash(hashPartition, hashOffsetBytes, superblock)
+	if err != nil {
+		return VeritySuperBlock{}, "", fmt.Errorf("failed to calculate hash partition's (%s) root hash:\n%w", hashPartitionPath, err)
+	}
+
+	return superblock, rootHash, nil
 }
 
 func verifySuperblock(superblock VeritySuperBlock) error {
@@ -156,4 +163,39 @@ func roundUpToPowerOf2(n uint32) uint32 {
 		res *= 2
 	}
 	return res
+}
+
+func calculateRootHash(hashPartition *os.File, hashOffsetBytes uint64, superblock VeritySuperBlock) (string, error) {
+	topBlockOffset := hashOffsetBytes + uint64(superblock.HashBlockSize)
+
+	_, err := hashPartition.Seek(int64(topBlockOffset), io.SeekStart)
+	if err != nil {
+		return "", fmt.Errorf("failed to seek to hash partition's top-level block:\n%w", err)
+	}
+
+	topBlock := make([]byte, int(superblock.SaltSize)+int(superblock.HashBlockSize))
+	copy(topBlock[:superblock.SaltSize], superblock.Salt[:])
+
+	_, err = io.ReadFull(hashPartition, topBlock[superblock.SaltSize:])
+	if err != nil {
+		return "", fmt.Errorf("failed to read hash partition's top-level block:\n%w", err)
+	}
+
+	hashBytes := []byte(nil)
+	switch superblock.GetAlgorithm() {
+	case "sha256":
+		hash := sha256.Sum256(topBlock)
+		hashBytes = hash[:]
+
+	case "sha384":
+		hash := sha512.Sum384(topBlock)
+		hashBytes = hash[:]
+
+	case "sha512":
+		hash := sha512.Sum512(topBlock)
+		hashBytes = hash[:]
+	}
+
+	hashStr := fmt.Sprintf("%x", hashBytes)
+	return hashStr, nil
 }

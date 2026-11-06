@@ -12,10 +12,16 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 )
 
+type Close interface {
+	CleanClose() error
+	Close()
+}
+
 type ImageConnection struct {
 	loopback         *safeloopback.Loopback
 	chroot           *safechroot.Chroot
 	ownedDirectories []string
+	ownedResources   []Close
 }
 
 func NewImageConnection() *ImageConnection {
@@ -62,6 +68,16 @@ func (c *ImageConnection) DisconnectChroot() error {
 		c.chroot = nil
 	}
 
+	for len(c.ownedResources) > 0 {
+		resource := c.ownedResources[len(c.ownedResources)-1]
+		err := resource.CleanClose()
+		if err != nil {
+			return fmt.Errorf("failed to remove image connection resource:\n%w", err)
+		}
+
+		c.ownedResources = c.ownedResources[:len(c.ownedResources)-1]
+	}
+
 	for len(c.ownedDirectories) > 0 {
 		dir := c.ownedDirectories[len(c.ownedDirectories)-1]
 		err := os.RemoveAll(dir)
@@ -79,6 +95,10 @@ func (c *ImageConnection) AddOwnedDirectories(dirs ...string) {
 	c.ownedDirectories = append(c.ownedDirectories, dirs...)
 }
 
+func (c *ImageConnection) AddOwnedResource(resource Close) {
+	c.ownedResources = append(c.ownedResources, resource)
+}
+
 func (c *ImageConnection) Chroot() *safechroot.Chroot {
 	return c.chroot
 }
@@ -92,6 +112,12 @@ func (c *ImageConnection) Close() {
 		c.chroot.Close()
 		c.chroot = nil
 	}
+
+	for _, resource := range slices.Backward(c.ownedResources) {
+		resource.Close()
+	}
+
+	c.ownedResources = nil
 
 	for _, dir := range slices.Backward(c.ownedDirectories) {
 		os.RemoveAll(dir)
