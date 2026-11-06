@@ -45,6 +45,8 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	)
 	defer span.End()
 
+	logger.Log.Infof("Checking SELinux mode")
+
 	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err

@@ -68,7 +68,7 @@ func findDefaultGrubFileVarAssigns(defaultGrubFileContent string) ([]defaultGrub
 	// While these are very similar formats, they do have differences.
 	// But, we are just going to hope that the user isn't annoying enough to Bash specifc features within
 	// /etc/default/grub file. (e.g. <<< strings.)
-	grubTokens, err := grub.TokenizeConfig(defaultGrubFileContent)
+	grubTokens, err := grub.Tokenize(defaultGrubFileContent, grub.ModeBash)
 	if err != nil {
 		return nil, err
 	}

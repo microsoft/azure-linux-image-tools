@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
@@ -72,6 +73,8 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Log.Debugf("Boot config type: %s", bootConfigType)
 
 	ukiMode := imagecustomizerapi.UkiModeUnspecified
 	ukiKernelInfoPath := ""
