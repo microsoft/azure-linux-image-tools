@@ -344,3 +344,29 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 	}
 	return b
 }
+
+func TestUkiUpdateKernelCommandLineArgsEmpty(t *testing.T) {
+	tests := []struct {
+		Name            string
+		Cmdline         string
+		removeArgs      []string
+		newArgs         []string
+		ExpectedCmdline string
+	}{
+		{"Empty", "", []string{"console"}, []string{"console=tty1"}, "console=tty1"},
+		{"Only", "console=ttyS0", []string{"console"}, []string{"console=tty1"}, "console=tty1"},
+		{"OnlyMulti", "console=ttyS0 console=tty0", []string{"console"}, []string{"console=tty1"}, "console=tty1"},
+		{"FrontMulti", "start console=ttyS0 console=tty0", []string{"console"}, []string{"console=tty1"}, "start console=tty1"},
+		{"BackMulti", "console=ttyS0 console=tty0 end", []string{"console"}, []string{"console=tty1"}, "console=tty1 end"},
+		{"SurroundedMulti", "start console=ttyS0 console=tty0 end", []string{"console"}, []string{"console=tty1"}, "start console=tty1 end"},
+		{"NotFound", "a b", []string{"console"}, []string{"console=tty1"}, "a b console=tty1"},
+		{"Interlaced", "start console=ttyS0 middle console=tty0 end", []string{"console"}, []string{"console=tty1"}, "start middle console=tty1 end"},
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			newCmdline, err := ukiUpdateKernelCommandLineArgs(test.Cmdline, test.removeArgs, test.newArgs)
+			assert.NoError(t, err)
+			assert.Equal(t, test.ExpectedCmdline, newCmdline)
+		})
+	}
+}

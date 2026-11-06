@@ -88,9 +88,14 @@ os:
     workDir: /var/overlays/etc/work
 
   kernelCommandLine:
+    replace:
+    - remove:
+      - console
+      add:
+      - console=tty1
+      - console=ttyS1
     extraCommandLine:
-    - console=tty0
-    - console=ttyS0
+    - rd.debug
 
 scripts:
   postCustomization:

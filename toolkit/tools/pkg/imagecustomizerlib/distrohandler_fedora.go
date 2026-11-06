@@ -304,10 +304,10 @@ func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 
 func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsFedora,
 		false /* allowHostGrubInstallFallback */, grubToolsPackageFedora, grubPcModulesPackageFedora)

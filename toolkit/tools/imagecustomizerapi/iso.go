@@ -21,6 +21,12 @@ func (i *Iso) IsValid() error {
 		return fmt.Errorf("invalid kernelCommandLine: %w", err)
 	}
 
+	if len(i.KernelCommandLine.Replace) > 0 {
+		// Supporting this would require updating the format of saved-configs.yaml to handle hierarchical configs, which
+		// is too much effort for now.
+		return fmt.Errorf("invalid kernelCommandLine: 'replace' not supported for 'iso'")
+	}
+
 	err = i.AdditionalFiles.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid additionalFiles:\n%w", err)

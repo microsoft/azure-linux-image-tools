@@ -131,7 +131,7 @@ type DistroHandler interface {
 	// ConfigureDiskBootLoader performs the full bootloader configuration for a disk image.
 	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-		selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+		selinuxConfig imagecustomizerapi.SELinux,
 		currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool) error
 
 	// ReadGrubConfigLinuxArgs reads kernel command-line arguments from the distro's boot configuration, returning them
