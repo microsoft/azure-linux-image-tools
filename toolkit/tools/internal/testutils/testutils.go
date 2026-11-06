@@ -238,7 +238,7 @@ func connectVerity(connection *imageconnection.ImageConnection, partitionNum int
 		return "", fmt.Errorf("failed to open verity device for partition (%d):\n%w", partitionNum, err)
 	}
 	connection.AddOwnedCleanup(func() error {
-		return shell.NewExecBuilder("veritysetup", "close", name).Execute()
+		return shell.NewExecBuilder("veritysetup", "close", "--deferred", name).Execute()
 	})
 	path := filepath.Join("/dev/mapper", name)
 	devices[key] = path

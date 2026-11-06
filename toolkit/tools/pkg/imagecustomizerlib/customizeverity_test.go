@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -145,12 +146,104 @@ func testCustomizeImageVerityXfsRootHelper(t *testing.T, baseImageInfo testBaseI
 	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
 	require.NoError(t, err)
-	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+	verity := verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+	if !t.Run("BusyCleanup", func(t *testing.T) {
+		testBusyVerityCleanup(t, buildDir, outImageFilePath, verity)
+	}) {
+		return
+	}
 
 	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
 	require.NoError(t, err)
 	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+}
+
+type verityCleanupTestCase struct {
+	name             string
+	strict           bool
+	returnsWhileBusy bool
+	waitWhileBusy    time.Duration
+}
+
+// A host-side open file keeps a lazily unmounted filesystem and its verity mapping
+// busy. Best-effort close must defer removal; strict close must wait for release.
+func testBusyVerityCleanup(t *testing.T, buildDir, imagePath string, verity testutils.VerityMount) {
+	for _, test := range []verityCleanupTestCase{
+		{"best-effort", false, true, 10 * time.Second},
+		{"strict", true, false, time.Second},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testBusyVerityCleanupHelper(t, buildDir, imagePath, verity, test)
+		})
+	}
+}
+
+func testBusyVerityCleanupHelper(t *testing.T, buildDir, imagePath string, verity testutils.VerityMount,
+	test verityCleanupTestCase,
+) {
+	connection, err := testutils.ConnectToImage(buildDir, imagePath, false, []testutils.MountPoint{{
+		PartitionNum: 3, Path: "/", FileSystemType: "xfs", Verity: &verity,
+	}})
+	require.NoError(t, err)
+	loopPath := connection.Loopback().DevicePath()
+	var reader *os.File
+	var done chan struct{}
+	defer func() {
+		if reader != nil {
+			assert.NoError(t, reader.Close())
+		}
+		if done != nil {
+			<-done
+		}
+		connection.Close()
+	}()
+	rootPath := connection.Chroot().RootDir()
+	source, _, err := shell.Execute("findmnt", "--noheadings", "--output", "SOURCE", "--target", rootPath)
+	require.NoError(t, err)
+	major, minor, err := diskutils.GetDiskIds(strings.TrimSpace(source))
+	require.NoError(t, err)
+	namePath := filepath.Join("/sys/dev/block", major+":"+minor, "dm/name")
+	name, err := os.ReadFile(namePath)
+	require.NoError(t, err)
+	reader, err = os.Open(filepath.Join(rootPath, "etc/fstab"))
+	require.NoError(t, err)
+	started := make(chan struct{}, 1)
+	connection.AddOwnedCleanup(func() error { started <- struct{}{}; return nil })
+	done = make(chan struct{})
+	var closeErr error
+	go func() {
+		defer close(done)
+		if test.strict {
+			closeErr = connection.CleanClose()
+		} else {
+			connection.Close()
+		}
+	}()
+	select {
+	case <-started:
+	case <-done:
+		require.NoError(t, closeErr)
+		require.Len(t, started, 1, "cleanup returned before running callbacks")
+	case <-time.After(30 * time.Second):
+		t.Fatal("timed out waiting for resource cleanup to start")
+	}
+	returned := false
+	select {
+	case <-done:
+		returned = true
+	case <-time.After(test.waitWhileBusy):
+	}
+	assert.Equal(t, test.returnsWhileBusy, returned)
+	require.NoError(t, reader.Close())
+	reader = nil
+	<-done
+	require.NoError(t, closeErr)
+	require.Eventually(t, func() bool {
+		current, err := os.ReadFile(namePath)
+		return os.IsNotExist(err) || (err == nil && string(current) != string(name))
+	}, 10*time.Second, 100*time.Millisecond)
+	require.NoError(t, diskutils.WaitForLoopbackToDetach(loopPath, imagePath))
 }
 
 func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
@@ -191,7 +284,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 
 func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, buildDir, outImageFilePath,
 	rootFileSystem string, extraCommandLine, absentCommandLine []string,
-) {
+) testutils.VerityMount {
 	loopback, err := safeloopback.NewLoopback(outImageFilePath)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, loopback.CleanClose()) }()
@@ -212,9 +305,10 @@ func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, b
 
 	require.NoError(t, bootMount.CleanClose())
 	require.NoError(t, loopback.CleanClose())
+	verity := testutils.VerityMount{HashPartitionNum: 4, RootHash: hash, HashOffset: hashOffset}
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, []testutils.MountPoint{{
 		PartitionNum: 3, Path: "/", FileSystemType: rootFileSystem,
-		Verity: &testutils.VerityMount{HashPartitionNum: 4, RootHash: hash, HashOffset: hashOffset},
+		Verity: &verity,
 	}})
 	require.NoError(t, err)
 	defer imageConnection.Close()
@@ -226,6 +320,7 @@ func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, b
 	assert.Equal(t, "/dev/mapper/root", rootEntry.Source)
 	assert.Equal(t, rootFileSystem, rootEntry.FsType)
 	require.NoError(t, imageConnection.CleanClose())
+	return verity
 }
 
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {

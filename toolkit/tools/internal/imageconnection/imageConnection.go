@@ -4,6 +4,7 @@
 package imageconnection
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -86,15 +87,20 @@ func (c *ImageConnection) AddOwnedCleanup(cleanup func() error) {
 	c.ownedCleanups = append(c.ownedCleanups, cleanup)
 }
 
-func (c *ImageConnection) closeOwnedResources() error {
-	for len(c.ownedCleanups) > 0 {
-		index := len(c.ownedCleanups) - 1
+func (c *ImageConnection) closeOwnedResources(bestEffort bool) error {
+	var cleanupErrors []error
+	for index := len(c.ownedCleanups) - 1; index >= 0; index-- {
 		if err := c.ownedCleanups[index](); err != nil {
-			return fmt.Errorf("failed to close image connection resource:\n%w", err)
+			err = fmt.Errorf("failed to close image connection resource:\n%w", err)
+			if !bestEffort {
+				return err
+			}
+			cleanupErrors = append(cleanupErrors, err)
+			continue
 		}
-		c.ownedCleanups = c.ownedCleanups[:index]
+		c.ownedCleanups = slices.Delete(c.ownedCleanups, index, index+1)
 	}
-	return nil
+	return errors.Join(cleanupErrors...)
 }
 
 func (c *ImageConnection) Chroot() *safechroot.Chroot {
@@ -117,7 +123,7 @@ func (c *ImageConnection) Close() {
 
 	c.ownedDirectories = nil
 
-	if err := c.closeOwnedResources(); err != nil {
+	if err := c.closeOwnedResources(true); err != nil {
 		logger.Log.Warnf("failed to close image connection resource: %s", err)
 	}
 
@@ -133,7 +139,7 @@ func (c *ImageConnection) CleanClose() error {
 		return err
 	}
 
-	err = c.closeOwnedResources()
+	err = c.closeOwnedResources(false)
 	if err != nil {
 		return err
 	}
