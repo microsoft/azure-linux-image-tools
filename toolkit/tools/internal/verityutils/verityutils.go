@@ -8,6 +8,7 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 )
@@ -166,6 +167,10 @@ func roundUpToPowerOf2(n uint32) uint32 {
 }
 
 func calculateRootHash(hashPartition *os.File, hashOffsetBytes uint64, superblock VeritySuperBlock) (string, error) {
+	if superblock.DataBlocks <= 1 {
+		return "", fmt.Errorf("verity hash tree is empty since the number of data blocks <= 1")
+	}
+
 	topBlockOffset := hashOffsetBytes + uint64(superblock.HashBlockSize)
 
 	_, err := hashPartition.Seek(int64(topBlockOffset), io.SeekStart)
@@ -173,29 +178,25 @@ func calculateRootHash(hashPartition *os.File, hashOffsetBytes uint64, superbloc
 		return "", fmt.Errorf("failed to seek to hash partition's top-level block:\n%w", err)
 	}
 
-	topBlock := make([]byte, int(superblock.SaltSize)+int(superblock.HashBlockSize))
-	copy(topBlock[:superblock.SaltSize], superblock.Salt[:])
+	var hasher hash.Hash
+	switch superblock.GetAlgorithm() {
+	case "sha256":
+		hasher = sha256.New()
 
-	_, err = io.ReadFull(hashPartition, topBlock[superblock.SaltSize:])
+	case "sha384":
+		hasher = sha512.New384()
+
+	case "sha512":
+		hasher = sha512.New()
+	}
+
+	hasher.Write(superblock.Salt[:superblock.SaltSize])
+
+	_, err = io.CopyN(hasher, hashPartition, int64(superblock.HashBlockSize))
 	if err != nil {
 		return "", fmt.Errorf("failed to read hash partition's top-level block:\n%w", err)
 	}
 
-	hashBytes := []byte(nil)
-	switch superblock.GetAlgorithm() {
-	case "sha256":
-		hash := sha256.Sum256(topBlock)
-		hashBytes = hash[:]
-
-	case "sha384":
-		hash := sha512.Sum384(topBlock)
-		hashBytes = hash[:]
-
-	case "sha512":
-		hash := sha512.Sum512(topBlock)
-		hashBytes = hash[:]
-	}
-
-	hashStr := fmt.Sprintf("%x", hashBytes)
+	hashStr := fmt.Sprintf("%x", hasher.Sum(nil))
 	return hashStr, nil
 }
