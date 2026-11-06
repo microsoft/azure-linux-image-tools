@@ -477,12 +477,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "xfs":
-		mkfsXfsVersion, err := getMkfsXfsVersion()
-		if err != nil {
-			return nil, err
-		}
-
-		options, err := getXfsFileSystemOptions(hostKernelVersion, mkfsXfsVersion, options, isBootPartition, partDevPath, fsSizeMiB,
+		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB,
 			logicalBlockSize)
 		if err != nil {
 			return nil, err
@@ -661,7 +656,19 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 	return args, nil
 }
 
-func getXfsFileSystemOptions(hostKernelVersion, mkfsXfsVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+	partDevPath string, fsSizeMiB uint64, logicalBlockSize uint64,
+) ([]string, error) {
+	mkfsXfsVersion, err := getMkfsXfsVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	return getXfsFileSystemOptionsForVersion(hostKernelVersion, mkfsXfsVersion, options, isBootPartition,
+		partDevPath, fsSizeMiB, logicalBlockSize)
+}
+
+func getXfsFileSystemOptionsForVersion(hostKernelVersion, mkfsXfsVersion version.Version, options fileSystemsOptions, isBootPartition bool,
 	partDevPath string, fsSizeMiB uint64, logicalBlockSize uint64,
 ) ([]string, error) {
 	mkfsXfsVersionMinorVer := mkfsXfsVersion[:min(2, len(mkfsXfsVersion))]

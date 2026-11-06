@@ -41,8 +41,9 @@ func TestStorageIsValidCoreEfi(t *testing.T) {
 				},
 			},
 			{
-				DeviceId: "rootfs",
-				Type:     "ext4",
+				DeviceId:         "rootfs",
+				Type:             "ext4",
+				LogicalBlockSize: 8192,
 				MountPoint: &MountPoint{
 					Path: "/",
 				},
@@ -50,7 +51,6 @@ func TestStorageIsValidCoreEfi(t *testing.T) {
 		},
 	}
 
-	value.FileSystems[1].LogicalBlockSize = 8192
 	err := value.IsValid()
 	assert.NoError(t, err)
 	assert.Zero(t, value.FileSystems[1].LogicalBlockSize)
