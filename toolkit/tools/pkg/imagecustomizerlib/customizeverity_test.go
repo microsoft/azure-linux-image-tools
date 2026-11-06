@@ -124,29 +124,33 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 func TestCustomizeImageVerityXfsRoot(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-			var config imagecustomizerapi.Config
-			require.NoError(t, imagecustomizerapi.UnmarshalYamlFile(filepath.Join(testDir, "verity-root-base.yaml"), &config))
-			config.Storage.FileSystems[2].Type = imagecustomizerapi.FileSystemTypeXfs
-			config.OS.SELinux.Mode = imagecustomizerapi.SELinuxModeDisabled
-			config.OS.Packages.Install = []string{"openssh-server", "veritysetup", "vim", "device-mapper"}
-
-			testTempDir := filepath.Join(tmpDir, "TestCustomizeImageVerityXfsRoot"+baseImageInfo.Name)
-			defer os.RemoveAll(testTempDir)
-			buildDir := filepath.Join(testTempDir, "build")
-			outImageFilePath := filepath.Join(testTempDir, "image.raw")
-
-			err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
-				baseImageInfo.PreviewFeatures)
-			require.NoError(t, err)
-			verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
-
-			err = basicCustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, outImageFilePath, "raw",
-				baseImageInfo.PreviewFeatures)
-			require.NoError(t, err)
-			verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+			testCustomizeImageVerityXfsRootHelper(t, baseImageInfo)
 		})
 	}
+}
+
+func testCustomizeImageVerityXfsRootHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	var config imagecustomizerapi.Config
+	require.NoError(t, imagecustomizerapi.UnmarshalYamlFile(filepath.Join(testDir, "verity-root-base.yaml"), &config))
+	config.Storage.FileSystems[2].Type = imagecustomizerapi.FileSystemTypeXfs
+	config.OS.SELinux.Mode = imagecustomizerapi.SELinuxModeDisabled
+	config.OS.Packages.Install = []string{"openssh-server", "veritysetup", "vim", "device-mapper"}
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageVerityXfsRoot"+baseImageInfo.Name)
+	defer os.RemoveAll(testTempDir)
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
 }
 
 func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
@@ -206,33 +210,22 @@ func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, b
 		false /*inlineVerity*/)
 	verifyGrubCmdlineArgs(t, bootPath, baseImageInfo, extraCommandLine, absentCommandLine)
 
-	mappedPath, closeMapping := openTestVerity(t, rootDevice, hashDevice, hash, hashOffset)
-	defer closeMapping()
-	rootPath := filepath.Join(buildDir, "verifyroot")
-	rootMount, err := safemount.NewMount(mappedPath, rootPath, rootFileSystem, unix.MS_RDONLY, "", true)
+	require.NoError(t, bootMount.CleanClose())
+	require.NoError(t, loopback.CleanClose())
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, []testutils.MountPoint{{
+		PartitionNum: 3, Path: "/", FileSystemType: rootFileSystem,
+		Verity: &testutils.VerityMount{HashPartitionNum: 4, RootHash: hash, HashOffset: hashOffset},
+	}})
 	require.NoError(t, err)
-	defer rootMount.Close()
+	defer imageConnection.Close()
+	rootPath := imageConnection.Chroot().RootDir()
 	fstabEntries, err := diskutils.ReadFstabFile(filepath.Join(rootPath, "etc/fstab"))
 	require.NoError(t, err)
 	rootEntry := findFstabEntryByTarget(fstabEntries, "/")
 	require.NotNil(t, rootEntry)
 	assert.Equal(t, "/dev/mapper/root", rootEntry.Source)
 	assert.Equal(t, rootFileSystem, rootEntry.FsType)
-	require.NoError(t, rootMount.CleanClose())
-	require.NoError(t, bootMount.CleanClose())
-}
-
-func openTestVerity(t *testing.T, dataDevice, hashDevice, hash string, hashOffset uint64) (string, func()) {
-	t.Helper()
-	require.NotEmpty(t, hash)
-	name := "ic-verity-" + filepath.Base(filepath.Dir(t.TempDir()))
-	_, _, err := shell.Execute("veritysetup", "open", fmt.Sprintf("--hash-offset=%d", hashOffset),
-		dataDevice, name, hashDevice, hash)
-	require.NoError(t, err)
-	return filepath.Join("/dev/mapper", name), func() {
-		_, _, err := shell.Execute("veritysetup", "close", name)
-		assert.NoError(t, err)
-	}
+	require.NoError(t, imageConnection.CleanClose())
 }
 
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
@@ -1048,26 +1041,19 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 		return
 	}
 
-	btrfsMountDir := filepath.Join(testTempDir, "btrfsroot")
-	err = os.MkdirAll(btrfsMountDir, 0o755)
-	if !assert.NoError(t, err) {
-		return
-	}
-
 	var mountData string
 	if subvolPath != "" {
 		mountData = "subvol=/" + subvolPath
 	}
 
-	mappedPath, closeMapping := openTestVerity(t, rootPartitionPath, hashPartitionPath, hash, hashOffset)
-	defer closeMapping()
-	btrfsMount, err := safemount.NewMount(mappedPath, btrfsMountDir, "btrfs", unix.MS_RDONLY, mountData, true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer btrfsMount.Close()
-
-	fstabPath := filepath.Join(btrfsMountDir, "etc", "fstab")
+	require.NoError(t, loopback.CleanClose())
+	imageConnection, err := testutils.ConnectToImage(testTempDir, outImageFilePath, false, []testutils.MountPoint{{
+		PartitionNum: 3, Path: "/", FileSystemType: "btrfs", Data: mountData,
+		Verity: &testutils.VerityMount{HashPartitionNum: 4, RootHash: hash, HashOffset: hashOffset},
+	}})
+	require.NoError(t, err)
+	defer imageConnection.Close()
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc", "fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if !assert.NoError(t, err, "read fstab") {
 		return
@@ -1087,6 +1073,7 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 	}
 
 	assert.Equal(t, "btrfs", rootFstabEntry.FsType, "fstab root fstype should be btrfs")
+	require.NoError(t, imageConnection.CleanClose())
 }
 
 // findFstabEntryByTarget finds an fstab entry by its target mount point.

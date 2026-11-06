@@ -11,7 +11,9 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -24,6 +26,15 @@ type MountPoint struct {
 	FileSystemType string
 	Flags          uintptr
 	Data           string
+	// When set, use a read-only mapping owned by the image connection.
+	Verity *VerityMount
+}
+
+type VerityMount struct {
+	HashPartitionNum int
+	// Supplied by the caller; the verity superblock does not contain the root hash.
+	RootHash   string
+	HashOffset uint64
 }
 
 func GetImageFileType(filePath string) (string, error) {
@@ -165,15 +176,25 @@ func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts 
 	rootDir := filepath.Join(buildDir, testImageRootDirName)
 
 	mountPoints := []*safechroot.MountPoint(nil)
+	verityDevices := make(map[verityMountKey]string)
 	for _, mount := range mounts {
 		devPath := PartitionDevPath(imageConnection, mount.PartitionNum)
+		flags := mount.Flags
+		if mount.Verity != nil {
+			devPath, err = connectVerity(imageConnection, mount.PartitionNum, *mount.Verity, verityDevices)
+			if err != nil {
+				imageConnection.Close()
+				return nil, err
+			}
+			flags |= unix.MS_RDONLY
+		}
 
 		var mountPoint *safechroot.MountPoint
 		if mount.Path == "/" {
-			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags,
+			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, flags,
 				mount.Data)
 		} else {
-			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, mount.Data)
+			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, flags, mount.Data)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
@@ -191,4 +212,35 @@ func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts 
 func PartitionDevPath(imageConnection *imageconnection.ImageConnection, partitionNum int) string {
 	devPath := fmt.Sprintf("%sp%d", imageConnection.Loopback().DevicePath(), partitionNum)
 	return devPath
+}
+
+type verityMountKey struct {
+	PartitionNum int
+	VerityMount
+}
+
+func connectVerity(connection *imageconnection.ImageConnection, partitionNum int, verity VerityMount,
+	devices map[verityMountKey]string,
+) (string, error) {
+	if verity.RootHash == "" {
+		return "", fmt.Errorf("verity mount for partition (%d) requires a root hash", partitionNum)
+	}
+	key := verityMountKey{PartitionNum: partitionNum, VerityMount: verity}
+	if path, exists := devices[key]; exists {
+		return path, nil
+	}
+	name := fmt.Sprintf("ic-test-verity-%s-%d", filepath.Base(connection.Loopback().DevicePath()), len(devices))
+	dataDevice := PartitionDevPath(connection, partitionNum)
+	hashDevice := PartitionDevPath(connection, verity.HashPartitionNum)
+	err := shell.NewExecBuilder("veritysetup", "open", fmt.Sprintf("--hash-offset=%d", verity.HashOffset),
+		dataDevice, name, hashDevice, verity.RootHash).Execute()
+	if err != nil {
+		return "", fmt.Errorf("failed to open verity device for partition (%d):\n%w", partitionNum, err)
+	}
+	connection.AddOwnedCleanup(func() error {
+		return shell.NewExecBuilder("veritysetup", "close", name).Execute()
+	})
+	path := filepath.Join("/dev/mapper", name)
+	devices[key] = path
+	return path, nil
 }

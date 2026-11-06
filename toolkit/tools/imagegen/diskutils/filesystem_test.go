@@ -60,7 +60,7 @@ func TestGetXfsFileSystemOptionsLogicalBlockSize(t *testing.T) {
 		{4096, "size=4096"},
 	} {
 		t.Run(fmt.Sprint(test.logicalBlockSize), func(t *testing.T) {
-			args, err := getXfsFileSystemOptions(version.Version{6, 6}, version.Version{6, 6},
+			args, err := getXfsFileSystemOptionsForVersion(version.Version{6, 6}, version.Version{6, 6},
 				fileSystemsOptions{Xfs: azl3XfsOptions}, false, "/dev/test", 0, test.logicalBlockSize)
 			require.NoError(t, err)
 			sector := ""

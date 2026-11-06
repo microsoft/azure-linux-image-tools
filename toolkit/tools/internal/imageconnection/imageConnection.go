@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 )
@@ -16,6 +17,7 @@ type ImageConnection struct {
 	loopback         *safeloopback.Loopback
 	chroot           *safechroot.Chroot
 	ownedDirectories []string
+	ownedCleanups    []func() error
 }
 
 func NewImageConnection() *ImageConnection {
@@ -79,6 +81,22 @@ func (c *ImageConnection) AddOwnedDirectories(dirs ...string) {
 	c.ownedDirectories = append(c.ownedDirectories, dirs...)
 }
 
+// Register resources to close after unmounting and before detaching the image.
+func (c *ImageConnection) AddOwnedCleanup(cleanup func() error) {
+	c.ownedCleanups = append(c.ownedCleanups, cleanup)
+}
+
+func (c *ImageConnection) closeOwnedResources() error {
+	for len(c.ownedCleanups) > 0 {
+		index := len(c.ownedCleanups) - 1
+		if err := c.ownedCleanups[index](); err != nil {
+			return fmt.Errorf("failed to close image connection resource:\n%w", err)
+		}
+		c.ownedCleanups = c.ownedCleanups[:index]
+	}
+	return nil
+}
+
 func (c *ImageConnection) Chroot() *safechroot.Chroot {
 	return c.chroot
 }
@@ -99,6 +117,10 @@ func (c *ImageConnection) Close() {
 
 	c.ownedDirectories = nil
 
+	if err := c.closeOwnedResources(); err != nil {
+		logger.Log.Warnf("failed to close image connection resource: %s", err)
+	}
+
 	if c.loopback != nil {
 		c.loopback.Close()
 		c.loopback = nil
@@ -111,12 +133,17 @@ func (c *ImageConnection) CleanClose() error {
 		return err
 	}
 
-	err = c.loopback.CleanClose()
+	err = c.closeOwnedResources()
 	if err != nil {
 		return err
 	}
 
-	c.loopback = nil
-
+	if c.loopback != nil {
+		err = c.loopback.CleanClose()
+		if err != nil {
+			return err
+		}
+		c.loopback = nil
+	}
 	return nil
 }
