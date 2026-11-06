@@ -9,10 +9,11 @@ ancestor: Image Customizer
 > This is a narrow, **Azure Container Linux (ACL) only** API. It is only valid when the target
 > image is an ACL image; it is rejected for all other distros. Each capability is gated behind its
 > own preview feature (`acl-grow-partitions` for `usr`/`esp`, `acl-oem-id` for `oemId`).
+> `regenerateUsrFsUuid` requires `acl-regenerate-usr-fs-uuid`.
 
 Narrow, ACL-only configuration for Azure Container Linux images. It can grow ACL's fixed,
-well-known standard partitions to explicit target sizes and override the OEM id on the boot kernel
-command line.
+well-known standard partitions to explicit target sizes, override the OEM id on the boot kernel
+command line, and regenerate the active `/usr` filesystem UUID before resealing.
 
 ACL images ship with a sealed, dm-verity-protected partition layout whose `/usr` is too small for
 some SKUs. The partition-grow API enlarges specific, pre-existing ACL partitions in place. It
@@ -94,6 +95,16 @@ command line, `modify` cannot rewrite it and the build fails — use `uki.mode: 
 Must be lowercase alphanumeric (e.g. `metal`, `azure`, `qemu`, `gce`).
 
 Added in v1.6.
+
+## regenerateUsrFsUuid [bool]
+
+Optional; defaults to `false`. Requires `acl-regenerate-usr-fs-uuid`,
+`storage.reinitializeVerity: all` and `os.uki.mode: create`.
+
+When `true`, generates a fresh Btrfs filesystem UUID for the active `/usr` on every
+customization, offline before verity sealing. GPT partition IDs, the inactive slot
+and other filesystem UUIDs are unchanged. The regenerated UKI uses the new verity
+root hash; the bootloader is not reset.
 
 # aclPartitionGrow type
 

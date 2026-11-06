@@ -215,6 +215,12 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.oemId'",
 				PreviewFeatureAclOemId)
 		}
+
+		if c.Acl.RegenerateUsrFsUuid != nil &&
+			!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureAclRegenerateUsrFsUuid) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'acl.regenerateUsrFsUuid'",
+				PreviewFeatureAclRegenerateUsrFsUuid)
+		}
 	}
 
 	if c.Storage.ResizeDisk != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureResizeDisk) {
