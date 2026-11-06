@@ -26,7 +26,8 @@ func OpenVerityDevice(name string, dataDevice string, hashDevice string, hashOff
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open dm-verity device (name='%s', dataDevice='%s')", name, dataDevice)
+		return nil, fmt.Errorf("failed to open dm-verity device (name='%s', dataDevice='%s'):\n%w", name, dataDevice,
+			err)
 	}
 
 	return verityDevice, nil
@@ -64,7 +65,7 @@ func (d *VerityDevice) close(async bool) error {
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("failed to close dm-verity device (name='%s')", d.name)
+		return fmt.Errorf("failed to close dm-verity device (name='%s'):\n%w", d.name, err)
 	}
 	d.closed = true
 

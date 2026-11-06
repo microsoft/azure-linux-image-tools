@@ -78,6 +78,10 @@ func verifySuperblock(superblock VeritySuperBlock) error {
 		return fmt.Errorf("invalid data block size (%d)", superblock.DataBlockSize)
 	}
 
+	if superblock.SaltSize > 256 {
+		return fmt.Errorf("invalid salt size (%d)", superblock.SaltSize)
+	}
+
 	_, err := verifyHashAlgorithmAndBlockSize(superblock.GetAlgorithm(), superblock.HashBlockSize)
 	if err != nil {
 		return err
