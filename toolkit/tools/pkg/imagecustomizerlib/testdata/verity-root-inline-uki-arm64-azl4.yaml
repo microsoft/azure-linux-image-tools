@@ -4,6 +4,7 @@ previewFeatures:
 
 baseConfigs:
 - path: verity-root-inline-uki-base.yaml
+- path: systemd-boot-azl4.yaml
 
 os:
   selinux:
@@ -15,19 +16,8 @@ os:
     - veritysetup
     - vim
     - device-mapper
-    - systemd-boot-unsigned
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
-
-scripts:
-  postCustomization:
-  - content: |
-      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
-      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
-      # is not an option because shim is needed for the secure boot chain
-      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
-      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
-      rpm -e --nodeps grub2-efi-aa64

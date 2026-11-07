@@ -1,0 +1,11 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: systemd-boot-azl4.yaml
+
+script:
+  postCustomization:
+  - content: |
+      set -eux
+      

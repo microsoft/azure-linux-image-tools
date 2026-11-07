@@ -804,3 +804,7 @@ func newTestCosiGptSections(partNums []int) []cosiapi.GptDiskRegion {
 
 	return gptRegions
 }
+
+func TestCustomizeImageCosiBlsEntries(t *testing.T) {
+
+}
