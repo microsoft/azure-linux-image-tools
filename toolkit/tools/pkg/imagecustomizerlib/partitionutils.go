@@ -883,7 +883,7 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
-	veritySuperblock, err := verityutils.ReadVeritySuperblock(hashPartition.Path, hashOffset)
+	veritySuperblock, _, err := verityutils.ReadVeritySuperblock(hashPartition.Path, hashOffset)
 	if err != nil {
 		err = fmt.Errorf("failed to read verity superblock:\n%w", err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err

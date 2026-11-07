@@ -147,6 +147,9 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 			Path:           "/",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 4,
+			},
 		},
 		{
 			PartitionNum:   2,
@@ -619,6 +622,9 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 			Path:           "/usr",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 3,
+			},
 		},
 	}
 
@@ -1052,7 +1058,7 @@ func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, bas
 		return
 	}
 
-	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, 2031*diskutils.MiB)
 
 	// Recustomize the image.
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath, "raw",
@@ -1061,7 +1067,7 @@ func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, bas
 		return
 	}
 
-	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, 2031*diskutils.MiB)
 
 	// Reinit verity without customizing partitions.
 	configFile = filepath.Join(testDir, "verity-reinit.yaml")
@@ -1072,11 +1078,11 @@ func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, bas
 		return
 	}
 
-	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, 2031*diskutils.MiB)
 }
 
 func verifyRootInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
-	outImageFilePath string,
+	outImageFilePath string, hashOffset uint64,
 ) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
@@ -1085,6 +1091,10 @@ func verifyRootInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, build
 			Path:           "/",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 3,
+				HashOffset:       hashOffset,
+			},
 		},
 		{
 			PartitionNum:   2,
@@ -1153,7 +1163,7 @@ func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, base
 		return
 	}
 
-	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil, 2031*diskutils.MiB)
 
 	// Recustomize the image. Resets the bootloader but also re-adds rd.info.
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, outImageFilePath, "raw",
@@ -1162,7 +1172,7 @@ func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, base
 		return
 	}
 
-	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil, 2031*diskutils.MiB)
 
 	// Reinit verity without customizing partitions. Preserves rd.info.
 	configFile = filepath.Join(testDir, "verity-reinit.yaml")
@@ -1173,11 +1183,11 @@ func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, base
 		return
 	}
 
-	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil, 2031*diskutils.MiB)
 }
 
 func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
-	outImageFilePath string, extraCommandLine []string, absentCommandLine []string,
+	outImageFilePath string, extraCommandLine []string, absentCommandLine []string, hashOffset int64,
 ) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
@@ -1197,6 +1207,13 @@ func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildD
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
 		},
+	}
+
+	if hashOffset >= 0 {
+		mountPoints[2].Verity = &testutils.VerityMount{
+			HashPartitionNum: 2,
+			HashOffset:       uint64(hashOffset),
+		}
 	}
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)

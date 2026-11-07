@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
@@ -568,6 +569,9 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	if dataSizeBytes == 0 {
 		return 0, fmt.Errorf("partition is too small for inline verity")
 	}
+
+	logger.Log.Debugf("Inline verity size calculation: data=%s, total=%s",
+		diskutils.HumanReadable(dataSizeBytes), diskutils.HumanReadable(partitionSize))
 	return dataSizeBytes, nil
 }
 
