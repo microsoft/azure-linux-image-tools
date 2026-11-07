@@ -86,6 +86,15 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 	}
 
+	if aclUsrUuidRegenerationEnabled(rc.Acl) {
+		if rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll {
+			return fmt.Errorf("'acl.regenerateUsrFsUuid' requires 'storage.reinitializeVerity: all' to re-seal /usr")
+		}
+		if rc.Uki == nil || rc.Uki.Mode != imagecustomizerapi.UkiModeCreate {
+			return fmt.Errorf("'acl.regenerateUsrFsUuid' requires 'os.uki.mode: create' to update the verity root hash")
+		}
+	}
+
 	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
 		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
 	}

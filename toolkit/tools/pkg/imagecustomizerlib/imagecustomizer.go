@@ -582,6 +582,13 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, toolsChroot *s
 		}
 	}
 
+	if aclUsrUuidRegenerationEnabled(rc.Acl) {
+		err = regenerateAclUsrFsUuid(osImageConnection, verityMetadata)
+		if err != nil {
+			return im, err
+		}
+	}
+
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {

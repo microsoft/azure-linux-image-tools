@@ -96,7 +96,10 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	switch partition.FileSystemType {
 	case "btrfs":
 		newUuid = uuid.NewString()
-		err := shell.ExecuteLive(true /*squashErrors*/, "btrfstune", "-U", newUuid, partition.Path)
+		// UUID reset is explicit; don't wait for btrfstune's interactive confirmation.
+		err := shell.NewExecBuilder("btrfstune", "-f", "-U", newUuid, partition.Path).
+			ErrorStderrLines(10).
+			Execute()
 		if err != nil {
 			return "", err
 		}

@@ -4,10 +4,22 @@
 package imagecustomizerapi
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestAclIsValidRegenerateUsrFsUuid(t *testing.T) {
+	for _, value := range []bool{false, true} {
+		acl := Acl{RegenerateUsrFsUuid: ptrutils.PtrTo(value)}
+		assert.NoError(t, acl.IsValid())
+	}
+	data, err := json.Marshal(Acl{RegenerateUsrFsUuid: ptrutils.PtrTo(false)})
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"regenerateUsrFsUuid":false}`, string(data))
+}
 
 func TestAclIsValidUsrOnly(t *testing.T) {
 	acl := Acl{

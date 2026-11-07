@@ -59,6 +59,9 @@ const (
 	// (flatcar.oem.id) on the boot kernel command line.
 	PreviewFeatureAclOemId PreviewFeature = "acl-oem-id"
 
+	// PreviewFeatureAclRegenerateUsrFsUuid enables regenerating ACL's active /usr filesystem UUID.
+	PreviewFeatureAclRegenerateUsrFsUuid PreviewFeature = "acl-regenerate-usr-fs-uuid"
+
 	// PreviewFeatureResizeDisk enables support for specifying a tools directory.
 	PreviewFeatureResizeDisk PreviewFeature = "resize-disk"
 
@@ -80,7 +83,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId,
+		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId, PreviewFeatureAclRegenerateUsrFsUuid,
 		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest, PreviewFeatureSymlinkMode,
 		PreviewFeatureResizeDisk:
 		return nil
