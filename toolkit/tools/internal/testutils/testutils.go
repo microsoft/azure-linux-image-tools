@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -11,7 +12,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/veritydevice"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -24,6 +28,13 @@ type MountPoint struct {
 	FileSystemType string
 	Flags          uintptr
 	Data           string
+	// When set, use a read-only mapping owned by the image connection.
+	Verity *VerityMount
+}
+
+type VerityMount struct {
+	HashPartitionNum int
+	HashOffset       uint64
 }
 
 func GetImageFileType(filePath string) (string, error) {
@@ -155,10 +166,16 @@ func CheckSkipForCustomizeImageRequirements(t *testing.T) {
 
 func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts bool, mounts []MountPoint,
 ) (*imageconnection.ImageConnection, error) {
+	ok := false
 	imageConnection := imageconnection.NewImageConnection()
+	defer func() {
+		if !ok {
+			imageConnection.Close()
+		}
+	}()
+
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		imageConnection.Close()
 		return nil, err
 	}
 
@@ -168,12 +185,41 @@ func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts 
 	for _, mount := range mounts {
 		devPath := PartitionDevPath(imageConnection, mount.PartitionNum)
 
+		flags := mount.Flags
+		if mount.Verity != nil {
+			hashDevPath := PartitionDevPath(imageConnection, mount.Verity.HashPartitionNum)
+
+			// In a production environment, the root hash should come from an external source (e.g. the kernel cmdline).
+			// But for tests, reading the root hash from the hash tree allows all the partitions to be mounted up front
+			// in a single go.
+			_, hash, err := verityutils.ReadVeritySuperblock(hashDevPath, mount.Verity.HashOffset)
+			if err != nil {
+				return nil, err
+			}
+
+			devName, err := genDevMapperName("ic-test-")
+			if err != nil {
+				return nil, err
+			}
+
+			verityDevice, err := veritydevice.OpenVerityDevice(devName, devPath, hashDevPath, mount.Verity.HashOffset,
+				hash)
+			if err != nil {
+				return nil, err
+			}
+
+			imageConnection.AddOwnedResource(verityDevice)
+			devPath = verityDevice.Path()
+
+			flags |= unix.MS_RDONLY
+		}
+
 		var mountPoint *safechroot.MountPoint
 		if mount.Path == "/" {
-			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags,
+			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, flags,
 				mount.Data)
 		} else {
-			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, mount.Data)
+			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, flags, mount.Data)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
@@ -181,14 +227,31 @@ func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts 
 
 	err = imageConnection.ConnectChroot(rootDir, false, []string{}, mountPoints, includeDefaultMounts)
 	if err != nil {
-		imageConnection.Close()
 		return nil, err
 	}
 
+	ok = true
 	return imageConnection, nil
 }
 
 func PartitionDevPath(imageConnection *imageconnection.ImageConnection, partitionNum int) string {
 	devPath := fmt.Sprintf("%sp%d", imageConnection.Loopback().DevicePath(), partitionNum)
 	return devPath
+}
+
+func genDevMapperName(namePrefix string) (string, error) {
+	for i := 0; i < 10; i++ {
+		name := namePrefix + rand.Text()[:4]
+		path := "/dev/mapper/" + name
+		exists, err := file.PathExists(path)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			return name, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find unused /dev/mapper path")
 }

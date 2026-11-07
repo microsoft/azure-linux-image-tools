@@ -645,6 +645,9 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, extraComma
 			Path:           "/usr",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 4,
+			},
 		},
 		{
 			PartitionNum:   6,
@@ -774,6 +777,9 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, extraC
 			Path:           "/",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 4,
+			},
 		},
 		{
 			PartitionNum:   2,
