@@ -13,7 +13,7 @@ import (
 // This is an internal, preview-gated API. It is only valid for ACL target images. It currently
 // supports growing ACL's existing, sealed standard partitions to explicit target sizes (it only
 // ever enlarges them; never reorders, adds, removes, or reformats them) and overriding the OEM id
-// baked into the boot kernel command line.
+// baked into the boot kernel command line, and regenerating the active /usr filesystem UUID.
 type Acl struct {
 	// Usr grows ACL's /usr partition(s) (USR-A and USR-B, kept the same size).
 	Usr *AclPartitionGrow `yaml:"usr" json:"usr,omitempty"`
@@ -24,6 +24,8 @@ type Acl struct {
 	// (e.g. to "metal") so the correct platform provider is used and azure-specific units do not
 	// activate. Example values: metal, azure, qemu, gce.
 	OemId string `yaml:"oemId" json:"oemId,omitempty"`
+	// RegenerateUsrFsUuid generates a new active /usr Btrfs filesystem UUID before verity sealing.
+	RegenerateUsrFsUuid *bool `yaml:"regenerateUsrFsUuid" json:"regenerateUsrFsUuid,omitempty"`
 }
 
 // AclPartitionGrow describes the desired grown size of an ACL standard partition.
@@ -38,8 +40,8 @@ type AclPartitionGrow struct {
 var aclOemIdRegex = regexp.MustCompile(`^[a-z0-9]+$`)
 
 func (a *Acl) IsValid() error {
-	if a.Usr == nil && a.Esp == nil && a.OemId == "" {
-		return fmt.Errorf("'acl' must specify at least one of 'usr', 'esp', or 'oemId'")
+	if a.Usr == nil && a.Esp == nil && a.OemId == "" && a.RegenerateUsrFsUuid == nil {
+		return fmt.Errorf("'acl' must specify at least one of 'usr', 'esp', 'oemId', or 'regenerateUsrFsUuid'")
 	}
 
 	if a.Usr != nil {

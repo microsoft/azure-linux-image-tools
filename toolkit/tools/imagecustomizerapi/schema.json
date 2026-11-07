@@ -13,6 +13,9 @@
         },
         "oemId": {
           "type": "string"
+        },
+        "regenerateUsrFsUuid": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

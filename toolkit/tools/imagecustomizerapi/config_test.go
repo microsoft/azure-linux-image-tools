@@ -1044,6 +1044,34 @@ func TestConfigIsValidAclOemIdDoesNotRequireGrowFeature(t *testing.T) {
 	assert.NoError(t, config.IsValid())
 }
 
+func TestConfigIsValidAclRegenerateUsrFsUuid(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		value   bool
+		preview bool
+		valid   bool
+	}{
+		{"enabled", true, true, true},
+		{"disabled", false, true, true},
+		{"enabled-without-preview", true, false, false},
+		{"disabled-without-preview", false, false, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := &Config{Acl: &Acl{RegenerateUsrFsUuid: ptrutils.PtrTo(test.value)}}
+			if test.preview {
+				config.PreviewFeatures = []PreviewFeature{PreviewFeatureAclRegenerateUsrFsUuid}
+			}
+			err := config.IsValid()
+			if test.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, "acl-regenerate-usr-fs-uuid")
+			}
+		})
+	}
+	assert.NoError(t, PreviewFeatureAclRegenerateUsrFsUuid.IsValid())
+}
+
 func TestConfigIsValidMissingRemovePackageManagerPreviewFeature(t *testing.T) {
 	config := &Config{
 		PreviewFeatures: []PreviewFeature{},
