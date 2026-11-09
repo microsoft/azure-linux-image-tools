@@ -119,6 +119,39 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath, []string{"rd.info"}, nil)
 }
 
+// Exercise XFS creation and recustomization through the shared dm-verity mount checks.
+func TestCustomizeImageVerityXfsRoot(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityXfsRootHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityXfsRootHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	var config imagecustomizerapi.Config
+	require.NoError(t, imagecustomizerapi.UnmarshalYamlFile(filepath.Join(testDir, "verity-root-base.yaml"), &config))
+	config.Storage.FileSystems[2].Type = imagecustomizerapi.FileSystemTypeXfs
+	config.OS.SELinux.Mode = imagecustomizerapi.SELinuxModeDisabled
+	config.OS.Packages.Install = []string{"openssh-server", "veritysetup", "vim", "device-mapper"}
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageVerityXfsRoot"+baseImageInfo.Name)
+	defer os.RemoveAll(testTempDir)
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+	require.NoError(t, err)
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "xfs", []string{"rd.info"}, nil)
+}
+
 func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useToolsDir bool) string {
 	toolsDirSuffix := ""
 	if useToolsDir {
@@ -152,12 +185,18 @@ func getRootVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo, useT
 func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
 	outImageFilePath string, extraCommandLine []string, absentCommandLine []string,
 ) {
+	verifyRootVerityFileSystem(t, baseImageInfo, buildDir, outImageFilePath, "ext4", extraCommandLine, absentCommandLine)
+}
+
+func verifyRootVerityFileSystem(t *testing.T, baseImageInfo testBaseImageInfo, buildDir, outImageFilePath,
+	rootFileSystem string, extraCommandLine, absentCommandLine []string,
+) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
-			FileSystemType: "ext4",
+			FileSystemType: rootFileSystem,
 			Flags:          unix.MS_RDONLY,
 			Verity: &testutils.VerityMount{
 				HashPartitionNum: 4,

@@ -12,6 +12,10 @@ Note: Currently root partition (`/`) and usr partition (`/usr`) are supported.
 Note: The [filesystem](./filesystem.md) item pointing to this verity device, must
 include the `ro` option in the [mountPoint.options](./mountpoint.md#options-string).
 
+New XFS filesystems on dm-verity use 4096-byte sectors (`mkfs.xfs -s size=4096`)
+to accommodate the mapped device's logical sector size. Ordinary XFS filesystems
+are unchanged; existing filesystems are not reformatted.
+
 There are multiple ways to configure a verity enabled image. For
 recommendations, see [Verity Image Recommendations](../../concepts/verity/verity.md).
 
