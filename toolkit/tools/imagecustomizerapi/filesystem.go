@@ -23,6 +23,10 @@ type FileSystem struct {
 	// Value is filled in by Storage.IsValid().
 	PartitionId string `json:"-"`
 
+	// Logical block size of the device on which the filesystem will be mounted, in bytes.
+	// Value is filled in by Storage.IsValid(); zero leaves formatter defaults unchanged.
+	LogicalBlockSize uint64 `yaml:"-" json:"-"`
+
 	// The size of the filesystem in bytes.
 	// Used to limit the size of the filesystem when inline verity is used.
 	// A value of 0 means the filesystem should fill the entire partition.

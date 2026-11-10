@@ -441,7 +441,7 @@ var (
 // - filesystemType: The requested filesystem type.
 // - isBootPartition: Will the partition contain the /boot directory?
 func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool, partDevPath string,
-	fsSizeMiB uint64,
+	fsSizeMiB uint64, logicalBlockSize uint64,
 ) ([]string, error) {
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
 	if err != nil {
@@ -477,7 +477,8 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "xfs":
-		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB)
+		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB,
+			logicalBlockSize)
 		if err != nil {
 			return nil, err
 		}
@@ -656,13 +657,20 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 }
 
 func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
-	partDevPath string, fsSizeMiB uint64,
+	partDevPath string, fsSizeMiB uint64, logicalBlockSize uint64,
 ) ([]string, error) {
 	mkfsXfsVersion, err := getMkfsXfsVersion()
 	if err != nil {
 		return nil, err
 	}
 
+	return getXfsFileSystemOptionsForVersion(hostKernelVersion, mkfsXfsVersion, options, isBootPartition,
+		partDevPath, fsSizeMiB, logicalBlockSize)
+}
+
+func getXfsFileSystemOptionsForVersion(hostKernelVersion, mkfsXfsVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+	partDevPath string, fsSizeMiB uint64, logicalBlockSize uint64,
+) ([]string, error) {
 	mkfsXfsVersionMinorVer := mkfsXfsVersion[:min(2, len(mkfsXfsVersion))]
 	if mkfsXfsVersionMinorVer.Gt(maxMkfsXfsVersion) {
 		// New versions of mkfs.xfs might add new default-enabled features in the future.
@@ -727,6 +735,10 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 	namingArgValue := strings.Join(namingArgs, ",")
 
 	args := []string{"mkfs.xfs", "-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
+
+	if logicalBlockSize != 0 {
+		args = append(args, "-s", fmt.Sprintf("size=%d", logicalBlockSize))
+	}
 
 	if fsSizeMiB != 0 {
 		args = append(args, "-d", fmt.Sprintf("size=%dm", fsSizeMiB))

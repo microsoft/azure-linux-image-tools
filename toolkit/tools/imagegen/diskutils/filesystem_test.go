@@ -4,11 +4,14 @@
 package diskutils
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetFileSystemOptionsForTargetOsExactMatch(t *testing.T) {
@@ -41,5 +44,32 @@ func TestDistroFileSystemsOptionsOrdering(t *testing.T) {
 			b := verFsOptions[i+1].Version
 			assert.Truef(t, a.Lt(b), "%s not ordered correctly: %v must be < %v", distro, a, b)
 		}
+	}
+}
+
+// Check our sector-size arguments without invoking mkfs.xfs.
+func TestGetXfsFileSystemOptionsLogicalBlockSize(t *testing.T) {
+	for _, test := range []struct {
+		logicalBlockSize uint64
+		expectedSector   string
+	}{
+		{0, ""},
+		{512, "size=512"},
+		{1024, "size=1024"},
+		{2048, "size=2048"},
+		{4096, "size=4096"},
+	} {
+		t.Run(fmt.Sprint(test.logicalBlockSize), func(t *testing.T) {
+			args, err := getXfsFileSystemOptionsForVersion(version.Version{6, 6}, version.Version{6, 6},
+				fileSystemsOptions{Xfs: azl3XfsOptions}, false, "/dev/test", 0, test.logicalBlockSize)
+			require.NoError(t, err)
+			sector := ""
+			if index := slices.Index(args, "-s"); index >= 0 {
+				require.Less(t, index+1, len(args))
+				sector = args[index+1]
+			}
+			assert.Equal(t, test.expectedSector, sector)
+			assert.NotContains(t, args, "-b")
+		})
 	}
 }

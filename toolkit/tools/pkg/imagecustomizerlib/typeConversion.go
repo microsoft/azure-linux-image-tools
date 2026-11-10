@@ -121,15 +121,16 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 	isBootPartition := calcIsBootPartition(fileSystem, fileSystems)
 
 	imagerPartition := configuration.Partition{
-		ID:              partition.Id,
-		FsType:          string(fileSystem.Type),
-		Name:            partition.Label,
-		Start:           uint64(imagerStart),
-		End:             uint64(imagerEnd),
-		Flags:           imagerFlags,
-		TypeUUID:        typeUuid,
-		IsBootPartition: isBootPartition,
-		FsSize:          imagerFsSize,
+		ID:               partition.Id,
+		FsType:           string(fileSystem.Type),
+		Name:             partition.Label,
+		Start:            uint64(imagerStart),
+		End:              uint64(imagerEnd),
+		Flags:            imagerFlags,
+		TypeUUID:         typeUuid,
+		IsBootPartition:  isBootPartition,
+		FsSize:           imagerFsSize,
+		LogicalBlockSize: fileSystem.LogicalBlockSize,
 	}
 	return imagerPartition, nil
 }

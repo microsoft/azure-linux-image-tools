@@ -41,8 +41,9 @@ func TestStorageIsValidCoreEfi(t *testing.T) {
 				},
 			},
 			{
-				DeviceId: "rootfs",
-				Type:     "ext4",
+				DeviceId:         "rootfs",
+				Type:             "ext4",
+				LogicalBlockSize: 8192,
 				MountPoint: &MountPoint{
 					Path: "/",
 				},
@@ -52,6 +53,7 @@ func TestStorageIsValidCoreEfi(t *testing.T) {
 
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[1].LogicalBlockSize)
 }
 
 func TestStorageIsValidDuplicatePartitionID(t *testing.T) {
@@ -949,6 +951,8 @@ func TestStorageIsValidVerityRoot(t *testing.T) {
 
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[0].LogicalBlockSize)
+	assert.Equal(t, uint64(DefaultVerityDataBlockSize), value.FileSystems[1].LogicalBlockSize)
 }
 
 func TestStorageIsValidVerityUsr(t *testing.T) {
@@ -1024,6 +1028,8 @@ func TestStorageIsValidVerityUsr(t *testing.T) {
 
 	err := value.IsValid()
 	assert.NoError(t, err)
+	assert.Zero(t, value.FileSystems[1].LogicalBlockSize)
+	assert.Equal(t, uint64(DefaultVerityDataBlockSize), value.FileSystems[2].LogicalBlockSize)
 }
 
 func TestStorageIsValidVerityRootWrongIdType(t *testing.T) {
