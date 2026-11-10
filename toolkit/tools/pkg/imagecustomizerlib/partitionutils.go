@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1122,7 +1121,7 @@ func mergeUkiCmdlineParts(mainUkiCmdline string, addonCmdlines map[string]string
 		cmdlines = append(cmdlines, strings.TrimSpace(mainUkiCmdline))
 	}
 
-	for _, addonFile := range slices.Sorted(maps.Keys(addonCmdlines)) {
+	for _, addonFile := range ukiSortedAddonFileNames(addonCmdlines) {
 		if addonCmdlines[addonFile] != "" {
 			cmdlines = append(cmdlines, addonCmdlines[addonFile])
 		}

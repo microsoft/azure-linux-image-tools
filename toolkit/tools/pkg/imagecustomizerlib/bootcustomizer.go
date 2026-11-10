@@ -376,23 +376,11 @@ func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
 		return fmt.Errorf("UKI kernel info file path not set")
 	}
 
-	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
-	if err != nil {
-		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
-	}
-
-	// Append args to each kernel's cmdline
-	for kernel, info := range kernelInfo {
-		info.Cmdline = strings.TrimSpace(info.Cmdline) + " " + args
-		kernelInfo[kernel] = info
-	}
-
-	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
-	}
-
-	return nil
+	return updateUkiLayouts(b.ukiKernelInfoPath, func(ukiLayout UkiLayout) (UkiLayout, error) {
+		// Append new args to main cmdline.
+		ukiLayout.MainCmdline = strings.TrimSpace(ukiLayout.MainCmdline) + " " + args
+		return ukiLayout, nil
+	})
 }
 
 // updateUkiCmdlineFile updates kernel arguments for all kernels in the UKI kernel info file.
@@ -401,28 +389,101 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 		return fmt.Errorf("UKI kernel info file path not set")
 	}
 
-	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
+	return ukiUpdateLayoutsKernelCommandLineArgs(b.ukiKernelInfoPath, argsToRemove, newArgs)
+}
+
+func ukiUpdateLayoutsKernelCommandLineArgs(ukiKernelInfoPath string, argsToRemove []string, newArgs []string) error {
+	return updateUkiLayouts(ukiKernelInfoPath, func(ukiLayout UkiLayout) (UkiLayout, error) {
+		return ukiUpdateLayoutKernelCommandLineArgs(ukiLayout, argsToRemove, newArgs)
+	})
+}
+
+func updateUkiLayouts(ukiKernelInfoPath string, updateUkiLayout func(UkiLayout) (UkiLayout, error)) error {
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
 	if err != nil {
 		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
 	}
 
 	// Update each kernel's cmdline
 	for kernel, info := range kernelInfo {
-		newCmdline, err := ukiUpdateKernelCommandLineArgs(info.Cmdline, argsToRemove, newArgs)
+		newUkiLayout, err := updateUkiLayout(*info.Layout)
+		if err != nil {
+			return fmt.Errorf("failed to update UKI kernel cmdline layout (kernel='%s'):\n%w", kernel, err)
+		}
+
+		newCmdline, err := mergeUkiCmdlineParts(newUkiLayout.MainCmdline, newUkiLayout.Addons)
 		if err != nil {
 			return fmt.Errorf("failed to update UKI kernel cmdline (kernel='%s'):\n%w", kernel, err)
 		}
 
+		info.Layout = &newUkiLayout
 		info.Cmdline = newCmdline
 		kernelInfo[kernel] = info
 	}
 
-	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
 	if err != nil {
 		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
 	}
 
 	return nil
+}
+
+func ukiUpdateLayoutKernelCommandLineArgs(ukiLayout UkiLayout, argsToRemove []string, newArgs []string,
+) (UkiLayout, error) {
+	// Get a mapping of which addons contain which arg names.
+	argNameToAddon, err := ukiSplitNewArgsBetweenAddons(ukiLayout)
+	if err != nil {
+		return UkiLayout{}, err
+	}
+
+	// Split up the new args into specific addons.
+	addonNewArgs := map[string][]string{}
+	for _, newArg := range newArgs {
+		newArgName, _, _ := strings.Cut(newArg, "=")
+
+		// If an arg name is not in any of the addons, then default to the main UKI ("").
+		addon := argNameToAddon[newArgName]
+		addonNewArgs[addon] = append(addonNewArgs[addon], newArg)
+	}
+
+	// Modify the main cmdline.
+	ukiLayout.MainCmdline, err = ukiUpdateKernelCommandLineArgs(ukiLayout.MainCmdline, argsToRemove, addonNewArgs[""])
+	if err != nil {
+		return UkiLayout{}, fmt.Errorf("failed to update main UKI cmdline:\n%w", err)
+	}
+
+	// Modify the addon cmdlines.
+	for addonFileName, addonCmdline := range ukiLayout.Addons {
+		ukiLayout.Addons[addonFileName], err = ukiUpdateKernelCommandLineArgs(addonCmdline, argsToRemove,
+			addonNewArgs[addonFileName])
+		if err != nil {
+			return UkiLayout{}, fmt.Errorf("failed to update UKI addon cmdline (addon='%s'):\n%w", addonFileName, err)
+		}
+	}
+
+	return ukiLayout, nil
+}
+
+func ukiSplitNewArgsBetweenAddons(ukiLayout UkiLayout) (map[string]string, error) {
+	addonFileNames := ukiAllSortedFileNames(ukiLayout)
+
+	argNameToAddon := map[string]string{}
+	for _, addonFileName := range addonFileNames {
+		addonCmdline := ukiLayout.Addons[addonFileName]
+
+		addonArgs, err := parseKernelCmdlineArgs(addonCmdline)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse addon cmdline (addon='%s'):\n%w", addonFileName, err)
+		}
+
+		for _, arg := range addonArgs {
+			// If an arg name appears in multiple addons, then prefer the later UKI.
+			argNameToAddon[arg.Name] = addonFileName
+		}
+	}
+
+	return argNameToAddon, nil
 }
 
 // Removes a set of arguments from a kernel cmdline and adds a new set of arguments in their place.

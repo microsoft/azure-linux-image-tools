@@ -72,7 +72,7 @@ const (
 var verityKernelArgsToRemove = []string{
 	"rd.systemd.verity", "roothash", "systemd.verity_root_data", "systemd.verity_root_hash",
 	"systemd.verity_root_options", "usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
-	"systemd.verity_usr_options",
+	"systemd.verity_usr_options", "pre.verity.mount",
 }
 
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
@@ -514,7 +514,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
 
-	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
+	err = ukiUpdateVerityKernelCmdlineArgs(buildDir, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to append verity args to UKI cmdline:\n%w", err)
 	}

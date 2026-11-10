@@ -1337,7 +1337,7 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	}
 	err = writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
 		"vmlinuz-1": {Cmdline: "root=/dev/sda usrhash=old flatcar.oem.id=azure", Initramfs: "initramfs-1.img",
-			BaseLayout: baseLayout},
+			BaseLayout: baseLayout, Layout: baseLayout},
 	})
 	assert.NoError(t, err)
 
@@ -1349,14 +1349,14 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing)
 	assert.NoError(t, err)
 
-	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"usrhash=new"})
+	err = ukiUpdateVerityKernelCmdlineArgs(buildDir, []string{"usrhash=new"})
 	assert.NoError(t, err)
 
 	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]UkiKernelInfo{
 		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info security=selinux selinux=1 usrhash=new",
-			Initramfs: "initramfs-1.img", BaseLayout: baseLayout},
+			Initramfs: "initramfs-1.img", BaseLayout: baseLayout, Layout: baseLayout},
 	}, kernelInfo)
 
 	b.ukiMode = imagecustomizerapi.UkiModePassthrough
