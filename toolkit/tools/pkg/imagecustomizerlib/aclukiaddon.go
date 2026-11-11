@@ -142,7 +142,12 @@ func aclPlanSlotAddonTemplate(templateCmdline string, activeAddonCmdlines []stri
 	}
 
 	for _, activeAddonCmdline := range activeAddonCmdlines {
-		if activeAddonCmdline != newCmdline {
+		same, err := cmdlineHasSameArgs(activeAddonCmdline, newCmdline)
+		if err != nil {
+			return "", false, false, err
+		}
+
+		if !same {
 			return "", false, false, fmt.Errorf("A/B slot addon args can't change apart from the root hash "+
 				"(addon='%s', template='%s')", activeAddonCmdline, newCmdline)
 		}
@@ -227,4 +232,30 @@ func aclSetArgValue(cmdline string, name string, value string) (string, bool, er
 	}
 
 	return GrubArgsToString(newArgs), changed, nil
+}
+
+// Checks if two cmdline strings have the same arguments, ignoring ordering.
+func cmdlineHasSameArgs(cmdlineA, cmdlineB string) (bool, error) {
+	argsA, err := parseKernelCmdlineArgs(strings.TrimSpace(cmdlineA))
+	if err != nil {
+		return false, err
+	}
+
+	argsB, err := parseKernelCmdlineArgs(strings.TrimSpace(cmdlineB))
+	if err != nil {
+		return false, err
+	}
+
+	aValueCount := map[string]int{}
+	for _, arg := range argsA {
+		aValueCount[arg.Arg] = aValueCount[arg.Arg] + 1
+	}
+
+	bValueCount := map[string]int{}
+	for _, arg := range argsB {
+		bValueCount[arg.Arg] = bValueCount[arg.Arg] + 1
+	}
+
+	same := maps.Equal(aValueCount, bValueCount)
+	return same, nil
 }

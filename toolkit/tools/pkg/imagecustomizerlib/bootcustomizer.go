@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
@@ -126,10 +124,10 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		return nil
 	}
 
-	combinedArgs := GrubArgsToString(extraCommandLine)
-
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
+		combinedArgs := GrubArgsToString(extraCommandLine)
+
 		defaultGrubFileContent, err := addExtraCommandLineToDefaultGrubFile(b.defaultGrubFileContent, combinedArgs)
 		if err != nil {
 			return err
@@ -138,6 +136,8 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		b.defaultGrubFileContent = defaultGrubFileContent
 
 	case bootConfigTypeGrubLegacy:
+		combinedArgs := GrubArgsToString(extraCommandLine)
+
 		// Add the args directly to the /boot/grub2/grub.cfg file.
 		grubCfgContent, err := appendKernelCommandLineArgsAll(b.grubCfgContent, combinedArgs)
 		if err != nil {
@@ -153,7 +153,7 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		if b.ukiMode != imagecustomizerapi.UkiModeCreate {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
-		err := b.appendToUkiCmdlineFile(combinedArgs)
+		err := b.appendToUkiCmdlineFile(extraCommandLine)
 		if err != nil {
 			return err
 		}
@@ -370,28 +370,9 @@ func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
 }
 
 // appendToUkiCmdlineFile appends kernel arguments to all kernels in the UKI kernel info file.
-func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
-	if b.ukiKernelInfoPath == "" {
-		return fmt.Errorf("UKI kernel info file path not set")
-	}
-
-	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
-	if err != nil {
-		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
-	}
-
-	// Append args to each kernel's cmdline
-	for kernel, info := range kernelInfo {
-		info.Cmdline = strings.TrimSpace(info.Cmdline) + " " + args
-		kernelInfo[kernel] = info
-	}
-
-	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
-	}
-
-	return nil
+func (b *BootCustomizer) appendToUkiCmdlineFile(extraCommandLine []string) error {
+	// Use the UKI cmdline update logic so that the args are split between addons based on the arg name.
+	return b.updateUkiCmdlineFile(nil, extraCommandLine)
 }
 
 // updateUkiCmdlineFile updates kernel arguments for all kernels in the UKI kernel info file.
@@ -400,50 +381,5 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 		return fmt.Errorf("UKI kernel info file path not set")
 	}
 
-	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
-	if err != nil {
-		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
-	}
-
-	// Update each kernel's cmdline
-	for kernel, info := range kernelInfo {
-		currentCmdline := strings.TrimSpace(info.Cmdline)
-		tokens, err := grub.TokenizeConfig(currentCmdline)
-		if err != nil {
-			return fmt.Errorf("failed to tokenize UKI cmdline for kernel (%s):\n%w", kernel, err)
-		}
-		currentArgs, err := ParseCommandLineArgs(tokens)
-		if err != nil {
-			return fmt.Errorf("failed to parse UKI cmdline for kernel (%s):\n%w", kernel, err)
-		}
-
-		// Remove args that match any of the argsToRemove prefixes and build string array
-		var argStrings []string
-		for _, arg := range currentArgs {
-			shouldRemove := false
-			for _, removePrefix := range argsToRemove {
-				if arg.Name == removePrefix {
-					shouldRemove = true
-					break
-				}
-			}
-			if !shouldRemove {
-				argStrings = append(argStrings, arg.Arg)
-			}
-		}
-
-		// Append new args
-		argStrings = append(argStrings, newArgs...)
-
-		// Update kernel info
-		info.Cmdline = GrubArgsToString(argStrings)
-		kernelInfo[kernel] = info
-	}
-
-	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
-	}
-
-	return nil
+	return ukiUpdateLayoutsKernelCommandLineArgs(b.ukiKernelInfoPath, argsToRemove, newArgs)
 }

@@ -235,3 +235,85 @@ func TestFindGrubCfgKernelopts(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateKernelCommandLineArgsAll(t *testing.T) {
+	testCases := []struct {
+		Name            string
+		GrubCfg         string
+		ArgsToRemove    []string
+		NewArgs         []string
+		ExpectedGrubCfg string
+	}{
+		{
+			Name:            "NoArgsAdd",
+			GrubCfg:         "linux path",
+			ArgsToRemove:    []string{},
+			NewArgs:         []string{"a"},
+			ExpectedGrubCfg: "linux path a ",
+		},
+		{
+			Name:            "SomeArgsAdd",
+			GrubCfg:         "linux path x",
+			ArgsToRemove:    []string{},
+			NewArgs:         []string{"a"},
+			ExpectedGrubCfg: "linux path x a ",
+		},
+		{
+			Name:            "RemoveArgsNop",
+			GrubCfg:         "linux path",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{},
+			ExpectedGrubCfg: "linux path  ",
+		},
+		{
+			Name:            "RemoveArgsOnly",
+			GrubCfg:         "linux path x",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{},
+			ExpectedGrubCfg: "linux path ",
+		},
+		{
+			Name:            "RemoveArgsSubset",
+			GrubCfg:         "linux path x y z",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{},
+			ExpectedGrubCfg: "linux path  y z",
+		},
+		{
+			Name:            "ReplaceArgs",
+			GrubCfg:         "linux path x=1 y=2 z=3",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{"x=2"},
+			ExpectedGrubCfg: "linux path x=2 y=2 z=3",
+		},
+		{
+			Name:            "ReplaceArgsNotFound",
+			GrubCfg:         "linux path x=1 y=2 z=3",
+			ArgsToRemove:    []string{"t"},
+			NewArgs:         []string{"t=4"},
+			ExpectedGrubCfg: "linux path x=1 y=2 z=3 t=4 ",
+		},
+		{
+			Name:            "ReplaceArgsMulti",
+			GrubCfg:         "linux path x=1 x=2 y=3 z=4",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{"x=5"},
+			ExpectedGrubCfg: "linux path  x=5 y=3 z=4",
+		},
+		{
+			Name:            "ReplaceArgsInterlaced",
+			GrubCfg:         "linux path x=1 y=2 x=3 z=4",
+			ArgsToRemove:    []string{"x"},
+			NewArgs:         []string{"x=5"},
+			ExpectedGrubCfg: "linux path  y=2 x=5 z=4",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			newGrubCfg, err := updateKernelCommandLineArgsAll(testCase.GrubCfg, testCase.ArgsToRemove, testCase.NewArgs)
+			assert.NoError(t, err)
+			assert.Equal(t, testCase.ExpectedGrubCfg, newGrubCfg)
+		})
+	}
+}

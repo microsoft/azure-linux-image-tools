@@ -44,10 +44,6 @@ var (
 	ErrUKICleanBootDir                = NewImageCustomizerError("UKI:CleanBootDir", "failed to clean /boot directory")
 	ErrUKIAddonDirChanged             = NewImageCustomizerError("UKI:AddonDirChanged",
 		"UKI or its addon directory changed during customization, but create mode rebuilds them from the base image")
-	ErrUKISplitCmdline = NewImageCustomizerError("UKI:SplitCmdline",
-		"failed to split kernel command line across the UKI and its addons")
-	ErrUKIAmbiguousArg = NewImageCustomizerError("UKI:AmbiguousArg",
-		"changed kernel command-line arg is in more than one file of the base image's UKI")
 )
 
 const (
@@ -63,10 +59,16 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 
 // UkiKernelInfo holds both command line arguments and initramfs name for a UKI kernel
 type UkiKernelInfo struct {
-	Cmdline   string `json:"cmdline"`
-	Initramfs string `json:"initramfs,omitempty"` // Optional: empty until prepareUki sets it
-	// Optional: the base image's UKI layout.
+	// The full kernel command-line, including any args from any UKI addons.
+	Cmdline string `json:"cmdline"`
+	// The file path of the initramfs file to include in the UKI.
+	// Optional: empty until prepareUki sets it
+	Initramfs string `json:"initramfs,omitempty"`
+	// The base image's UKI addon layout.
+	// Optional: Provided when base image has UKIs.
 	BaseLayout *UkiLayout `json:"baseLayout,omitempty"`
+	// The image's updated UKI addon layout.
+	Layout UkiLayout `json:"layout,omitempty"`
 }
 
 // ukiAddonFileName returns the name of the IC-managed cmdline addon for a kernel.
@@ -259,13 +261,18 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	for kernel, initramfs := range kernelToInitramfs {
 		var cmdline string
 		var baseLayout *UkiLayout
+		var layout UkiLayout
 		var cmdlineSource string
 		if existingInfo, ok := existingUkiKernelInfo[kernel]; ok {
 			cmdline = existingInfo.Cmdline
 			baseLayout = existingInfo.BaseLayout
+			layout = existingInfo.Layout
 			cmdlineSource = "existing UKIs"
 		} else if args, ok := grubKernelToArgs[kernel]; ok {
 			cmdline = args
+			layout = UkiLayout{
+				MainCmdline: cmdline,
+			}
 			cmdlineSource = "grub boot config"
 		} else {
 			if fallbackArgs == "" {
@@ -280,17 +287,23 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			// The kernel inherits the base UKI layout along with the command line, and the files that layout keeps in
 			// the addon directory.
 			var layoutKernel string
-			baseLayout, layoutKernel, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
+			baseLayout, layout, layoutKernel, err = getFallbackUkiLayout(existingUkiKernelInfo, kernel)
 			if err != nil {
 				return fmt.Errorf("no UKI found for kernel (%s) and cannot determine the UKI layout to inherit:\n%w",
 					kernel, err)
 			}
-
-			if baseLayout != nil {
-				err = copyUkiExtraFiles(buildDir, layoutKernel, kernel, *baseLayout)
-				if err != nil {
-					return err
+			if layoutKernel == "" {
+				// No UKI layout found.
+				// So, create a new one from the fallback cmdline.
+				// (The fallback cmdline will have come from the GRUB config.)
+				layout = UkiLayout{
+					MainCmdline: cmdline,
 				}
+			}
+
+			err = copyUkiExtraFiles(buildDir, layoutKernel, kernel, layout)
+			if err != nil {
+				return err
 			}
 
 			cmdlineSource = "fallback"
@@ -303,6 +316,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			Cmdline:    cmdline,
 			Initramfs:  initramfs,
 			BaseLayout: baseLayout,
+			Layout:     layout,
 		}
 	}
 
@@ -692,10 +706,7 @@ func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, st
 		return err
 	}
 
-	layout, err := getUkiLayout(info.Cmdline, info.BaseLayout)
-	if err != nil {
-		return fmt.Errorf("failed to get UKI layout:\n%w", err)
-	}
+	layout := info.Layout
 
 	// Build main UKI
 	err = buildMainUki(kernel, info.Initramfs, layout.MainCmdline, osSubreleaseFullPath, stubPath, buildDir,
@@ -791,6 +802,10 @@ func buildMainUki(kernel string, initramfs string, cmdline string, osSubreleaseF
 func buildUkiAddon(kernel string, addonFileName string, kernelArgs string, stubPath string,
 	systemBootPartitionTmpDir string,
 ) error {
+	if kernelArgs == "" {
+		logger.Log.Infof("UKI addon (%s) has no kernel command-line args left; not adding it", addonFileName)
+	}
+
 	// Create addon directory: <uki-path>.extra.d/
 	ukiFileName := fmt.Sprintf("%s.efi", kernel)
 	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, ukiFileName)
@@ -843,81 +858,15 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
-func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
+func ukiUpdateVerityKernelCmdlineArgs(buildDir string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
-	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	err := ukiUpdateLayoutsKernelCommandLineArgs(cmdlineFilePath, verityKernelArgsToRemove, newArgs)
 	if err != nil {
-		return err
-	}
-
-	// Append newArgs.
-	newArgsStr := GrubArgsToString(newArgs)
-	for kernel, info := range kernelInfo {
-		// Remove old verity args before appending new ones to avoid duplicates.
-		cleanedCmdline := removeVerityArgsFromCmdline(info.Cmdline)
-		info.Cmdline = fmt.Sprintf("%s %s", strings.TrimSpace(cleanedCmdline), strings.TrimSpace(newArgsStr))
-		kernelInfo[kernel] = info
-	}
-
-	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to append verity args to UKI cmdline:\n%w", err)
 	}
 
 	return nil
-}
-
-// removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
-// This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
-func removeVerityArgsFromCmdline(cmdline string) string {
-	// List of verity-related argument prefixes that need to be removed
-	verityArgPrefixes := []string{
-		"rd.systemd.verity=",
-		"roothash=",
-		"usrhash=",
-		"systemd.verity_root_data=",
-		"systemd.verity_root_hash=",
-		"systemd.verity_root_options=",
-		"systemd.verity_usr_data=",
-		"systemd.verity_usr_hash=",
-		"systemd.verity_usr_options=",
-		"pre.verity.mount=",
-	}
-
-	tokens, err := grub.TokenizeConfig(cmdline)
-	if err != nil {
-		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
-		return cmdline
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		logger.Log.Errorf("Failed to parse command line args: %v", err)
-		return cmdline
-	}
-
-	filteredArgs := []string{}
-	for _, arg := range args {
-		if arg.ValueHasVarExpansion {
-			// Skip args with variable expansions
-			continue
-		}
-
-		isVerityArg := false
-		for _, prefix := range verityArgPrefixes {
-			if strings.HasPrefix(arg.Arg, prefix) {
-				isVerityArg = true
-				break
-			}
-		}
-
-		if !isVerityArg {
-			filteredArgs = append(filteredArgs, arg.Arg)
-		}
-	}
-
-	return GrubArgsToString(filteredArgs)
 }
 
 func getKernelVersion(kernelName string) (string, error) {

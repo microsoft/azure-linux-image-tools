@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1107,7 +1106,13 @@ func extractUkiCmdlineParts(ukiFile string, buildDir string) (string, map[string
 				return "", nil, fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 			}
 
-			addonCmdlines[entry.Name()] = strings.TrimSpace(addonCmdline)
+			addonCmdline = strings.TrimSpace(addonCmdline)
+			if addonCmdline == "" {
+				// An addon without a command line carries something else (e.g. a devicetree).
+				return "", nil, fmt.Errorf("base image addon (%s) has no kernel command line", addonFilePath)
+			}
+
+			addonCmdlines[entry.Name()] = addonCmdline
 		}
 	}
 
@@ -1122,7 +1127,7 @@ func mergeUkiCmdlineParts(mainUkiCmdline string, addonCmdlines map[string]string
 		cmdlines = append(cmdlines, strings.TrimSpace(mainUkiCmdline))
 	}
 
-	for _, addonFile := range slices.Sorted(maps.Keys(addonCmdlines)) {
+	for _, addonFile := range ukiSortedAddonFileNames(addonCmdlines) {
 		if addonCmdlines[addonFile] != "" {
 			cmdlines = append(cmdlines, addonCmdlines[addonFile])
 		}

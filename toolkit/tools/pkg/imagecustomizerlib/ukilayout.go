@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 )
 
 const (
@@ -31,14 +32,6 @@ type UkiLayout struct {
 	Addons map[string]string `json:"addons,omitempty"`
 	// Name of another file in the addon directory (e.g. a credential) -> its SHA-256, to tell if it changed.
 	ExtraFiles map[string]string `json:"extraFiles,omitempty"`
-}
-
-// ukiBaseArg is an argument of the base image's UKI command line, in the main UKI or in one of its addons.
-type ukiBaseArg struct {
-	arg grubConfigLinuxArg
-	// The argument of the new command line that takes this argument's place, if any.
-	newArg string
-	used   bool
 }
 
 // readUkiBaseLayouts reads the kernel command line and the layout of each UKI, and saves a copy of the other files in
@@ -71,7 +64,11 @@ func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInf
 			return nil, fmt.Errorf("failed to extract base kernel command-line from UKI (%s):\n%w", ukiFile, err)
 		}
 
-		kernelInfo[kernel] = UkiKernelInfo{Cmdline: cmdline, BaseLayout: &layout}
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:    cmdline,
+			BaseLayout: &layout,
+			Layout:     layout,
+		}
 	}
 
 	return kernelInfo, nil
@@ -237,28 +234,33 @@ func ukiFileChanges(base map[string]string, files map[string]string) []string {
 // getFallbackUkiLayout returns the layout that a kernel with no UKI of its own inherits: the one the existing UKIs
 // share, with <kernel>.addon.efi renamed. Like getFallbackKernelArgs, it fails if they disagree. Nil if none. It also
 // returns the kernel whose UKI the layout is taken from.
-func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, string, error) {
-	var fallback *UkiLayout
+func getFallbackUkiLayout(existingUkiKernelInfo map[string]UkiKernelInfo, kernel string) (*UkiLayout, UkiLayout, string, error) {
+	var fallbackLayout UkiLayout
+	var fallbackBaseLayout *UkiLayout
 	fallbackKernel := ""
+
 	for _, existingKernel := range slices.Sorted(maps.Keys(existingUkiKernelInfo)) {
-		var layout *UkiLayout
-		if baseLayout := existingUkiKernelInfo[existingKernel].BaseLayout; baseLayout != nil {
-			renamed := renameUkiLayoutAddon(*baseLayout, ukiAddonFileName(existingKernel), ukiAddonFileName(kernel))
-			layout = &renamed
+		layout := existingUkiKernelInfo[existingKernel].Layout
+		layout = renameUkiLayoutAddon(layout, ukiAddonFileName(existingKernel), ukiAddonFileName(kernel))
+
+		baseLayout := existingUkiKernelInfo[existingKernel].BaseLayout
+		if baseLayout != nil {
+			baseLayout = ptrutils.PtrTo(renameUkiLayoutAddon(*baseLayout, ukiAddonFileName(existingKernel), ukiAddonFileName(kernel)))
 		}
 
 		if fallbackKernel == "" {
-			fallback = layout
+			fallbackLayout = layout
+			fallbackBaseLayout = baseLayout
 			fallbackKernel = existingKernel
 			continue
 		}
 
-		if !ukiLayoutsEqual(fallback, layout) {
-			return nil, "", fmt.Errorf("cannot pick a fallback UKI layout: kernels have divergent UKI layouts")
+		if !ukiLayoutsEqual(&fallbackLayout, &layout) {
+			return nil, UkiLayout{}, "", fmt.Errorf("cannot pick a fallback UKI layout: kernels have divergent UKI layouts")
 		}
 	}
 
-	return fallback, fallbackKernel, nil
+	return fallbackBaseLayout, fallbackLayout, fallbackKernel, nil
 }
 
 // renameUkiLayoutAddon returns a copy of the layout with the addon oldName renamed to newName.
@@ -275,128 +277,14 @@ func renameUkiLayoutAddon(layout UkiLayout, oldName string, newName string) UkiL
 	return layout
 }
 
-// getUkiLayout splits a UKI's command line the way the base image's UKI did: an argument stays in the file it came
-// from, a changed value takes the old one's place, and a new argument goes into the main UKI, or after the last
-// same-named addon argument so that it still overrides it. An addon left with no arguments is dropped. Without a base
-// layout, the whole command line goes into the main UKI.
-func getUkiLayout(cmdline string, baseLayout *UkiLayout) (UkiLayout, error) {
-	args, err := parseKernelCmdlineArgs(cmdline)
-	if err != nil {
-		return UkiLayout{}, fmt.Errorf("%w:\n%w", ErrUKISplitCmdline, err)
-	}
-
-	base := UkiLayout{}
-	if baseLayout != nil {
-		base = *baseLayout
-	}
-
-	// The main UKI first, then the addons by file name: the order in which systemd-stub concatenates them.
-	fileNames := append([]string{""}, slices.Sorted(maps.Keys(base.Addons))...)
-	baseArgs := make([][]ukiBaseArg, len(fileNames))
-	for i, fileName := range fileNames {
-		fileCmdline := base.MainCmdline
-		if fileName != "" {
-			fileCmdline = base.Addons[fileName]
-			if fileCmdline == "" {
-				// An addon without a command line carries something else (e.g. a devicetree).
-				return UkiLayout{}, fmt.Errorf("%w:\nbase image addon (%s) has no kernel command line",
-					ErrUKISplitCmdline, fileName)
-			}
-		}
-
-		fileArgs, err := parseKernelCmdlineArgs(fileCmdline)
-		if err != nil {
-			return UkiLayout{}, fmt.Errorf("%w (file='%s'):\n%w", ErrUKISplitCmdline, fileName, err)
-		}
-
-		for _, arg := range fileArgs {
-			baseArgs[i] = append(baseArgs[i], ukiBaseArg{arg: arg})
-		}
-	}
-
-	// First, each argument identical to a base argument takes that argument's place.
-	placed := make([]bool, len(args))
-	for i, arg := range args {
-		placed[i] = placeUkiArg(baseArgs, arg, func(baseArg grubConfigLinuxArg) bool {
-			return baseArg.Arg == arg.Arg
-		})
-	}
-
-	// Then each other argument takes the place of an unused base argument of the same name, or is appended to the
-	// last file that has that name (the main UKI if none does), so that it still overrides it.
-	newArgs := make([][]string, len(fileNames))
-	for i, arg := range args {
-		if placed[i] {
-			continue
-		}
-
-		fileIndexes := map[int]bool{}
-		lastFileIndex := 0
-		for fileIndex := range baseArgs {
-			for _, baseArg := range baseArgs[fileIndex] {
-				if baseArg.arg.Name != arg.Name {
-					continue
-				}
-
-				lastFileIndex = fileIndex
-				if !baseArg.used {
-					fileIndexes[fileIndex] = true
-				}
-			}
-		}
-		// Unused base arguments of that name in more than one file: no way to tell which one this replaces.
-		if len(fileIndexes) > 1 {
-			return UkiLayout{}, fmt.Errorf("%w (arg='%s')", ErrUKIAmbiguousArg, arg.Arg)
-		}
-
-		if !placeUkiArg(baseArgs, arg, func(baseArg grubConfigLinuxArg) bool { return baseArg.Name == arg.Name }) {
-			newArgs[lastFileIndex] = append(newArgs[lastFileIndex], arg.Arg)
-		}
-	}
-
-	layout := UkiLayout{
-		Addons:     map[string]string{},
-		ExtraFiles: maps.Clone(base.ExtraFiles),
-	}
-	for i, fileName := range fileNames {
-		fileArgs := []string(nil)
-		for _, baseArg := range baseArgs[i] {
-			if baseArg.used {
-				fileArgs = append(fileArgs, baseArg.newArg)
-			}
-		}
-		fileArgs = append(fileArgs, newArgs[i]...)
-
-		switch {
-		case fileName == "":
-			layout.MainCmdline = GrubArgsToString(fileArgs)
-
-		case len(fileArgs) == 0:
-			logger.Log.Infof("UKI addon (%s) has no kernel command-line args left; not adding it", fileName)
-
-		default:
-			layout.Addons[fileName] = GrubArgsToString(fileArgs)
-		}
-	}
-
-	return layout, nil
+func ukiSortedAddonFileNames(addons map[string]string) []string {
+	return slices.Sorted(maps.Keys(addons))
 }
 
-// placeUkiArg gives arg the place of the first unused base arg that matches, in command-line order, and reports
-// whether it found one.
-func placeUkiArg(baseArgs [][]ukiBaseArg, arg grubConfigLinuxArg, matches func(grubConfigLinuxArg) bool) bool {
-	for fileIndex := range baseArgs {
-		for argIndex := range baseArgs[fileIndex] {
-			baseArg := &baseArgs[fileIndex][argIndex]
-			if !baseArg.used && matches(baseArg.arg) {
-				baseArg.used = true
-				baseArg.newArg = arg.Arg
-				return true
-			}
-		}
-	}
-
-	return false
+// Gets the sorted list of the main UKI + UKI addons, in the order in which they are processed by systemd.
+func ukiAllSortedFileNames(layout UkiLayout) []string {
+	fileNames := append([]string{""}, ukiSortedAddonFileNames(layout.Addons)...)
+	return fileNames
 }
 
 // parseKernelCmdlineArgs splits a kernel command line into its arguments.
@@ -419,4 +307,133 @@ func parseKernelCmdlineArgs(cmdline string) ([]grubConfigLinuxArg, error) {
 	}
 
 	return args, nil
+}
+
+func ukiUpdateLayoutsKernelCommandLineArgs(ukiKernelInfoPath string, argsToRemove []string, newArgs []string) error {
+	return updateUkiLayouts(ukiKernelInfoPath, func(ukiLayout UkiLayout) (UkiLayout, error) {
+		return ukiUpdateLayoutKernelCommandLineArgs(ukiLayout, argsToRemove, newArgs)
+	})
+}
+
+func updateUkiLayouts(ukiKernelInfoPath string, updateUkiLayout func(UkiLayout) (UkiLayout, error)) error {
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
+	}
+
+	// Update each kernel's cmdline
+	for kernel, info := range kernelInfo {
+		newUkiLayout, err := updateUkiLayout(info.Layout)
+		if err != nil {
+			return fmt.Errorf("failed to update UKI kernel cmdline layout (kernel='%s'):\n%w", kernel, err)
+		}
+
+		newCmdline, err := mergeUkiCmdlineParts(newUkiLayout.MainCmdline, newUkiLayout.Addons)
+		if err != nil {
+			return fmt.Errorf("failed to update UKI kernel cmdline (kernel='%s'):\n%w", kernel, err)
+		}
+
+		info.Layout = newUkiLayout
+		info.Cmdline = newCmdline
+		kernelInfo[kernel] = info
+	}
+
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
+	}
+
+	return nil
+}
+
+func ukiUpdateLayoutKernelCommandLineArgs(ukiLayout UkiLayout, argsToRemove []string, newArgs []string,
+) (UkiLayout, error) {
+	// Get a mapping of which addons contain which arg names.
+	argNameToAddon, err := ukiSplitNewArgsBetweenAddons(ukiLayout)
+	if err != nil {
+		return UkiLayout{}, err
+	}
+
+	// Split up the new args into specific addons.
+	addonNewArgs := map[string][]string{}
+	for _, newArg := range newArgs {
+		newArgName, _, _ := strings.Cut(newArg, "=")
+
+		// If an arg name is not in any of the addons, then default to the main UKI ("").
+		addon := argNameToAddon[newArgName]
+		addonNewArgs[addon] = append(addonNewArgs[addon], newArg)
+	}
+
+	// Modify the main cmdline.
+	ukiLayout.MainCmdline, err = ukiUpdateKernelCommandLineArgs(ukiLayout.MainCmdline, argsToRemove, addonNewArgs[""])
+	if err != nil {
+		return UkiLayout{}, fmt.Errorf("failed to update main UKI cmdline:\n%w", err)
+	}
+
+	// Modify the addon cmdlines.
+	for addonFileName, addonCmdline := range ukiLayout.Addons {
+		ukiLayout.Addons[addonFileName], err = ukiUpdateKernelCommandLineArgs(addonCmdline, argsToRemove,
+			addonNewArgs[addonFileName])
+		if err != nil {
+			return UkiLayout{}, fmt.Errorf("failed to update UKI addon cmdline (addon='%s'):\n%w", addonFileName, err)
+		}
+	}
+
+	return ukiLayout, nil
+}
+
+func ukiSplitNewArgsBetweenAddons(ukiLayout UkiLayout) (map[string]string, error) {
+	addonFileNames := ukiAllSortedFileNames(ukiLayout)
+
+	argNameToAddon := map[string]string{}
+	for _, addonFileName := range addonFileNames {
+		addonCmdline := ukiLayout.Addons[addonFileName]
+
+		addonArgs, err := parseKernelCmdlineArgs(addonCmdline)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse addon cmdline (addon='%s'):\n%w", addonFileName, err)
+		}
+
+		for _, arg := range addonArgs {
+			// If an arg name appears in multiple addons, then prefer the later UKI.
+			argNameToAddon[arg.Name] = addonFileName
+		}
+	}
+
+	return argNameToAddon, nil
+}
+
+// Removes a set of arguments from a kernel cmdline and adds a new set of arguments in their place.
+// The new args will be placed at the last removed arg, or at the end if no args were removed.
+func ukiUpdateKernelCommandLineArgs(cmdline string, argsToRemove []string, newArgs []string) (string, error) {
+	cmdline = strings.TrimSpace(cmdline)
+	currentArgs, err := parseKernelCmdlineArgs(cmdline)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse cmdline:\n%w", err)
+	}
+
+	// Remove args that match any of the argsToRemove prefixes and build string array
+	var removedArgStrings []string
+	insertIndex := -1
+	for _, arg := range currentArgs {
+		shouldRemove := slices.Contains(argsToRemove, arg.Name)
+		if shouldRemove {
+			insertIndex = len(removedArgStrings)
+		} else {
+			removedArgStrings = append(removedArgStrings, arg.Arg)
+		}
+	}
+
+	if insertIndex < 0 {
+		insertIndex = len(removedArgStrings)
+	}
+
+	// Add new args.
+	newArgStrings := append([]string(nil), removedArgStrings[:insertIndex]...)
+	newArgStrings = append(newArgStrings, newArgs...)
+	newArgStrings = append(newArgStrings, removedArgStrings[insertIndex:]...)
+
+	// Update kernel info
+	newCmdline := GrubArgsToString(newArgStrings)
+	return newCmdline, nil
 }
