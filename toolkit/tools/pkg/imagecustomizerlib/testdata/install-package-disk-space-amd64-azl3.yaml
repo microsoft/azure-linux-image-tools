@@ -3,7 +3,7 @@ storage:
   - partitionTableType: gpt
 
     # Create a small-ish disk.
-    maxSize: 704M
+    maxSize: 710M
     partitions:
     - id: esp
       type: esp
