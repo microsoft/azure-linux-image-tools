@@ -51,6 +51,12 @@ func (p *Pxe) IsValid() error {
 		return fmt.Errorf("invalid kernelCommandLine: %w", err)
 	}
 
+	if len(p.KernelCommandLine.Replace) > 0 {
+		// Supporting this would require updating the format of saved-configs.yaml to handle hierarchical configs, which
+		// is too much effort for now.
+		return fmt.Errorf("invalid kernelCommandLine: 'replace' not supported for 'pxe'")
+	}
+
 	err = p.AdditionalFiles.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid additionalFiles:\n%w", err)

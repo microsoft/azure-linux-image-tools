@@ -59,6 +59,13 @@ os:
     workDir: /mnt/overlays/var/work
 
   kernelCommandLine:
+    replace:
+    - remove:
+      - console
+      add:
+      - console=tty0
+      - console=ttyS0
+      - loglevel=7
     extraCommandLine:
     - "rd.info"
 

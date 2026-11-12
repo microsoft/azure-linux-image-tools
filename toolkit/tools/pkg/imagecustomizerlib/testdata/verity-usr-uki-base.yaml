@@ -64,6 +64,12 @@ os:
     resetType: hard-reset
 
   kernelCommandLine:
+    replace:
+    - remove:
+      - console
+      add:
+      - console=tty0
+      - console=ttyS0
     extraCommandLine:
     - rd.info
 

@@ -279,7 +279,7 @@ func mountIdentifierTypeToImager(mountIdentifierType imagecustomizerapi.MountIde
 	}
 }
 
-func kernelCommandLineToImager(kernelCommandLine imagecustomizerapi.KernelCommandLine,
+func kernelCommandLineToImager(
 	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode,
 ) (configuration.KernelCommandLine, error) {
@@ -289,7 +289,7 @@ func kernelCommandLineToImager(kernelCommandLine imagecustomizerapi.KernelComman
 	}
 
 	imagerKernelCommandLine := configuration.KernelCommandLine{
-		ExtraCommandLine: GrubArgsToString(kernelCommandLine.ExtraCommandLine),
+		ExtraCommandLine: "",
 		SELinux:          imagerSELinuxMode,
 		SELinuxPolicy:    "",
 	}
