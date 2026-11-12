@@ -234,7 +234,8 @@ func aclSetArgValue(cmdline string, name string, value string) (string, bool, er
 	return GrubArgsToString(newArgs), changed, nil
 }
 
-// Checks if two cmdline strings have the same arguments, ignoring ordering.
+// Checks if two cmdline strings have the same arguments, ignoring the ordering of arguments except between those of
+// the same name.
 func cmdlineHasSameArgs(cmdlineA, cmdlineB string) (bool, error) {
 	argsA, err := parseKernelCmdlineArgs(strings.TrimSpace(cmdlineA))
 	if err != nil {
@@ -246,16 +247,18 @@ func cmdlineHasSameArgs(cmdlineA, cmdlineB string) (bool, error) {
 		return false, err
 	}
 
-	aValueCount := map[string]int{}
+	aValues := map[string][]string{}
 	for _, arg := range argsA {
-		aValueCount[arg.Arg] = aValueCount[arg.Arg] + 1
+		aValues[arg.Name] = append(aValues[arg.Name], arg.Arg)
 	}
 
-	bValueCount := map[string]int{}
+	bValues := map[string][]string{}
 	for _, arg := range argsB {
-		bValueCount[arg.Arg] = bValueCount[arg.Arg] + 1
+		bValues[arg.Name] = append(bValues[arg.Name], arg.Arg)
 	}
 
-	same := maps.Equal(aValueCount, bValueCount)
+	same := maps.EqualFunc(aValues, bValues, func(a, b []string) bool {
+		return slices.Equal(a, b)
+	})
 	return same, nil
 }
