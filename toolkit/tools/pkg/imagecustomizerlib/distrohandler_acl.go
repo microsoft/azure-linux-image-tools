@@ -280,7 +280,7 @@ func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot 
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")

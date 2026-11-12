@@ -296,10 +296,10 @@ func (d *azureLinux4DistroHandler) RegenerateInitramfs(ctx context.Context, imag
 
 func (d *azureLinux4DistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, true /*forceGrubMkconfig*/, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4,
 		false /*allowHostGrubInstallFallback*/, grubToolsPackageFedora, grubPcModulesPackageFedora)

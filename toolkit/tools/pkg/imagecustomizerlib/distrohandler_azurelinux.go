@@ -229,7 +229,7 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 
 func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
-	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	selinuxConfig imagecustomizerapi.SELinux,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	// Azure Linux 3.0+ always uses grub2-mkconfig.
@@ -237,7 +237,7 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	// And for new images, always use grub2-mkconfig.
 	forceGrubMkconfig := newImage || d.targetOs.VersionId != "2.0"
 
-	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
+	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		currentSELinuxMode, forceGrubMkconfig, d, resources.AssetsGrubDefFileAzl3, installutils.FedoraGrubEnvRelPath,
 		resources.AssetsGrubStubFileAzl3, installutils.GrubStubDirsAzl3, true, /*allowHostGrubInstallFallback*/
 		grubInstallPackageAzl3, grubModulesPackageAzl3)

@@ -44,12 +44,12 @@ Customizer multiple times instead of using the `baseConfigs` API.
 **Base config items are merged with current config’s items.**
 
 - `.output.artifacts.items`
-- `.os.kernelCommandLine`
 - `.iso.kernelCommandLine`
 - `.pxe.kernelCommandLine`
 
 **Base config items are processed first, followed by current config’s.**
 
+- `.os.kernelCommandLine`
 - `.os.users`
 - `.os.groups`
 - `.os.services`
