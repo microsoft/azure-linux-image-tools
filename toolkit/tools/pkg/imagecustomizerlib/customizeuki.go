@@ -804,6 +804,7 @@ func buildUkiAddon(kernel string, addonFileName string, kernelArgs string, stubP
 ) error {
 	if kernelArgs == "" {
 		logger.Log.Infof("UKI addon (%s) has no kernel command-line args left; not adding it", addonFileName)
+		return nil
 	}
 
 	// Create addon directory: <uki-path>.extra.d/
