@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -1493,7 +1492,7 @@ func verityRootInlineUkiConfigFile(baseImageInfo testBaseImageInfo) string {
 	case baseImageVersionAzl3:
 		return "verity-root-inline-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-root-inline-uki-%s-azl4.yaml", runtime.GOARCH)
+		return "verity-root-inline-uki-azl4.yaml"
 	default:
 		panic(fmt.Sprintf("unsupported base image version for verity-root-inline-uki test: %s", baseImageInfo.Version))
 	}

@@ -894,7 +894,7 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 	case baseImageVersionAzl3:
 		return "verity-usr-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-usr-uki-%s-azl4.yaml", runtime.GOARCH)
+		return "verity-usr-uki-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for verity-usr-uki test: %s", baseImageInfo.Version)
 		return ""
@@ -936,7 +936,7 @@ func ukiNoResetConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string 
 	case baseImageVersionAzl3:
 		return "uki-noreset-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("uki-noreset-%s-azl4.yaml", runtime.GOARCH)
+		return "uki-noreset-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for uki-noreset test: %s", baseImageInfo.Version)
 		return ""
@@ -950,7 +950,7 @@ func verityRootUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) stri
 	case baseImageVersionAzl3:
 		return "verity-root-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-root-uki-%s-azl4.yaml", runtime.GOARCH)
+		return "verity-root-uki-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for verity-root-uki test: %s", baseImageInfo.Version)
 		return ""
@@ -964,7 +964,7 @@ func verityUsrInlineUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo)
 	case baseImageVersionAzl3:
 		return "verity-usr-inline-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("verity-usr-inline-uki-%s-azl4.yaml", runtime.GOARCH)
+		return "verity-usr-inline-uki-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for verity-usr-inline-uki test: %s", baseImageInfo.Version)
 		return ""

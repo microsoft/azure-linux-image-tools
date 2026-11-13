@@ -1,0 +1,14 @@
+previewFeatures:
+- base-configs
+- preview-distro-version
+
+baseConfigs:
+- path: verity-usr-uki-base.yaml
+- path: systemd-boot-azl4.yaml
+
+os:
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - device-mapper
