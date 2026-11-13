@@ -616,18 +616,19 @@ func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.Ch
 func detectBootloaderTypeWithPackageQuery(isInstalled func(string) (bool, error),
 	grubEfiPackages, systemdBootPackages []string,
 ) (cosiapi.BootloaderType, string, error) {
-	mshv := true
+	// TODO: Decide how to classify efitreeloader-only and MSHV-only boot chains.
+	hasEfitreeloaderMshvChain := true
 	for _, pkg := range []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx"} {
 		installed, err := isInstalled(pkg)
 		if err != nil {
 			return "", "", err
 		}
 		if !installed {
-			mshv = false
+			hasEfitreeloaderMshvChain = false
 			break
 		}
 	}
-	if !mshv {
+	if !hasEfitreeloaderMshvChain {
 		for _, pkg := range grubEfiPackages {
 			installed, err := isInstalled(pkg)
 			if err != nil {
@@ -645,13 +646,13 @@ func detectBootloaderTypeWithPackageQuery(isInstalled func(string) (bool, error)
 			return "", "", err
 		}
 		if installed {
-			if mshv {
+			if hasEfitreeloaderMshvChain {
 				return cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot, pkg, nil
 			}
 			return cosiapi.BootloaderTypeSystemdBoot, pkg, nil
 		}
 	}
-	if mshv {
+	if hasEfitreeloaderMshvChain {
 		return "", "", fmt.Errorf("efitreeloader/MSHV boot chain requires systemd-boot")
 	}
 

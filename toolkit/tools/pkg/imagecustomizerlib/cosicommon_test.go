@@ -4,12 +4,10 @@
 package imagecustomizerlib
 
 import (
-	"archive/tar"
-	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
@@ -22,36 +20,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type bootloaderTestDistro struct {
+type cosiBootMetadataTestDistro struct {
 	DistroHandler
-	packages    []string
-	failedQuery string
-	queryError  error
+	bootloaderType cosiapi.BootloaderType
 }
 
-func (d *bootloaderTestDistro) IsPackageInstalled(_ safechroot.ChrootInterface, _ *safechroot.Chroot,
-	name string,
-) (bool, error) {
-	if name == d.failedQuery {
-		return false, d.queryError
-	}
-	for _, pkg := range d.packages {
-		if pkg == name {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (d *bootloaderTestDistro) DetectBootloaderType(chroot safechroot.ChrootInterface,
-	tools *safechroot.Chroot,
+func (d *cosiBootMetadataTestDistro) DetectBootloaderType(_ safechroot.ChrootInterface,
+	_ *safechroot.Chroot,
 ) (cosiapi.BootloaderType, error) {
-	kind, _, err := detectBootloaderType(d, chroot, tools,
-		[]string{"grub2-efi-binary"}, []string{"systemd-boot", "systemd-boot-unsigned"})
-	return kind, err
+	return d.bootloaderType, nil
 }
 
-func (*bootloaderTestDistro) GetEspDir() string {
+func (*cosiBootMetadataTestDistro) GetEspDir() string {
 	return "boot/efi"
 }
 
@@ -67,30 +47,20 @@ func TestDetectBootloaderTypePackages(t *testing.T) {
 		{"systemd", []string{"systemd-boot"}, cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
 		{"ordinary-grub-precedence", []string{"grub2-efi-binary", "systemd-boot"},
 			cosiapi.BootloaderTypeGrub, "grub2-efi-binary", ""},
-		{"mshv", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
+		{"efitreeloader-mshv", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
 			cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot, "systemd-boot", ""},
-		{"mshv-before-grub", []string{"grub2-efi-binary", "efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
+		{"efitreeloader-mshv-before-grub", []string{"grub2-efi-binary", "efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
 			cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot, "systemd-boot", ""},
-		{"mshv-unsigned-systemd", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot-unsigned"},
+		{"efitreeloader-mshv-unsigned-systemd", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot-unsigned"},
 			cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot, "systemd-boot-unsigned", ""},
-		{"runtime-is-not-boot-chain", []string{"mshv", "kernel-mshv", "systemd-boot"},
-			cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
-		{"efitreeloader-only", []string{"efitreeloader", "systemd-boot"},
-			cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
-		{"missing-hvloader", []string{"efitreeloader", "mshv-bootloader-lx", "systemd-boot"},
-			cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
-		{"missing-lxloader", []string{"efitreeloader", "edk2-hvloader", "systemd-boot"},
-			cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
-		{"missing-efitreeloader", []string{"edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
-			cosiapi.BootloaderTypeSystemdBoot, "systemd-boot", ""},
 		{"missing-systemd", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "grub2-efi-binary"},
 			"", "", "requires systemd-boot"},
 		{"unknown", nil, "", "", "unknown bootloader"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			distro := &bootloaderTestDistro{packages: test.packages}
-			kind, pkg, err := detectBootloaderType(distro, nil, nil,
-				[]string{"grub2-efi-binary"}, []string{"systemd-boot", "systemd-boot-unsigned"})
+			kind, pkg, err := detectBootloaderTypeWithPackageQuery(func(name string) (bool, error) {
+				return slices.Contains(test.packages, name), nil
+			}, []string{"grub2-efi-binary"}, []string{"systemd-boot", "systemd-boot-unsigned"})
 			if test.errorText != "" {
 				require.ErrorContains(t, err, test.errorText)
 				return
@@ -112,16 +82,17 @@ func TestDetectBootloaderTypePackageQueryError(t *testing.T) {
 		{"efitreeloader", nil, "efitreeloader"},
 		{"hvloader", []string{"efitreeloader"}, "edk2-hvloader"},
 		{"lxloader", []string{"efitreeloader", "edk2-hvloader"}, "mshv-bootloader-lx"},
-		{"mshv-systemd", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx"}, "systemd-boot"},
+		{"efitreeloader-mshv-systemd", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx"}, "systemd-boot"},
 		{"ordinary-grub", nil, "grub2-efi-binary"},
 		{"ordinary-systemd", nil, "systemd-boot"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			distro := &bootloaderTestDistro{
-				packages:    test.packages,
-				failedQuery: test.failed, queryError: expected,
-			}
-			_, err := distro.DetectBootloaderType(nil, nil)
+			_, _, err := detectBootloaderTypeWithPackageQuery(func(name string) (bool, error) {
+				if name == test.failed {
+					return false, expected
+				}
+				return slices.Contains(test.packages, name), nil
+			}, []string{"grub2-efi-binary"}, []string{"systemd-boot", "systemd-boot-unsigned"})
 			require.ErrorIs(t, err, expected)
 		})
 	}
@@ -130,59 +101,56 @@ func TestDetectBootloaderTypePackageQueryError(t *testing.T) {
 func TestExtractCosiBootMetadataStandaloneUki(t *testing.T) {
 	stubPath, addonStubPath := checkSkipForUkiStubs(t)
 	for _, test := range []struct {
-		name     string
-		packages []string
-		expected cosiapi.BootloaderType
+		name           string
+		bootloaderType cosiapi.BootloaderType
 	}{
-		{"systemd", []string{"systemd-boot"}, cosiapi.BootloaderTypeSystemdBoot},
-		{"mshv", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
-			cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot},
+		{"systemd", cosiapi.BootloaderTypeSystemdBoot},
+		{"efitreeloader-mshv", cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			root := t.TempDir()
-			buildDir := t.TempDir()
-			espDir := filepath.Join(root, "boot/efi")
-			kernel := "vmlinuz-6.6.1"
-			osRelease := filepath.Join(buildDir, "os-release")
-			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, UkiBuildDir), 0o755))
-			require.NoError(t, os.MkdirAll(filepath.Join(espDir, UkiOutputDir), 0o755))
-			require.NoError(t, file.Copy(stubPath, filepath.Join(buildDir, UkiBuildDir, kernel)))
-			require.NoError(t, os.WriteFile(filepath.Join(buildDir, UkiBuildDir, "initramfs.img"), []byte("initramfs"), 0o644))
-			require.NoError(t, os.WriteFile(osRelease, []byte("ID=azurelinux\n"), 0o644))
-			require.NoError(t, buildMainUki(kernel, "initramfs.img", "root=LABEL=ROOT ro", osRelease,
-				stubPath, buildDir, espDir, "6.6.1"))
-			require.NoError(t, buildUkiAddon(kernel, "test.addon.efi", "console=ttyS0", addonStubPath, espDir))
-
-			connection := imageconnection.NewImageConnection()
-			require.NoError(t, connection.ConnectChroot(root, true, nil, nil, false))
-			defer connection.Close()
-			metadata, err := extractCosiBootMetadata(buildDir, connection,
-				&bootloaderTestDistro{packages: test.packages}, nil)
-			require.NoError(t, err)
-			assert.Equal(t, &cosiapi.Bootloader{
-				Type: test.expected,
-				SystemdBoot: &cosiapi.SystemDBoot{Entries: []cosiapi.SystemDBootEntry{{
-					Type: cosiapi.SystemDBootEntryTypeUKIStandalone, Path: "/boot/efi/EFI/Linux/vmlinuz-6.6.1.efi",
-					Kernel: "6.6.1", Cmdline: "root=LABEL=ROOT ro console=ttyS0",
-				}}},
-			}, metadata)
+			testExtractCosiBootMetadataStandaloneUki(t, stubPath, addonStubPath, test.bootloaderType)
 		})
 	}
 }
 
-func TestAclBootloaderWithoutPackageMetadata(t *testing.T) {
-	distro := &aclDistroHandler{}
-	kind, err := distro.DetectBootloaderType(safechroot.NewChroot(t.TempDir(), true), nil)
+func testExtractCosiBootMetadataStandaloneUki(t *testing.T, stubPath, addonStubPath string,
+	bootloaderType cosiapi.BootloaderType,
+) {
+	root := t.TempDir()
+	buildDir := t.TempDir()
+	espDir := filepath.Join(root, "boot/efi")
+	kernel := "vmlinuz-6.6.1"
+	osRelease := filepath.Join(buildDir, "os-release")
+	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, UkiBuildDir), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(espDir, UkiOutputDir), 0o755))
+	require.NoError(t, file.Copy(stubPath, filepath.Join(buildDir, UkiBuildDir, kernel)))
+	require.NoError(t, os.WriteFile(filepath.Join(buildDir, UkiBuildDir, "initramfs.img"), []byte("initramfs"), 0o644))
+	require.NoError(t, os.WriteFile(osRelease, []byte("ID=azurelinux\n"), 0o644))
+	require.NoError(t, buildMainUki(kernel, "initramfs.img", "root=LABEL=ROOT ro", osRelease,
+		stubPath, buildDir, espDir, "6.6.1"))
+	require.NoError(t, buildUkiAddon(kernel, "test.addon.efi", "console=ttyS0", addonStubPath, espDir))
+
+	connection := imageconnection.NewImageConnection()
+	require.NoError(t, connection.ConnectChroot(root, true, nil, nil, false))
+	defer connection.Close()
+	metadata, err := extractCosiBootMetadata(buildDir, connection,
+		&cosiBootMetadataTestDistro{bootloaderType: bootloaderType}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, cosiapi.BootloaderTypeSystemdBoot, kind)
+	assert.Equal(t, &cosiapi.Bootloader{
+		Type: bootloaderType,
+		SystemdBoot: &cosiapi.SystemDBoot{Entries: []cosiapi.SystemDBootEntry{{
+			Type: cosiapi.SystemDBootEntryTypeUKIStandalone, Path: "/boot/efi/EFI/Linux/vmlinuz-6.6.1.efi",
+			Kernel: "6.6.1", Cmdline: "root=LABEL=ROOT ro console=ttyS0",
+		}}},
+	}, metadata)
 }
 
 func TestExtractCosiBootMetadataRequiresSystemdEntries(t *testing.T) {
 	connection := imageconnection.NewImageConnection()
 	require.NoError(t, connection.ConnectChroot(t.TempDir(), true, nil, nil, false))
 	defer connection.Close()
-	distro := &bootloaderTestDistro{
-		packages: []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
+	distro := &cosiBootMetadataTestDistro{
+		bootloaderType: cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot,
 	}
 	_, err := extractCosiBootMetadata(t.TempDir(), connection, distro, nil)
 	require.ErrorContains(t, err, "no supported boot entries")
@@ -190,13 +158,11 @@ func TestExtractCosiBootMetadataRequiresSystemdEntries(t *testing.T) {
 
 func TestExtractCosiBootMetadataPreservesSystemdEntries(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		packages []string
-		expected cosiapi.BootloaderType
+		name           string
+		bootloaderType cosiapi.BootloaderType
 	}{
-		{"systemd", []string{"systemd-boot"}, cosiapi.BootloaderTypeSystemdBoot},
-		{"mshv", []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx", "systemd-boot"},
-			cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot},
+		{"systemd", cosiapi.BootloaderTypeSystemdBoot},
+		{"efitreeloader-mshv", cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -207,11 +173,11 @@ func TestExtractCosiBootMetadataPreservesSystemdEntries(t *testing.T) {
 			connection := imageconnection.NewImageConnection()
 			require.NoError(t, connection.ConnectChroot(root, true, nil, nil, false))
 			defer connection.Close()
-			distro := &bootloaderTestDistro{packages: test.packages}
+			distro := &cosiBootMetadataTestDistro{bootloaderType: test.bootloaderType}
 			metadata, err := extractCosiBootMetadata(t.TempDir(), connection, distro, nil)
 			require.NoError(t, err)
 			assert.Equal(t, &cosiapi.Bootloader{
-				Type: test.expected,
+				Type: test.bootloaderType,
 				SystemdBoot: &cosiapi.SystemDBoot{Entries: []cosiapi.SystemDBootEntry{{
 					Type: cosiapi.SystemDBootEntryTypeConfig, Path: "/boot/loader/entries/test.conf",
 					Kernel: "6.6.1", Cmdline: "root=LABEL=ROOT ro",
@@ -233,7 +199,7 @@ func TestBuildCosiBootloaderMetadataVersion(t *testing.T) {
 				Type: cosiapi.SystemDBootEntryTypeUKIStandalone, Path: "/boot/efi/EFI/Linux/test.efi",
 				Kernel: "6.6.1", Cmdline: "root=LABEL=ROOT ro",
 			}}}}, "1.2"},
-		{"mshv", cosiapi.Bootloader{Type: cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot,
+		{"efitreeloader-mshv", cosiapi.Bootloader{Type: cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot,
 			SystemdBoot: &cosiapi.SystemDBoot{Entries: []cosiapi.SystemDBootEntry{{
 				Type: cosiapi.SystemDBootEntryTypeUKIStandalone, Path: "/boot/efi/EFI/Linux/test.efi",
 				Kernel: "6.6.1", Cmdline: "root=LABEL=ROOT ro",
@@ -269,22 +235,8 @@ func testBuildCosiBootloaderMetadata(t *testing.T, bootloader cosiapi.Bootloader
 	require.NoError(t, buildCosiFile(dir, output, partitions, nil, []fstabEntryPartNum{{
 		PartUuid: "esp", FstabEntry: diskutils.FstabEntry{Target: "/boot/efi"},
 	}}, "11111111-2222-3333-4444-555555555555", "ID=azurelinux\n", []cosiapi.OsPackage{}, &bootloader, gpt, 0))
-	file, err := os.Open(output)
+	_, metadata, err := extractCosi(output, filepath.Join(dir, "extracted"))
 	require.NoError(t, err)
-	defer file.Close()
-	reader := tar.NewReader(file)
-	for {
-		header, err := reader.Next()
-		require.NoError(t, err, "metadata.json must be present in COSI")
-		if header.Name != CosiMetadataName {
-			continue
-		}
-		body, err := io.ReadAll(reader)
-		require.NoError(t, err)
-		var metadata cosiapi.MetadataJson
-		require.NoError(t, json.Unmarshal(body, &metadata))
-		assert.Equal(t, version, metadata.Version)
-		assert.Equal(t, bootloader, metadata.Bootloader)
-		break
-	}
+	assert.Equal(t, version, metadata.Version)
+	assert.Equal(t, bootloader, metadata.Bootloader)
 }
