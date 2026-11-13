@@ -205,7 +205,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(addonDir, "acl-ipe-policy.p7b.cred"), cred, 0o644))
 
 	// Record the layout, and check it for changes.
-	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forCreate*/)
 	require.NoError(t, err)
 	assert.Equal(t, &UkiLayout{
 		MainCmdline: mainCmdline,

@@ -36,7 +36,7 @@ type UkiLayout struct {
 
 // readUkiBaseLayouts reads the kernel command line and the layout of each UKI, and saves a copy of the other files in
 // each UKI's addon directory so that they can be put back with the rebuilt UKI.
-func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInfo, error) {
+func readUkiBaseLayouts(espDir string, buildDir string, forCreate bool) (map[string]UkiKernelInfo, error) {
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get UKI files:\n%w", err)
@@ -49,7 +49,7 @@ func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInf
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		layout, err := readUkiLayout(ukiFile, buildDir)
+		layout, err := readUkiLayout(ukiFile, buildDir, forCreate)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
@@ -76,8 +76,8 @@ func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInf
 
 // readUkiLayout reads how a UKI's command line is split across the main UKI and its addons, and the SHA-256 of each
 // other file in its addon directory.
-func readUkiLayout(ukiFile string, buildDir string) (UkiLayout, error) {
-	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
+func readUkiLayout(ukiFile string, buildDir string, forCreate bool) (UkiLayout, error) {
+	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir, forCreate)
 	if err != nil {
 		return UkiLayout{}, err
 	}
@@ -173,7 +173,7 @@ func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo
 			continue
 		}
 
-		layout, err := readUkiLayout(ukiFile, buildDir)
+		layout, err := readUkiLayout(ukiFile, buildDir, false /*forCreate*/)
 		if err != nil {
 			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}

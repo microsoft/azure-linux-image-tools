@@ -1077,7 +1077,7 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 // extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
 // It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
 func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
-	mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir)
+	mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir, false /*forCreate*/)
 	if err != nil {
 		return "", err
 	}
@@ -1086,7 +1086,7 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 }
 
 // extractUkiCmdlineParts returns the main UKI's .cmdline as found and each addon's .cmdline, trimmed, by file name.
-func extractUkiCmdlineParts(ukiFile string, buildDir string) (string, map[string]string, error) {
+func extractUkiCmdlineParts(ukiFile string, buildDir string, forCreate bool) (string, map[string]string, error) {
 	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
@@ -1107,8 +1107,9 @@ func extractUkiCmdlineParts(ukiFile string, buildDir string) (string, map[string
 			}
 
 			addonCmdline = strings.TrimSpace(addonCmdline)
-			if addonCmdline == "" {
-				// An addon without a command line carries something else (e.g. a devicetree).
+			if forCreate && addonCmdline == "" {
+				// An addon without a command line carries something else (e.g. a devicetree), which currently isn't
+				// handled.
 				return "", nil, fmt.Errorf("base image addon (%s) has no kernel command line", addonFilePath)
 			}
 

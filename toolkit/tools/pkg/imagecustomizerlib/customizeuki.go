@@ -139,7 +139,7 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 ) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
-	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forCreate*/)
 	if err != nil {
 		return err
 	}
