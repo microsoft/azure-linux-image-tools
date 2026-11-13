@@ -200,8 +200,20 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) (cosiapi.BootloaderType, error) {
-	// ACL always uses systemd-boot.
-	return cosiapi.BootloaderTypeSystemdBoot, nil
+	packages, err := d.GetAllPackagesFromChroot(imageChroot, toolsChroot)
+	if err != nil {
+		return "", err
+	}
+	if len(packages) == 0 {
+		// Stock ACL can omit package metadata; preserve its existing systemd-boot classification.
+		return cosiapi.BootloaderTypeSystemdBoot, nil
+	}
+	bootloaderType, _, err := detectBootloaderTypeWithPackageQuery(func(name string) (bool, error) {
+		return slices.ContainsFunc(packages, func(pkg cosiapi.OsPackage) bool {
+			return pkg.Name == name
+		}), nil
+	}, nil, []string{systemdBootPackage})
+	return bootloaderType, err
 }
 
 func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface,

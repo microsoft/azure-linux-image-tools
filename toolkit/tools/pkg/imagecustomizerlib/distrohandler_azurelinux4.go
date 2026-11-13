@@ -185,7 +185,8 @@ func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.C
 	if err != nil {
 		return bootloaderType, err
 	}
-	if bootloaderType == cosiapi.BootloaderTypeSystemdBoot {
+	if bootloaderType == cosiapi.BootloaderTypeSystemdBoot ||
+		bootloaderType == cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot {
 		d.warnIfUnsignedSystemdBootPackage(detectedPackage)
 	}
 	return bootloaderType, nil

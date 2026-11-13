@@ -3,8 +3,9 @@ package cosiapi
 type BootloaderType string
 
 const (
-	BootloaderTypeGrub        BootloaderType = "grub"
-	BootloaderTypeSystemdBoot BootloaderType = "systemd-boot"
+	BootloaderTypeGrub                         BootloaderType = "grub"
+	BootloaderTypeSystemdBoot                  BootloaderType = "systemd-boot"
+	BootloaderTypeEfitreeloaderMshvSystemdBoot BootloaderType = "efitreeloader-mshv-systemd-boot"
 )
 
 type SystemDBootEntryType string
