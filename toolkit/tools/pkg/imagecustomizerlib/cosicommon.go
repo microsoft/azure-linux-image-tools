@@ -246,6 +246,9 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			MaxWindowLog: compressionLong,
 		},
 	}
+	if metadata.Bootloader.Type == cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot {
+		metadata.Version = "1.3"
+	}
 
 	// Copy updated metadata
 	for i, data := range imageData {
@@ -394,7 +397,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 	chrootDir := imageConnection.Chroot().RootDir()
 
 	switch bootloaderType {
-	case cosiapi.BootloaderTypeSystemdBoot:
+	case cosiapi.BootloaderTypeSystemdBoot, cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot:
 		// Try extracting systemd-boot entries (UKI + config or config-only)
 		configEntries, err := extractSystemdBootEntriesIfPresent(chrootDir)
 		if err != nil {
@@ -402,7 +405,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 		}
 		if len(configEntries) > 0 {
 			return &cosiapi.Bootloader{
-				Type:        cosiapi.BootloaderTypeSystemdBoot,
+				Type:        bootloaderType,
 				SystemdBoot: &cosiapi.SystemDBoot{Entries: configEntries},
 			}, nil
 		}
@@ -414,7 +417,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 		}
 		if len(ukiEntries) > 0 {
 			return &cosiapi.Bootloader{
-				Type:        cosiapi.BootloaderTypeSystemdBoot,
+				Type:        bootloaderType,
 				SystemdBoot: &cosiapi.SystemDBoot{Entries: ukiEntries},
 			}, nil
 		}
@@ -604,19 +607,53 @@ func padToMegabyte(imageFile string) error {
 func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot, grubEfiPackages, systemdBootPackages []string,
 ) (cosiapi.BootloaderType, string, error) {
-	for _, pkg := range grubEfiPackages {
+	return detectBootloaderTypeWithPackageQuery(func(pkg string) (bool, error) {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed, err := distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
+		return distroHandler.IsPackageInstalled(imageChroot, toolsChroot, pkg)
+	}, grubEfiPackages, systemdBootPackages)
+}
+
+func detectBootloaderTypeWithPackageQuery(isInstalled func(string) (bool, error),
+	grubEfiPackages, systemdBootPackages []string,
+) (cosiapi.BootloaderType, string, error) {
+	// TODO: Decide how to classify efitreeloader-only and MSHV-only boot chains.
+	hasEfitreeloaderMshvChain := true
+	for _, pkg := range []string{"efitreeloader", "edk2-hvloader", "mshv-bootloader-lx"} {
+		installed, err := isInstalled(pkg)
+		if err != nil {
+			return "", "", err
+		}
+		if !installed {
+			hasEfitreeloaderMshvChain = false
+			break
+		}
+	}
+	if !hasEfitreeloaderMshvChain {
+		for _, pkg := range grubEfiPackages {
+			installed, err := isInstalled(pkg)
+			if err != nil {
+				return "", "", err
+			}
+			if installed {
+				return cosiapi.BootloaderTypeGrub, pkg, nil
+			}
+		}
+	}
+
+	for _, pkg := range systemdBootPackages {
+		installed, err := isInstalled(pkg)
 		if err != nil {
 			return "", "", err
 		}
 		if installed {
-			return cosiapi.BootloaderTypeGrub, pkg, nil
+			if hasEfitreeloaderMshvChain {
+				return cosiapi.BootloaderTypeEfitreeloaderMshvSystemdBoot, pkg, nil
+			}
+			return cosiapi.BootloaderTypeSystemdBoot, pkg, nil
 		}
 	}
-	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, toolsChroot, systemdBootPackages)
-	if err == nil {
-		return cosiapi.BootloaderTypeSystemdBoot, pkg, nil
+	if hasEfitreeloaderMshvChain {
+		return "", "", fmt.Errorf("efitreeloader/MSHV boot chain requires systemd-boot")
 	}
 
 	allPackages := slices.Concat(grubEfiPackages, systemdBootPackages)
