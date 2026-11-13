@@ -37,7 +37,6 @@ const (
 
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
 
-	purlNamespaceAzureLinux4 = purlNamespaceAzureLinux
 	rpmDatabasePathAzl4      = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
@@ -162,7 +161,7 @@ func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+	return getAllPackagesFromChrootRpm(imageChroot, rpmDatabasePathAzl4)
 }
 
 func (d *azureLinux4DistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,

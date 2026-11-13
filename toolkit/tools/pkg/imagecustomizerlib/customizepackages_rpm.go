@@ -16,10 +16,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/package-url/packageurl-go"
-	"github.com/sirupsen/logrus"
 )
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
@@ -280,33 +278,24 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 }
 
 // getAllPackagesFromChrootRpm retrieves all installed packages from an RPM-based system
-func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, toolsChroot *safechroot.Chroot,
+func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface, rpmDatabasePath string,
 ) ([]cosiapi.OsPackage, error) {
-	args := []string{"-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n"}
-
-	args = append(getRpmRootArgs(toolsChroot), args...)
-	chroot := getRpmChroot(imageChroot, toolsChroot)
-
-	out, _, err := shell.NewExecBuilder("rpm", args...).
-		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(chroot.ChrootDir()).
-		ExecuteCaptureOutput()
+	rpmPackages, err := queryRpmDatabase(imageChroot, rpmDatabasePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
+		return nil, err
 	}
 
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []cosiapi.OsPackage
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) != 4 {
-			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
+	packages := make([]cosiapi.OsPackage, 0, len(rpmPackages))
+	for _, packageInfo := range rpmPackages {
+		arch := packageInfo.Arch
+		if arch == "" {
+			arch = "(none)"
 		}
 		packages = append(packages, cosiapi.OsPackage{
-			Name:    parts[0],
-			Version: parts[1],
-			Release: parts[2],
-			Arch:    parts[3],
+			Name:    packageInfo.Name,
+			Version: packageInfo.Version,
+			Release: packageInfo.Release,
+			Arch:    arch,
 		})
 	}
 
@@ -324,6 +313,15 @@ func getRpmChroot(imageChroot safechroot.ChrootInterface, toolsChroot *safechroo
 
 func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabasePath string, purlNamespace string,
 ) ([]spdxmanifest.Package, error) {
+	packages, err := queryRpmDatabase(imageChroot, rpmDatabasePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return newManifestPackagesFromRpmPackages(packages, purlNamespace)
+}
+
+func queryRpmDatabase(imageChroot safechroot.ChrootInterface, rpmDatabasePath string) ([]*rpmdb.PackageInfo, error) {
 	databasePath := filepath.Join(imageChroot.RootDir(), rpmDatabasePath)
 
 	walInfo, err := os.Stat(databasePath + "-wal")
@@ -348,7 +346,7 @@ func listInstalledPackagesRpm(imageChroot safechroot.ChrootInterface, rpmDatabas
 		return nil, fmt.Errorf("failed to close RPM database (path='%s'):\n%w", databasePath, err)
 	}
 
-	return newManifestPackagesFromRpmPackages(packages, purlNamespace)
+	return packages, nil
 }
 
 func newManifestPackagesFromRpmPackages(packages []*rpmdb.PackageInfo, purlNamespace string,

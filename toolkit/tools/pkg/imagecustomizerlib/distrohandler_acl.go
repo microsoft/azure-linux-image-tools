@@ -140,22 +140,8 @@ func (d *aclDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.C
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	// This function is only used for metadata within a COSI file.
-	// So, it doesn't matter too much if the package list can't be provided.
-
-	// Check if the rpm command is available.
-	// (If toolsChroot is being used, then assume that the rpm command is available.)
-	if toolsChroot == nil {
-		_, err := shell.LookPathChroot("rpm", imageChroot.ChrootDir())
-		if err != nil {
-			// RPM command is not found. Return an empty list so the COSI
-			// metadata's osPackages field is populated (as []) rather than null.
-			return []cosiapi.OsPackage{}, nil
-		}
-	}
-
 	// Check if the rpm database is available.
-	exists, err := file.PathExists(filepath.Join(imageChroot.RootDir(), "/var/lib/rpm"))
+	exists, err := file.PathExists(filepath.Join(imageChroot.RootDir(), rpmDatabasePathAzl3))
 	if err != nil {
 		// RPM database is not found.
 		return nil, fmt.Errorf("failed to check if rpm db exists:\n%w", err)
@@ -167,13 +153,7 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 		return []cosiapi.OsPackage{}, nil
 	}
 
-	// Get the list of packages.
-	packages, err := getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
-	if err != nil {
-		return nil, err
-	}
-
-	return packages, nil
+	return getAllPackagesFromChrootRpm(imageChroot, rpmDatabasePathAzl3)
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
