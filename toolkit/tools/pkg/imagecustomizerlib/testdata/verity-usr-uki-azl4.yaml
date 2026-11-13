@@ -12,9 +12,3 @@ os:
     - openssh-server
     - veritysetup
     - device-mapper
-
-  users:
-  - name: root
-    password:
-      type: plain-text
-      value: hello
