@@ -37,7 +37,7 @@ const (
 
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
 
-	rpmDatabasePathAzl4      = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
+	rpmDatabasePathAzl4 = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
