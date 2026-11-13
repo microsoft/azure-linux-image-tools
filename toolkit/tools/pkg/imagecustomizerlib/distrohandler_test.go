@@ -15,10 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Ensure the ACL package list is populated as an empty (non-nil) list when the
-// rpm database can't be read, so the COSI metadata's osPackages field
-// serializes as [] rather than null.
-func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpm(t *testing.T) {
+func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmOrDatabase(t *testing.T) {
 	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
 
 	// An empty chroot dir has no rpm command and no rpm database.
@@ -31,10 +28,6 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpm(t *testing.T) {
 	assert.Empty(t, packages)
 }
 
-// Ensure the ACL package list is populated as an empty (non-nil) list when the
-// rpm command exists but the rpm database is missing, so the COSI metadata's
-// osPackages field serializes as [] rather than null. This exercises the
-// rpm-db-missing branch (the no-rpm test above returns before reaching it).
 func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
 	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
 
@@ -44,6 +37,8 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
 	err := os.MkdirAll(rpmBinDir, 0o755)
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(rpmBinDir, "rpm"), []byte("#!/bin/sh\n"), 0o755)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Dir(filepath.Join(chrootDir, rpmDatabasePathAzl3)), 0o755)
 	assert.NoError(t, err)
 
 	chroot := safechroot.NewChroot(chrootDir, true)

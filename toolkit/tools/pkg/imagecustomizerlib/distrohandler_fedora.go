@@ -201,7 +201,7 @@ func (d *fedoraDistroHandler) GetPackageInformation(imageChroot *safechroot.Chro
 func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+	return getAllPackagesFromChrootRpm(imageChroot, rpmDatabasePathFedora)
 }
 
 func (d *fedoraDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
