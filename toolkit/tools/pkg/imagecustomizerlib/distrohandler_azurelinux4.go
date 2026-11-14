@@ -63,6 +63,8 @@ var bootloaderFilesConfigAzl4 = map[string]BootFilesArchConfig{
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
 		ukiAddonStubBinary:          ukiAddonStubx64Binary,
 		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+		blsEntriesEspPath:           osEspDir + "/" + loaderEntriesDir,
+		blsEntriesXbootldrPath:      osXbootldrDir + "/" + loaderEntriesDir,
 	},
 	"arm64": {
 		bootBinary:                  bootAA64BinaryFedora,
@@ -79,6 +81,8 @@ var bootloaderFilesConfigAzl4 = map[string]BootFilesArchConfig{
 		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
 		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
 		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+		blsEntriesEspPath:           osEspDir + "/" + loaderEntriesDir,
+		blsEntriesXbootldrPath:      osXbootldrDir + "/" + loaderEntriesDir,
 	},
 }
 

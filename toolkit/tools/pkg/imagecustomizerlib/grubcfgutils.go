@@ -887,6 +887,16 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface, distro
 	selinuxConfigFile := distroHandler.GetSELinuxConfigFile()
 	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 
+	exists, err := file.PathExists(selinuxConfigFilePath)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to check if SELinux config file exists (%s):\n%w",
+			selinuxConfigFile, err)
+	}
+	if !exists {
+		// SELinux config file doesn't exist. So, assume SELinux is disabled.
+		return imagecustomizerapi.SELinuxModeDisabled, nil
+	}
+
 	// Read the SELinux config file.
 	selinuxConfig, err := file.Read(selinuxConfigFilePath)
 	if err != nil {

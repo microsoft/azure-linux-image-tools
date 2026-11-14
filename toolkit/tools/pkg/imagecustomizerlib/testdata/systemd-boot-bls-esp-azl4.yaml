@@ -1,0 +1,28 @@
+#
+# WARNING: This file layout is not supported by the Azure Linux 4.0 RPMs. If you update the kernel package, the
+# new kernel and initramfs file will not be automatically placed in the UEFI System Partition (ESP).
+#
+previewFeatures:
+- base-configs
+- preview-distro-version
+
+baseConfigs:
+- path: systemd-boot-azl4.yaml
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Move the BLS entries into the ESP.
+      mkdir -p /boot/efi/loader/entries
+      cp -v /boot/loader/entries/* /boot/efi/loader/entries
+      rm -rf /boot/loader/entries
+
+      cat /boot/efi/loader/entries/*
+
+      # Move the kernel into the ESP.
+      mkdir -p /boot/efi/boot
+      cp -v /boot/vmlinuz-* /boot/efi/boot
+      cp -v /boot/initramfs-* /boot/efi/boot
+      rm -rf /boot/vmlinuz-* /boot/initramfs-*
