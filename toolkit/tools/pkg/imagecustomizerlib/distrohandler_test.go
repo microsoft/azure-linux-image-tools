@@ -31,14 +31,9 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmOrDatabase(t *testi
 func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
 	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
 
-	// Provide an rpm command in the chroot PATH but no rpm database.
+	// Provide the database directory but no database file.
 	chrootDir := t.TempDir()
-	rpmBinDir := filepath.Join(chrootDir, "usr", "bin")
-	err := os.MkdirAll(rpmBinDir, 0o755)
-	assert.NoError(t, err)
-	err = os.WriteFile(filepath.Join(rpmBinDir, "rpm"), []byte("#!/bin/sh\n"), 0o755)
-	assert.NoError(t, err)
-	err = os.MkdirAll(filepath.Dir(filepath.Join(chrootDir, rpmDatabasePathAzl3)), 0o755)
+	err := os.MkdirAll(filepath.Dir(filepath.Join(chrootDir, rpmDatabasePathAzl3)), 0o755)
 	assert.NoError(t, err)
 
 	chroot := safechroot.NewChroot(chrootDir, true)
