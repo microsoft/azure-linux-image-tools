@@ -120,7 +120,7 @@ func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.
 func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+	return getAllPackagesFromChrootRpm(imageChroot, rpmDatabasePathAzl3)
 }
 
 func (d *azureLinuxDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,

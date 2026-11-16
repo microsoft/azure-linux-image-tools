@@ -36,9 +36,6 @@ const (
 	systemdBootUnsignedPackageAzl4 = "systemd-boot-unsigned"
 
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
-
-	purlNamespaceAzureLinux4 = purlNamespaceAzureLinux
-	rpmDatabasePathAzl4      = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
@@ -162,12 +159,12 @@ func (d *azureLinux4DistroHandler) GetPackageInformation(imageChroot *safechroot
 func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) ([]cosiapi.OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
+	return getAllPackagesFromChrootRpm(imageChroot, rpmDatabasePathFedora)
 }
 
 func (d *azureLinux4DistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
 ) ([]spdxmanifest.Package, error) {
-	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl4, purlNamespaceAzureLinux)
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathFedora, purlNamespaceAzureLinux)
 }
 
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
