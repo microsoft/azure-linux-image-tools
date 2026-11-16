@@ -1321,14 +1321,14 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	err := os.MkdirAll(filepath.Dir(ukiKernelInfoPath), os.ModePerm)
 	assert.NoError(t, err)
 
-	baseLayout := &UkiLayout{
+	baseLayout := UkiLayout{
 		MainCmdline: "root=/dev/sda usrhash=old",
 		Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
 		ExtraFiles:  map[string]string{"policy.cred": "abc"},
 	}
 	err = writeUkiKernelInfoFile(ukiKernelInfoPath, map[string]UkiKernelInfo{
 		"vmlinuz-1": {Cmdline: "root=/dev/sda usrhash=old flatcar.oem.id=azure", Initramfs: "initramfs-1.img",
-			BaseLayout: baseLayout},
+			BaseLayout: &baseLayout, Layout: baseLayout},
 	})
 	assert.NoError(t, err)
 
@@ -1340,14 +1340,21 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeEnforcing)
 	assert.NoError(t, err)
 
-	err = appendKernelArgsToUkiCmdlineFile(buildDir, []string{"usrhash=new"})
+	err = ukiUpdateVerityKernelCmdlineArgs(buildDir, []string{"usrhash=new"})
 	assert.NoError(t, err)
+
+	expectedLayout := UkiLayout{
+		MainCmdline: "root=/dev/sda usrhash=new rd.info security=selinux selinux=1",
+		Addons:      map[string]string{"oem.addon.efi": "flatcar.oem.id=azure"},
+		ExtraFiles:  map[string]string{"policy.cred": "abc"},
+	}
 
 	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]UkiKernelInfo{
-		"vmlinuz-1": {Cmdline: "root=/dev/sda flatcar.oem.id=azure rd.info security=selinux selinux=1 usrhash=new",
-			Initramfs: "initramfs-1.img", BaseLayout: baseLayout},
+		"vmlinuz-1": {
+			Cmdline:   "root=/dev/sda usrhash=new rd.info security=selinux selinux=1 flatcar.oem.id=azure",
+			Initramfs: "initramfs-1.img", BaseLayout: &baseLayout, Layout: expectedLayout},
 	}, kernelInfo)
 
 	b.ukiMode = imagecustomizerapi.UkiModePassthrough
