@@ -1,6 +1,5 @@
 previewFeatures:
 - base-configs
-- preview-distro-version
 
 baseConfigs:
 - path: verity-usr-uki-base.yaml
