@@ -1,0 +1,6 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: uki-noreset-base.yaml
+- path: systemd-boot-azl4.yaml

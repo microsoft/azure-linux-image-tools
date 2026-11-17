@@ -1,0 +1,34 @@
+os:
+  packages:
+    install:
+    - systemd-boot-unsigned
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+      # is not an option because shim is needed for the secure boot chain
+      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
+      if rpm -q grub2-efi-x64; then
+        rpm -e --nodeps grub2-efi-x64
+      elif rpm -q grub2-efi-aa64; then
+        rpm -e --nodeps grub2-efi-aa64
+      else
+        echo "grub2-efi-* package not installed"
+        exit 1
+      fi
+
+      if [[ -f /usr/lib/systemd/boot/efi/systemd-bootx64.efi ]]; then
+        cp /usr/lib/systemd/boot/efi/systemd-bootx64.efi /boot/efi/EFI/azurelinux/grubx64.efi
+        cp /usr/lib/systemd/boot/efi/systemd-bootx64.efi /boot/efi/EFI/BOOT/grubx64.efi
+      elif [[ -f /usr/lib/systemd/boot/efi/systemd-bootaa64.efi ]]; then
+        cp /usr/lib/systemd/boot/efi/systemd-bootaa64.efi /boot/efi/EFI/azurelinux/grubaa64.efi
+        cp /usr/lib/systemd/boot/efi/systemd-bootaa64.efi /boot/efi/EFI/BOOT/grubaa64.efi
+      else
+        echo "systemd-boot*.efi file not found"
+        exit 1
+      fi

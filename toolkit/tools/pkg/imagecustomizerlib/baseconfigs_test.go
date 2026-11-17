@@ -1,10 +1,8 @@
 package imagecustomizerlib
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -287,7 +285,7 @@ func hierarchicalConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 		case baseImageVersionAzl2, baseImageVersionAzl3:
 			return "hierarchical-config.yaml"
 		case baseImageVersionAzl4:
-			return fmt.Sprintf("hierarchical-config-%s-azl4.yaml", runtime.GOARCH)
+			return "hierarchical-config-azl4.yaml"
 		default:
 			t.Fatalf("unsupported Azure Linux version for hierarchical-config test: %s", baseImageInfo.Version)
 			return ""

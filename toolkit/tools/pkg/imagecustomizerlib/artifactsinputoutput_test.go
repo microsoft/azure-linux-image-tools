@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -134,7 +133,7 @@ func artifactsOutputConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) st
 	case baseImageVersionAzl2, baseImageVersionAzl3:
 		return "artifacts-output-azl3.yaml"
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("artifacts-output-%s-azl4.yaml", runtime.GOARCH)
+		return "artifacts-output-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for artifacts-output test: %s", baseImageInfo.Version)
 		return ""
@@ -154,7 +153,7 @@ func artifactsOutputVerityConfigFile(t *testing.T, baseImageInfo testBaseImageIn
 		return fmt.Sprintf("artifacts-output-verity-azl3%s.yaml", toolsDirSuffix)
 
 	case baseImageVersionAzl4:
-		return fmt.Sprintf("artifacts-output-verity-%s-azl4%s.yaml", runtime.GOARCH, toolsDirSuffix)
+		return fmt.Sprintf("artifacts-output-verity-azl4%s.yaml", toolsDirSuffix)
 
 	default:
 		t.Fatalf("unsupported base image version for artifacts-output-verity test: %s", baseImageInfo.Version)

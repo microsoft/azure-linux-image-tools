@@ -2,5 +2,5 @@ previewFeatures:
 - base-configs
 
 baseConfigs:
-- path: artifacts-output-verity-amd64-azl4.yaml
+- path: artifacts-output-verity-azl4.yaml
 - path: toolsdir-azl4.yaml

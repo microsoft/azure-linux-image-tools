@@ -1,0 +1,11 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: artifacts-output-base.yaml
+- path: systemd-boot-azl4.yaml
+
+os:
+  packages:
+    install:
+    - openssh-server
