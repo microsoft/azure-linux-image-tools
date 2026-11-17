@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	osEspDir           = "/boot/efi"
-	espBootloaderDir   = "EFI/BOOT"
-	osEspBootloaderDir = osEspDir + "/" + espBootloaderDir
-	isoBootloaderDir   = "/efi/boot"
-	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi"
+	osEspDir            = "/boot/efi"
+	espBootloaderDir    = "EFI/BOOT"
+	osEspBootloaderDir  = osEspDir + "/" + espBootloaderDir
+	isoBootloaderDir    = "/efi/boot"
+	ukiEfiStubDir       = "/usr/lib/systemd/boot/efi"
+	blsLoaderEntriesDir = "loader/entries"
 
 	bootx64Binary  = "bootx64.efi"
 	bootAA64Binary = "bootaa64.efi"

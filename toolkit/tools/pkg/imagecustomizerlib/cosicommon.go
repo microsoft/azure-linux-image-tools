@@ -16,6 +16,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -391,35 +392,22 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
 
-	chrootDir := imageConnection.Chroot().RootDir()
-
 	switch bootloaderType {
 	case cosiapi.BootloaderTypeSystemdBoot:
-		// Try extracting systemd-boot entries (UKI + config or config-only)
-		configEntries, err := extractSystemdBootEntriesIfPresent(chrootDir)
+
+		entries, err := collectSystemdBootEntriesForCosi(buildDirAbs, imageConnection, distroHandler)
 		if err != nil {
-			return nil, fmt.Errorf("error extracting systemd-boot config entries:\n%w", err)
-		}
-		if len(configEntries) > 0 {
-			return &cosiapi.Bootloader{
-				Type:        cosiapi.BootloaderTypeSystemdBoot,
-				SystemdBoot: &cosiapi.SystemDBoot{Entries: configEntries},
-			}, nil
+			return nil, err
 		}
 
-		// If no config entries, try extracting standalone UKI .efi entries
-		ukiEntries, err := extractUkiEntriesIfPresent(chrootDir, buildDirAbs, distroHandler)
-		if err != nil {
-			return nil, fmt.Errorf("error extracting UKI standalone entries:\n%w", err)
-		}
-		if len(ukiEntries) > 0 {
-			return &cosiapi.Bootloader{
-				Type:        cosiapi.BootloaderTypeSystemdBoot,
-				SystemdBoot: &cosiapi.SystemDBoot{Entries: ukiEntries},
-			}, nil
+		if len(entries) <= 0 {
+			return nil, fmt.Errorf("systemd-boot detected, but no supported boot entries found")
 		}
 
-		return nil, fmt.Errorf("systemd-boot detected, but no supported boot entries found")
+		return &cosiapi.Bootloader{
+			Type:        cosiapi.BootloaderTypeSystemdBoot,
+			SystemdBoot: &cosiapi.SystemDBoot{Entries: entries},
+		}, nil
 
 	case cosiapi.BootloaderTypeGrub:
 		return &cosiapi.Bootloader{
@@ -430,6 +418,64 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 	default:
 		return nil, fmt.Errorf("unsupported bootloader type")
 	}
+}
+
+func collectSystemdBootEntriesForCosi(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
+	distroHandler DistroHandler,
+) ([]cosiapi.SystemDBootEntry, error) {
+	// Try extracting systemd-boot entries (UKI + config or config-only)
+	espConfigEntries, err := extractSystemdBootEntriesIfPresent(imageConnection.Chroot().RootDir(),
+		distroHandler.GetEspDir())
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract systemd-boot config entries from ESP:\n%w", err)
+	}
+
+	xbootldrConfigEntries, err := collectXbootldrSystemdBootEntriesForCosi(imageConnection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect xbootldr systemd-boot config entries:\n%w", err)
+	}
+
+	ukiEntries, err := extractUkiEntriesIfPresent(imageConnection.Chroot().RootDir(), buildDirAbs, distroHandler)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract UKI standalone entries:\n%w", err)
+	}
+
+	allEntries := slices.Concat(espConfigEntries, xbootldrConfigEntries, ukiEntries)
+	return allEntries, nil
+}
+
+func collectXbootldrSystemdBootEntriesForCosi(imageConnection *imageconnection.ImageConnection,
+) ([]cosiapi.SystemDBootEntry, error) {
+	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	xbootLdPartTypeUuid := imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeXbootldr]
+	xbootldrPartInfo, foundXbootldr := sliceutils.FindValueFunc(partitions,
+		func(partInfo diskutils.PartitionInfo) bool {
+			return partInfo.PartitionTypeUuid == xbootLdPartTypeUuid
+		})
+	if !foundXbootldr {
+		// No xbootldr partition found. So, not entries are available.
+		return nil, nil
+	}
+
+	xbootLdrMountPoint, foundXbootLdrMountPoint := sliceutils.FindValueFunc(imageConnection.Chroot().GetMountPoints(),
+		func(mountPoint *safechroot.MountPoint) bool {
+			return xbootldrPartInfo.Path == mountPoint.GetSource()
+		})
+	if !foundXbootLdrMountPoint {
+		return nil, fmt.Errorf("xbootldr partition is not mounted")
+	}
+
+	entries, err := extractSystemdBootEntriesIfPresent(imageConnection.Chroot().RootDir(),
+		xbootLdrMountPoint.GetTarget())
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract systemd-boot config entries from xbootldr:\n%w", err)
+	}
+
+	return entries, nil
 }
 
 func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler DistroHandler) ([]cosiapi.SystemDBootEntry, error) {
@@ -457,17 +503,19 @@ func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler Distro
 	return entries, nil
 }
 
-func extractSystemdBootEntriesIfPresent(chrootDir string) ([]cosiapi.SystemDBootEntry, error) {
-	loaderEntryDir := filepath.Join(chrootDir, "boot", "loader", "entries")
-	exists, err := file.DirExists(loaderEntryDir)
+func extractSystemdBootEntriesIfPresent(chrootDir string, bootPartitionDir string) ([]cosiapi.SystemDBootEntry, error) {
+	chrootEntryDir := filepath.Join("/", bootPartitionDir, blsLoaderEntriesDir)
+	entryDir := filepath.Join(chrootDir, chrootEntryDir)
+
+	exists, err := file.DirExists(entryDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed while checking if systemd-boot entry dir '%s' exists:\n%w", loaderEntryDir, err)
+		return nil, fmt.Errorf("failed while checking if systemd-boot entry dir '%s' exists:\n%w", entryDir, err)
 	}
 	if !exists {
 		return nil, nil
 	}
 
-	entries, err := extractSystemdBootEntries(loaderEntryDir)
+	entries, err := extractSystemdBootEntries(entryDir, chrootEntryDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract systemd-boot entries:\n%w", err)
 	}
@@ -475,7 +523,7 @@ func extractSystemdBootEntriesIfPresent(chrootDir string) ([]cosiapi.SystemDBoot
 	return entries, nil
 }
 
-func extractSystemdBootEntries(entryDir string) ([]cosiapi.SystemDBootEntry, error) {
+func extractSystemdBootEntries(entryDir string, chrootEntryDir string) ([]cosiapi.SystemDBootEntry, error) {
 	files, err := os.ReadDir(entryDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory %s:\n%w", entryDir, err)
@@ -484,7 +532,7 @@ func extractSystemdBootEntries(entryDir string) ([]cosiapi.SystemDBootEntry, err
 	var entries []cosiapi.SystemDBootEntry
 
 	for _, file := range files {
-		entry, err := parseSystemdBootEntryFromFile(entryDir, file)
+		entry, err := parseSystemdBootEntryFromFile(entryDir, chrootEntryDir, file)
 		if err != nil {
 			return nil, err
 		}
@@ -496,7 +544,8 @@ func extractSystemdBootEntries(entryDir string) ([]cosiapi.SystemDBootEntry, err
 	return entries, nil
 }
 
-func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*cosiapi.SystemDBootEntry, error) {
+func parseSystemdBootEntryFromFile(entryDir string, chrootEntryDir string, file fs.DirEntry,
+) (*cosiapi.SystemDBootEntry, error) {
 	if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
 		return nil, nil
 	}
@@ -508,7 +557,7 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*cosiapi.
 	}
 
 	entry := &cosiapi.SystemDBootEntry{
-		Path: filepath.Join("/boot/loader/entries", file.Name()),
+		Path: filepath.Join(chrootEntryDir, file.Name()),
 	}
 
 	lines := strings.Split(string(content), "\n")

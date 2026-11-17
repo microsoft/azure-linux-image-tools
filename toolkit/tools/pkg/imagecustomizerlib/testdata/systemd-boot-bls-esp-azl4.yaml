@@ -1,0 +1,34 @@
+previewFeatures:
+- base-configs
+- preview-distro-version
+
+baseConfigs:
+- path: systemd-boot-azl4.yaml
+
+scripts:
+  postCustomization:
+    # Warning: Manually moving the files around like this means that if a new kernel is installed, the new files won't
+    # be placed in the correct location by the 'kernel-install' command (which is run by the RPM post-install scripts).
+  - content: |
+      set -eux
+
+      # Copy the BLS entries into the ESP.
+      mkdir -p /boot/efi/loader/entries
+      cp -v /boot/loader/entries/* /boot/efi/loader/entries
+
+      # Copy the kernel into the ESP.
+      mkdir -p /boot/efi/boot
+      cp -v /boot/vmlinuz-* /boot/efi/boot
+      cp -v /boot/initramfs-* /boot/efi/boot
+
+      # Remove files from /boot
+      rm -rf /boot/vmlinuz-*
+      rm -rf /boot/initramfs-*
+      rm -rf /boot/loader/entries
+
+      # Debug logs
+      find /boot
+
+      for file in /boot/efi/loader/entries/*; do
+        cat "$file"
+      done

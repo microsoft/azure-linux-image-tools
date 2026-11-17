@@ -1,0 +1,71 @@
+previewFeatures:
+- base-configs
+- preview-distro-version
+
+baseConfigs:
+  # WARNING: This image doesn't actually boot since systemd-boot doesn't include ext4 drivers. But if you use GRUB
+  # instead, everything works ok.
+- path: systemd-boot-azl4.yaml
+
+storage:
+  bootType: efi
+
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      type: xbootldr
+      size: 1G
+
+    - id: rootfs
+      type: root
+      size: 1G
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      rm -rf /boot/vmlinuz-*
+      rm -rf /boot/initramfs-*
+      rm -rf /boot/symvers-*
+      rm -rf /boot/config-*
+      rm -rf /boot/System.map-*
+      rm -rf /boot/.vmlinuz-*.hmac
+      rm -rf /boot/loader/entries/*
+
+      # Use kernel-install to repopulate the /boot directory. It should recognize that a /boot partition is now in use
+      # and adjust things accordingly.
+      kernel-install add-all
+
+      # Debug logs
+      find /boot
+
+      for file in /boot/loader/entries/*; do
+        cat "$file"
+      done

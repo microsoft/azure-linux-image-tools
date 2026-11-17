@@ -289,6 +289,7 @@ func testOutputAndInjectArtifactsCosiHelper(t *testing.T, baseImageInfo testBase
 				Entries: []cosiapi.SystemDBootEntry{
 					{
 						Type: "uki-standalone",
+						Path: "/boot/efi/EFI/Linux/vmlinuz-",
 					},
 				},
 			},

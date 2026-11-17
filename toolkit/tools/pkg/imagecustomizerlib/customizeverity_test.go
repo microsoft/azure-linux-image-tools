@@ -1410,6 +1410,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 				Entries: []cosiapi.SystemDBootEntry{
 					{
 						Type: "uki-standalone",
+						Path: "/boot/efi/EFI/Linux/vmlinuz-",
 					},
 				},
 			},
