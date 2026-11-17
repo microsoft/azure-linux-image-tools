@@ -12,13 +12,16 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"go.opentelemetry.io/otel"
 )
 
 var (
 	// Bootloader-related errors
 	ErrBootloaderHardReset              = NewImageCustomizerError("Bootloader:HardReset", "failed to hard reset bootloader")
-	ErrBootloaderKernelCommandLineAdd   = NewImageCustomizerError("Bootloader:KernelCommandLineAdd", "failed to add kernel command line")
+	ErrBootloaderUpdateKernelCmdline    = NewImageCustomizerError("Bootloader:UpdateKernelCmdline", "failed to update kernel command line")
+	ErrBootloaderKernelCmdlineAdd       = NewImageCustomizerError("Bootloader:KernelCmdlineAdd", "failed to add kernel command line args")
+	ErrBootloaderKernelCmdlineReplace   = NewImageCustomizerError("Bootloader:KernelCmdlineReplace", "failed to replace kernel command line args")
 	ErrBootloaderSelinuxModeGet         = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get existing SELinux mode")
 	ErrBootloaderRootFilesystemFind     = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem (i.e. mount equal to '/')")
 	ErrBootloaderRootMountIdTypeGet     = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get image's root mount ID type")
@@ -32,21 +35,19 @@ var (
 func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler DistroHandler,
 ) error {
-	switch {
-	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
+	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage {
 		err := hardResetBootLoader(ctx, rc, imageConnection, partitionsLayout, newImage, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
+	}
 
-	default:
-		// Append the kernel command-line args to the image's existing boot config: the grub
-		// config for grub-based images, or the UKI cmdline (uki-kernel-info.json) for UKI
-		// images in create mode.
-		err := AddKernelCommandLine(ctx, rc.BuildDirAbs, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki, distroHandler)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
-		}
+	// Append the kernel command-line args to the image's existing boot config: the grub
+	// config for grub-based images, or the UKI cmdline (uki-kernel-info.json) for UKI
+	// images in create mode.
+	err := handleKernelCommandLine(ctx, rc, imageConnection.Chroot(), distroHandler)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrBootloaderUpdateKernelCmdline, err)
 	}
 
 	return nil
@@ -100,7 +101,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 	// Hard-reset the grub config.
 	err = distroHandler.ConfigureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
-		rc.OsKernelCommandLine, currentSelinuxMode, newImage)
+		currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}
@@ -109,29 +110,42 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 }
 
 // AddKernelCommandLine inserts new kernel command-line args into the grub config file.
-func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, distroHandler DistroHandler,
+func handleKernelCommandLine(ctx context.Context, rc *ResolvedConfig,
+	imageChroot safechroot.ChrootInterface, distroHandler DistroHandler,
 ) error {
-	var err error
-
-	if len(extraCommandLine) == 0 {
+	configHasUpdates := sliceutils.ContainsFunc(rc.ConfigChain, func(config *ConfigWithBasePath) bool {
+		cmdlineConfig := config.Config.OS.KernelCommandLine
+		return len(cmdlineConfig.ExtraCommandLine) > 0 || len(cmdlineConfig.Replace) > 0
+	})
+	if !configHasUpdates {
 		// Nothing to do.
 		return nil
 	}
 
-	logger.Log.Infof("Setting KernelCommandLine.ExtraCommandLine")
+	logger.Log.Infof("Update kernel command line")
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_kernel_command_line")
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, rc.Uki, rc.BuildDirAbs, distroHandler)
 	if err != nil {
 		return err
 	}
 
-	err = bootCustomizer.AddKernelCommandLine(extraCommandLine)
-	if err != nil {
-		return err
+	for _, config := range rc.ConfigChain {
+		cmdlineConfig := config.Config.OS.KernelCommandLine
+
+		for _, replaceInfo := range cmdlineConfig.Replace {
+			err = bootCustomizer.UpdateKernelCommandLineArgs(replaceInfo.Remove, replaceInfo.Add)
+			if err != nil {
+				return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCmdlineReplace, err)
+			}
+		}
+
+		err = bootCustomizer.AddKernelCommandLine(cmdlineConfig.ExtraCommandLine)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCmdlineAdd, err)
+		}
 	}
 
 	err = bootCustomizer.WriteToFile(imageChroot)

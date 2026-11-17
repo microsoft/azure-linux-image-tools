@@ -54,56 +54,53 @@ The top level type for the YAML file is the [config](./config.md) type.
 11. Write the image history file.
 
 12. If the bootloader [resetType](./bootloader.md#resettype-string) is set
-    to `hard-reset`, then reset the boot-loader.
+    to `hard-reset`, then reset the boot-loader configuration.
 
-    If the bootloader [resetType](./bootloader.md#resettype-string) is not
-    set, then append the
-    [extraCommandLine](./kernelcommandline.md#extracommandline-string)
-    value to the existing `grub.cfg` file.
+13. Process the [kernelCommandLine](./kernelcommandline.md) updates.
 
-13. Update the SELinux mode. [mode](./selinux.md#mode-string)
+14. Update the SELinux mode. [mode](./selinux.md#mode-string)
 
-14. If ([overlays](./os.md#overlays-overlay)) are specified, then add the
+15. If ([overlays](./os.md#overlays-overlay)) are specified, then add the
     overlay driver and update the fstab file with the overlay mount information.
 
-15. If a ([verity](./storage.md#verity-verity)) device is specified, then
+16. If a ([verity](./storage.md#verity-verity)) device is specified, then
     add the dm-verity dracut driver and update the grub config.
 
-16. Regenerate the initramfs file (if needed).
+17. Regenerate the initramfs file (if needed).
 
-17. Run ([postCustomization](./scripts.md#postcustomization-script)) scripts.
+18. Run ([postCustomization](./scripts.md#postcustomization-script)) scripts.
 
-18. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
+19. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
     specified, then remove the package manager tools.
 
-19. If [os.packages.manifest.mode](./packageManifest.md#mode-string) is specified,
+20. If [os.packages.manifest.mode](./packageManifest.md#mode-string) is specified,
     then manage the package manifest accordingly.
 
-20. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
+21. If ([os.packages.removePackageManager](./packages.md#removepackagemanager-bool)) is
     specified, then remove the package manager files.
 
-21. Restore the `/etc/resolv.conf` file.
+22. Restore the `/etc/resolv.conf` file.
 
-22. If SELinux is enabled, call `setfiles`.
+23. If SELinux is enabled, call `setfiles`.
 
-23. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
+24. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
 
-24. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
+25. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
 
-25. If a ([verity](./storage.md#verity-verity)) device is specified, then
+26. If a ([verity](./storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-26. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
+27. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
     specified, then copy the artifacts to the specified output directory.
 
-27. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
+28. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
     specified, then extract the SELinux policy files from the customized image.
 
-28. If ([output.packageManifest](./output.md#packagemanifest-outputpackagemanifest)) or
+29. If ([output.packageManifest](./output.md#packagemanifest-outputpackagemanifest)) or
   [--output-package-manifest-file](../cli/customize.md#--output-package-manifest-filefile-path) is
     specified, then copy the package manifest out of the customized image.
 
-29. If the output format is set to `iso` or `pxe`, copy additional iso media files.
+30. If the output format is set to `iso` or `pxe`, copy additional iso media files.
     ([iso](./iso.md) or [pxe](./pxe.md))
 
 ## /etc/resolv.conf
@@ -216,6 +213,9 @@ os:
       - [resetType](./bootloader.md#resettype-string)
     - [hostname](./os.md#hostname-string)
     - [kernelCommandLine](./os.md#kernelcommandline-kernelcommandline) ([kernelCommandLine type](./kernelcommandline.md))
+      - [replace](./kernelcommandline.md#replace-kernelcommandlinereplace) ([kernelCommandLineReplace type](./kernelcommandlinereplace.md))
+        - [remove](./kernelcommandlinereplace.md#remove-string)
+        - [add](./kernelcommandlinereplace.md#add-string)
       - [extraCommandLine](./kernelcommandline.md#extracommandline-string)
     - [packages](./os.md#packages-packages) ([packages type](./packages.md))
       - [updateExistingPackages](./packages.md#updateexistingpackages-bool)
