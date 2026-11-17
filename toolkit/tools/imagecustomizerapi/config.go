@@ -235,7 +235,13 @@ func (c *Config) validateUkiPassthroughMode() error {
 			"os.selinux.mode: changes SELinux mode which modifies kernel command line embedded in UKI")
 	}
 
-	// Check for kernel command line modifications
+	// Check for kernel command line updates
+	if c.OS != nil && len(c.OS.KernelCommandLine.Replace) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.kernelCommandLine.replace: modifies kernel command line embedded in UKI")
+	}
+
+	// Check for kernel command line additions
 	if c.OS != nil && len(c.OS.KernelCommandLine.ExtraCommandLine) > 0 {
 		incompatibleConfigs = append(incompatibleConfigs,
 			"os.kernelCommandLine.extraCommandLine: modifies kernel command line embedded in UKI")
