@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
@@ -211,6 +212,25 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
 				imageDataEntry.VeritySource = veritySourcePath
+
+				// If the verity device's root hash signature is stored on its own
+				// dedicated partition (rather than embedded as a file in the image),
+				// find it and attach its metadata too. If the signature is not
+				// partition-backed (e.g. it is a file path), there is nothing to
+				// attach here.
+				sigPartition, found, err := resolveVeritySignaturePartition(verity.hashSignaturePath, partitions)
+				if err != nil {
+					return fmt.Errorf("failed to resolve verity signature partition:\n%w", err)
+				}
+				if found {
+					sigPartitionImageFile, exists := partitionImageFiles[sigPartition.PartitionNum]
+					if !exists {
+						return fmt.Errorf("missing metadata for signature partition UUID:\n%s", sigPartition.PartUuid)
+					}
+
+					metadataImage.Verity.Signature = &sigPartitionImageFile
+				}
+
 				break
 			}
 		}
@@ -234,7 +254,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := cosiapi.MetadataJson{
-		Version:    "1.2",
+		Version:    "1.3",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Disk:       diskInfo,
@@ -315,6 +335,97 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	logger.Log.Infof("Finished building COSI: %s", outputFile)
 	return nil
+}
+
+// resolveVeritySignaturePartition checks whether a verity device's root hash
+// signature is stored on its own dedicated partition, rather than as a file
+// embedded in the image (e.g. under /boot) or a `base64:`-encoded value
+// embedded directly in the kernel command line.
+//
+// The signature path comes from the `root-hash-signature=<value>` systemd
+// verity option. Unlike `systemd.verity_root_data=`/`_hash=` (which accept
+// the familiar fstab-style UUID=/PARTUUID=/PARTLABEL= source syntax),
+// systemd's veritysetup parser for `root-hash-signature=` (as of systemd
+// v255) only accepts a `base64:`-prefixed inline value or an absolute path;
+// a partition-backed signature is represented as one of the static
+// `/dev/disk/by-uuid/<id>`, `/dev/disk/by-partuuid/<id>`, or
+// `/dev/disk/by-partlabel/<id>` paths. Any other absolute path is assumed to
+// be a plain signature file (e.g. embedded under /boot), and a `base64:`
+// value is obviously not partition-backed either; both cases return
+// the zero metadata value, false, and no error. A recognized partition path
+// that cannot be resolved returns an error.
+func resolveVeritySignaturePartition(signaturePath string, partitions []outputPartitionMetadata,
+) (outputPartitionMetadata, bool, error) {
+	idType, id, ok := parseVerityDiskByPath(signaturePath)
+	if !ok {
+		return outputPartitionMetadata{}, false, nil
+	}
+
+	for _, partition := range partitions {
+		matches := false
+		switch idType {
+		case imagecustomizerapi.MountIdentifierTypeUuid:
+			matches = partition.Uuid == id
+		case imagecustomizerapi.MountIdentifierTypePartUuid:
+			matches = partition.PartUuid == id
+		case imagecustomizerapi.MountIdentifierTypePartLabel:
+			matches = partition.PartLabel == id
+		}
+
+		if matches {
+			return partition, true, nil
+		}
+	}
+
+	return outputPartitionMetadata{}, false, fmt.Errorf("signature partition not found for path %q", signaturePath)
+}
+
+// parseVerityDiskByPath recognizes the static `/dev/disk/by-uuid/<id>`,
+// `/dev/disk/by-partuuid/<id>`, and `/dev/disk/by-partlabel/<id>` path forms
+// systemd's veritysetup parser actually accepts for a partition-backed
+// `root-hash-signature=` (see resolveVeritySignaturePartition's doc comment
+// for why this differs from the fstab-style UUID=/PARTUUID=/PARTLABEL=
+// syntax used elsewhere). `by-partlabel` entries are unescaped using udev's
+// standard escaping rules, since a label containing spaces or other
+// non-trivial characters appears `\xHH`-escaped in the symlink name.
+func parseVerityDiskByPath(path string) (imagecustomizerapi.MountIdentifierType, string, bool) {
+	const (
+		byUuidPrefix      = "/dev/disk/by-uuid/"
+		byPartUuidPrefix  = "/dev/disk/by-partuuid/"
+		byPartLabelPrefix = "/dev/disk/by-partlabel/"
+	)
+
+	switch {
+	case strings.HasPrefix(path, byUuidPrefix):
+		return imagecustomizerapi.MountIdentifierTypeUuid, path[len(byUuidPrefix):], true
+
+	case strings.HasPrefix(path, byPartUuidPrefix):
+		return imagecustomizerapi.MountIdentifierTypePartUuid, path[len(byPartUuidPrefix):], true
+
+	case strings.HasPrefix(path, byPartLabelPrefix):
+		return imagecustomizerapi.MountIdentifierTypePartLabel, unescapeUdevPath(path[len(byPartLabelPrefix):]), true
+
+	default:
+		return imagecustomizerapi.MountIdentifierTypeDefault, "", false
+	}
+}
+
+// unescapeUdevPath reverses udev's `\xHH` hex-escaping of bytes that aren't
+// safe to use verbatim in a symlink path (e.g. spaces become `\x20`), which
+// systemd applies when constructing `/dev/disk/by-partlabel/<label>` names.
+func unescapeUdevPath(escaped string) string {
+	var sb strings.Builder
+	for i := 0; i < len(escaped); i++ {
+		if escaped[i] == '\\' && i+3 < len(escaped) && escaped[i+1] == 'x' {
+			if b, err := strconv.ParseUint(escaped[i+2:i+4], 16, 8); err == nil {
+				sb.WriteByte(byte(b))
+				i += 3
+				continue
+			}
+		}
+		sb.WriteByte(escaped[i])
+	}
+	return sb.String()
 }
 
 func addFileToCosi(tw *tar.Writer, source string, image cosiapi.ImageFile) error {
