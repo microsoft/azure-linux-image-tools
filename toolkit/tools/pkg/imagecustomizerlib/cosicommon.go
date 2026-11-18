@@ -423,7 +423,6 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 func collectSystemdBootEntriesForCosi(buildDirAbs string, imageConnection *imageconnection.ImageConnection,
 	distroHandler DistroHandler,
 ) ([]cosiapi.SystemDBootEntry, error) {
-	// Try extracting systemd-boot entries (UKI + config or config-only)
 	espConfigEntries, err := extractSystemdBootEntriesIfPresent(imageConnection.Chroot().RootDir(),
 		distroHandler.GetEspDir())
 	if err != nil {
