@@ -34,6 +34,53 @@ const (
 	verifyFstabEntryUuidSource
 )
 
+func TestResetPartitionUuid(t *testing.T) {
+	tmpDir := t.TempDir()
+	argsPath := filepath.Join(tmpDir, "args")
+	err := os.WriteFile(filepath.Join(tmpDir, "sfdisk"),
+		[]byte("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$SFDISK_ARGS\"\n"), 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("SFDISK_ARGS", argsPath)
+	previousEnv := shell.CurrentEnvironment()
+	shell.SetEnvironment(os.Environ())
+	t.Cleanup(func() { shell.SetEnvironment(previousEnv) })
+
+	for _, testCase := range []struct {
+		path   string
+		number string
+	}{
+		{"/dev/loop0p2", "2"},
+		{"/dev/loop0p1", "1"},
+		{"/dev/loop0p10", "10"},
+	} {
+		t.Run(testCase.path, func(t *testing.T) {
+			newUuid, err := resetPartitionUuid("/dev/loop0", testCase.path)
+			if !assert.NoError(t, err) {
+				return
+			}
+			args, err := os.ReadFile(argsPath)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, newUuid)
+			assert.Equal(t, []string{"--part-uuid", "/dev/loop0", testCase.number, newUuid},
+				strings.Fields(string(args)))
+		})
+	}
+
+	t.Run("invalid partition path", func(t *testing.T) {
+		err := os.Remove(argsPath)
+		if !assert.NoError(t, err) {
+			return
+		}
+		_, err = resetPartitionUuid("/dev/loop0", "/dev/loop0")
+		assert.ErrorContains(t, err, "failed to find partition number")
+		_, err = os.Stat(argsPath)
+		assert.True(t, os.IsNotExist(err))
+	})
+}
+
 func TestCustomizeImagePartitions(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {

@@ -68,7 +68,7 @@ func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnect
 			continue
 		}
 
-		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
+		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), partition.Path)
 		if err != nil {
 			return fmt.Errorf("%w (partition='%s'):\n%w", ErrPartitionUuidUpdate, partition.Path, err)
 		}
@@ -150,9 +150,14 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	return newUuid, nil
 }
 
-func resetPartitionUuid(device string, partNum int) (string, error) {
+func resetPartitionUuid(device string, partitionPath string) (string, error) {
+	partNum, err := diskutils.GetPartitionNum(partitionPath)
+	if err != nil {
+		return "", err
+	}
+
 	newUuid := uuid.NewString()
-	err := shell.ExecuteLive(true /*squashErrors*/, "sfdisk", "--part-uuid", device, strconv.Itoa(partNum), newUuid)
+	err = shell.ExecuteLive(true /*squashErrors*/, "sfdisk", "--part-uuid", device, strconv.Itoa(partNum), newUuid)
 	if err != nil {
 		return "", err
 	}
