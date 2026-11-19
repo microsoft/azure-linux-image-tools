@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -25,6 +26,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type verifyFstabEntrySource int
@@ -523,8 +525,50 @@ func TestCustomizeImageNewUUIDs(t *testing.T) {
 	}
 }
 
+// useDescendingPartitionOrder makes partition discovery return p2 before p1.
+// The old UUID reset code used a partition's position in this list as its
+// on-disk number, so it wrote p2's new PARTUUID to p1.
+func useDescendingPartitionOrder(t *testing.T) {
+	t.Helper()
+
+	// Find the real lsblk before putting the wrapper on PATH, so the wrapper
+	// can call it without calling itself.
+	lsblk, err := exec.LookPath("lsblk")
+	require.NoError(t, err)
+	jq, err := exec.LookPath("jq")
+	require.NoError(t, err)
+
+	stubDir := t.TempDir()
+
+	// Rewrite only the flat JSON requested by GetDiskPartitions. Keep the
+	// whole-disk entry first and sort the partition rows before reversing them
+	// so the test doesn't depend on the order lsblk happened to return.
+	const stub = `#!/bin/bash
+set -euo pipefail
+if [[ $# == 6 && $2 == --output && $3 == NAME,PATH,PARTTYPE,FSTYPE,UUID,MOUNTPOINT,PARTUUID,PARTLABEL,LABEL,TYPE,SIZE && $4 == --bytes && $5 == --json && $6 == --list ]]; then
+    "$UUID_TEST_LSBLK" "$@" | "$UUID_TEST_JQ" \
+        '.blockdevices |= (map(select(.type != "part")) + (map(select(.type == "part")) | sort_by(.path) | reverse))'
+else
+    exec "$UUID_TEST_LSBLK" "$@"
+fi
+`
+	require.NoError(t, os.WriteFile(filepath.Join(stubDir, "lsblk"), []byte(stub), 0o755))
+	t.Setenv("PATH", stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("UUID_TEST_LSBLK", lsblk)
+	t.Setenv("UUID_TEST_JQ", jq)
+
+	// The shell package caches the environment it passes to child processes.
+	// Give the wrapper its settings, then restore the cache for other tests.
+	previousEnv := shell.CurrentEnvironment()
+	shell.SetEnvironment(os.Environ())
+	t.Cleanup(func() {
+		shell.SetEnvironment(previousEnv)
+	})
+}
+
 func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	useDescendingPartitionOrder(t)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -539,7 +583,8 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		return
 	}
 
-	// Get the partitions from the base image.
+	// Attach a temporary raw copy as a block device so we can record the
+	// original UUIDs without modifying the base image.
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", baseImage, tempRawBaseImage)
 	if !assert.NoError(t, err) {
 		return
@@ -581,7 +626,9 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		return
 	}
 
-	// Ensure the partition UUIDs have been changed.
+	// Compare by on-disk partition number because discovery order is not
+	// stable. PARTUUID identifies the partition, and UUID identifies the
+	// filesystem inside it. The test expects both to change.
 	if assert.Equal(t, len(baseImagePartitions), len(newImagePartitions)) {
 		for partitionNum := range baseImagePartitions {
 			baseImagePartition := baseImagePartitions[partitionNum]
