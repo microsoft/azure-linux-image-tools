@@ -58,6 +58,10 @@ When modifying the `/etc/default/grub` file, the arguments will be removed
 from `GRUB_CMDLINE_LINUX`, `GRUB_CMDLINE_LINUX_DEFAULT`, and
 `GRUB_CMDLINE_LINUX_RECOVERY`.
 
+When updating the UKI kernel command-lines, the arguments will be removed from
+the main UKI and all the addons. If any addon has all its arguments removed,
+then it will be removed from the image.
+
 Added in v1.8.
 
 ## add [string[]]
@@ -69,11 +73,12 @@ The list of kernel command-line arguments to add.
 If arguments were removed, then the new arguments will be added at the location
 of the last removed argument. Otherwise, the new arguments are added at the end.
 
-If UKI addons are present in the base image, then the new arguments will be placed in
-addons that have arguments with the same name. If multiple such addons exists, then the
-last addon is used. If no such addons exist, then the main UKI is used.
-
 When modifying the `/etc/default/grub` file, then the arguments will be added to
 `GRUB_CMDLINE_LINUX`.
+
+When updating the UKI kernel command-lines, the new args will be placed in an
+addon that has an argument of the same name. If multiple such addons exist, then
+the last one is chosen. If no such addons exist, then the arg is added to the
+main UKI.
 
 Added in v1.8.
