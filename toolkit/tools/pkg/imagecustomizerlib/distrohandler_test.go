@@ -9,6 +9,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -26,6 +27,10 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmOrDatabase(t *testi
 	assert.NoError(t, err)
 	assert.NotNil(t, packages)
 	assert.Empty(t, packages)
+
+	bootloaderType, err := handler.DetectBootloaderType(chroot, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, cosiapi.BootloaderTypeSystemdBoot, bootloaderType)
 }
 
 func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
@@ -42,6 +47,10 @@ func TestAclGetAllPackagesFromChrootReturnsEmptyListWhenNoRpmDb(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, packages)
 	assert.Empty(t, packages)
+
+	bootloaderType, err := handler.DetectBootloaderType(chroot, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, cosiapi.BootloaderTypeSystemdBoot, bootloaderType)
 }
 
 // Ensure unsupported-distro-version preview feature flag is required when distro version can't be parsed.

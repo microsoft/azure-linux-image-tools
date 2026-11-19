@@ -11,6 +11,8 @@ nav_order: 3
 
 | Revision | Spec Date   |
 |----------|-------------|
+| 1.3      | TBD         |
+| 1.2      | 2026-01-30  |
 | 1.1      | TBD         |
 | 1.0      | 2024-10-09  |
 
@@ -151,13 +153,13 @@ objects. Each object represents a package installed in the OS.
 | Field         | Type                                     | Added in | Required                         | Description                 |
 | ------------- | ---------------------------------------- | -------- | -------------------------------- | --------------------------- |
 | `type`        | [`BootloaderType`](#bootloadertype-enum) | 1.1      | Yes (since 1.1)                  | The type of the bootloader. |
-| `systemdBoot` | `SystemDBoot`                            | 1.1      | When `type` == `systemd-boot`    | systemd-boot configuration. |
+| `systemdBoot` | `SystemDBoot`                            | 1.1      | When `type` uses systemd-boot    | systemd-boot configuration. |
 
 _Notes:_
 
-The `systemd-boot` field is required if the `type` field is set to
-`systemd-boot`. It MUST be omitted OR set to `null` if the `type`
-field is set to any other value.
+The `systemdBoot` field is required for `systemd-boot` and
+`efitreeloader-mshv-systemd-boot`. It MUST be omitted OR set to `null` for
+other bootloader types.
 
 ##### `BootloaderType` Enum
 
@@ -168,6 +170,13 @@ are the valid values for the `type` field in the `bootloader` object:
 | -------------- | --------------------------------------------------- |
 | `systemd-boot` | The system is using systemd-boot as the bootloader. |
 | `grub`         | The system is using GRUB as the bootloader.         |
+| `efitreeloader-mshv-systemd-boot` | Boots through efitreeloader and MSHV before systemd-boot. Added in metadata 1.3. |
+
+Image Customizer detects the MSHV chain from installed `efitreeloader`,
+`edk2-hvloader`, `mshv-bootloader-lx` and systemd-boot packages, before GRUB
+detection. A kernel flavor or the `mshv` runtime package alone does not select it.
+This variant emits metadata 1.3 with the same `systemdBoot` entry fields;
+ordinary GRUB and systemd-boot images continue to emit metadata 1.2.
 
 ##### `SystemDBoot` Object
 
