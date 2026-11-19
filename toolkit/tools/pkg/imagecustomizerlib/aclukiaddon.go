@@ -34,7 +34,6 @@ const (
 // slot addons, which Trident copies into a UKI's addon directory to switch slots. The active slot's template becomes a
 // copy of its rebuilt addon.
 func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
-	buildDir string,
 ) error {
 	templateDir := filepath.Join(espDir, aclUkiAddonTemplatesDir)
 	entries, err := os.ReadDir(templateDir)
@@ -56,7 +55,7 @@ func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo
 		}
 
 		err := aclUpdateSlotAddonTemplate(espDir, filepath.Join(templateDir, entry.Name()), usrHash, addonStubPath,
-			kernelInfo, buildDir)
+			kernelInfo)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrAclUkiAddonTemplates, err)
 		}
@@ -66,9 +65,9 @@ func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo
 }
 
 func aclUpdateSlotAddonTemplate(espDir string, templatePath string, usrHash string, addonStubPath string,
-	kernelInfo map[string]UkiKernelInfo, buildDir string,
+	kernelInfo map[string]UkiKernelInfo,
 ) error {
-	templateCmdline, err := extractCmdlineFromSinglePE(templatePath, buildDir)
+	templateCmdline, _, err := extractCmdlineFromSinglePE(templatePath)
 	if err != nil {
 		return fmt.Errorf("failed to read addon template (%s):\n%w", templatePath, err)
 	}
@@ -91,7 +90,7 @@ func aclUpdateSlotAddonTemplate(espDir string, templatePath string, usrHash stri
 			continue
 		}
 
-		addonCmdline, err := extractCmdlineFromSinglePE(addonPath, buildDir)
+		addonCmdline, _, err := extractCmdlineFromSinglePE(addonPath)
 		if err != nil {
 			return fmt.Errorf("failed to read addon (%s):\n%w", addonPath, err)
 		}
@@ -117,7 +116,7 @@ func aclUpdateSlotAddonTemplate(espDir string, templatePath string, usrHash stri
 		logger.Log.Infof("Updated UKI addon template from the rebuilt addon: (%s)", templatePath)
 
 	case rebuild:
-		err = buildUkiAddonFile(templatePath, newCmdline, addonStubPath)
+		err = buildUkiAddonFile(templatePath, newCmdline, addonStubPath, "")
 		if err != nil {
 			return fmt.Errorf("failed to rebuild addon template (%s):\n%w", templatePath, err)
 		}

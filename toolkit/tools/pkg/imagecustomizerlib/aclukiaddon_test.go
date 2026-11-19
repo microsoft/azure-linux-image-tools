@@ -188,12 +188,12 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(buildDir, UkiBuildDir, "initramfs.img"), []byte("initramfs"), 0o644))
 	require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=azurelinux\n"), 0o644))
 	require.NoError(t, buildMainUki(kernel, "initramfs.img", mainCmdline+"\n", osReleasePath, stubPath, buildDir,
-		espDir, "6.6.157.1-1.azl3"))
+		espDir, "6.6.157.1-1.azl3", ""))
 
 	cmdlineFile := filepath.Join(buildDir, "cmdline.txt")
 	buildAddon := func(path string, cmdline string) {
 		require.NoError(t, os.WriteFile(cmdlineFile, []byte(cmdline+"\n"), 0o644))
-		require.NoError(t, buildUkiAddonFile(path, "@"+cmdlineFile, addonStubPath))
+		require.NoError(t, buildUkiAddonFile(path, "@"+cmdlineFile, addonStubPath, ""))
 	}
 	for name, cmdline := range baseAddons {
 		buildAddon(filepath.Join(addonDir, name), cmdline)
@@ -205,7 +205,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(addonDir, "acl-ipe-policy.p7b.cred"), cred, 0o644))
 
 	// Record the layout, and check it for changes.
-	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forCreate*/)
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forUkiCreate*/)
 	require.NoError(t, err)
 	assert.Equal(t, &UkiLayout{
 		MainCmdline: mainCmdline,
@@ -215,7 +215,7 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 	assert.NoError(t, checkUkiLayoutsUnchanged(espDir, kernelInfo, buildDir))
 
 	kdumpAddonPath := filepath.Join(addonDir, "kdump.addon.efi")
-	require.NoError(t, buildUkiAddonFile(kdumpAddonPath, "crashkernel=256M", addonStubPath))
+	require.NoError(t, buildUkiAddonFile(kdumpAddonPath, "crashkernel=256M", addonStubPath, ""))
 	err = checkUkiLayoutsUnchanged(espDir, kernelInfo, buildDir)
 	assert.ErrorIs(t, err, ErrUKIAddonDirChanged)
 	assert.ErrorContains(t, err, "changes='added kdump.addon.efi'")
@@ -259,8 +259,9 @@ func TestAclRebuildUkiOnEsp(t *testing.T) {
 		filepath.Join(templateDir, "slot-b.addon.efi"):    newSlotBCmdline,
 	}
 	for path, expectedCmdline := range expectedCmdlines {
-		cmdline, err := extractCmdlineFromSinglePE(path, buildDir)
+		cmdline, foundCmdline, err := extractCmdlineFromSinglePE(path)
 		assert.NoError(t, err)
+		assert.True(t, foundCmdline)
 
 		same, err := cmdlineHasSameArgs(cmdline, expectedCmdline)
 		if assert.NoError(t, err) {

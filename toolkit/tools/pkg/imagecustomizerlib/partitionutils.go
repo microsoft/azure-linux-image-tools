@@ -1063,7 +1063,7 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 		}
 
 		// Extract cmdline from main UKI and all addons, then concatenate
-		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
+		cmdlineContent, err := extractCmdlineFromUki(ukiFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract cmdline from UKI (%s):\n%w", ukiFile, err)
 		}
@@ -1074,10 +1074,10 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 	return kernelToArgsString, nil
 }
 
-// extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
+// extractCmdlineFromUki extracts kernel command-line arguments from a UKI and all its addons.
 // It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
-func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
-	mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir, false /*forCreate*/)
+func extractCmdlineFromUki(ukiFile string) (string, error) {
+	mainUkiCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile)
 	if err != nil {
 		return "", err
 	}
@@ -1086,35 +1086,25 @@ func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, 
 }
 
 // extractUkiCmdlineParts returns the main UKI's .cmdline as found and each addon's .cmdline, trimmed, by file name.
-func extractUkiCmdlineParts(ukiFile string, buildDir string, forCreate bool) (string, map[string]string, error) {
-	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+func extractUkiCmdlineParts(ukiFile string) (string, map[string]string, error) {
+	mainUkiCmdline, _, err := extractCmdlineFromSinglePE(ukiFile)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
 	}
 
+	addonPaths, err := getUkiAddons(ukiFile)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get UKI addons (%s):\n%w", ukiFile, err)
+	}
+
 	addonCmdlines := map[string]string{}
-	addonDirPath := ukiFile + ".extra.d"
-	if entries, err := os.ReadDir(addonDirPath); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".addon.efi") {
-				continue
-			}
-
-			addonFilePath := filepath.Join(addonDirPath, entry.Name())
-			addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
-			if err != nil {
-				return "", nil, fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
-			}
-
-			addonCmdline = strings.TrimSpace(addonCmdline)
-			if forCreate && addonCmdline == "" {
-				// An addon without a command line carries something else (e.g. a devicetree), which currently isn't
-				// handled.
-				return "", nil, fmt.Errorf("base image addon (%s) has no kernel command line", addonFilePath)
-			}
-
-			addonCmdlines[entry.Name()] = addonCmdline
+	for _, addonFilePath := range addonPaths {
+		addonCmdline, _, err := extractCmdlineFromSinglePE(addonFilePath)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 		}
+
+		addonCmdlines[filepath.Base(addonFilePath)] = strings.TrimSpace(addonCmdline)
 	}
 
 	return mainUkiCmdline, addonCmdlines, nil
@@ -1142,21 +1132,13 @@ func mergeUkiCmdlineParts(mainUkiCmdline string, addonCmdlines map[string]string
 }
 
 // extractCmdlineFromSinglePE extracts the .cmdline section from a single PE file (UKI or addon).
-func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
-	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
+func extractCmdlineFromSinglePE(peFilePath string) (string, bool, error) {
+	data, found, err := extractSectionFromUki(peFilePath, ".cmdline")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
+		return "", false, fmt.Errorf("failed to extract UKI cmdline section:\n%w", err)
 	}
-	defer os.Remove(cmdlinePath.Name())
-
-	err = extractSectionFromUkiWithObjcopy(originalPath, ".cmdline", cmdlinePath.Name(), buildDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract cmdline section:\n%w", err)
-	}
-
-	content, err := os.ReadFile(cmdlinePath.Name())
-	if err != nil {
-		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", cmdlinePath.Name(), err)
+	if !found {
+		return "", false, nil
 	}
 
 	// The `.cmdline` PE section holds a NUL-terminated string. Tools that rewrite the section with
@@ -1164,9 +1146,9 @@ func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 	// zero-pad the freed bytes, so the dumped contents may carry trailing NUL padding. Trim the
 	// trailing NUL bytes so the padding is not treated as part of the command line, which would
 	// otherwise corrupt downstream parsing (e.g. the numeric hash-offset in systemd.verity_*_options).
-	cmdline := strings.TrimRight(string(content), "\x00")
+	cmdline := strings.TrimRight(string(data), "\x00")
 
-	return cmdline, nil
+	return cmdline, true, nil
 }
 
 func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPath string, buildDir string,

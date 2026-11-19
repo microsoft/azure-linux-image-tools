@@ -1366,7 +1366,7 @@ func TestUkiKernelInfoWritersKeepBaseLayout(t *testing.T) {
 // checkSkipForUkiStubs skips the test unless ukify, objcopy and the host's systemd-boot stubs are available. It returns
 // the UKI stub and addon stub paths.
 func checkSkipForUkiStubs(t *testing.T) (string, string) {
-	for _, command := range []string{"ukify", "objcopy"} {
+	for _, command := range []string{"ukify"} {
 		exists, err := file.CommandExists(command)
 		require.NoError(t, err)
 		if !exists {

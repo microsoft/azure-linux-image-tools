@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"debug/pe"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,11 +18,17 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 const (
 	// Copies of the base image's non-addon files in UKI addon directories, under UkiBuildDir, by kernel.
 	ukiExtraFilesDir = "extra-files"
+)
+
+var (
+	ErrFailedToValidateUkiForUkiCreate = NewImageCustomizerError("UKI:FailedToValidateUkiForUkiCreate", "failed to validate UKI for UKI create mode")
+	ErrUnsupportedUkiSection           = NewImageCustomizerError("UKI:UnsupportedUkiSection", "unknown or unsupported section found in UKI")
 )
 
 // UkiLayout describes how a UKI's kernel command line is split across the main UKI and the addons in its
@@ -36,7 +43,7 @@ type UkiLayout struct {
 
 // readUkiBaseLayouts reads the kernel command line and the layout of each UKI, and saves a copy of the other files in
 // each UKI's addon directory so that they can be put back with the rebuilt UKI.
-func readUkiBaseLayouts(espDir string, buildDir string, forCreate bool) (map[string]UkiKernelInfo, error) {
+func readUkiBaseLayouts(espDir string, buildDir string, forUkiCreate bool) (map[string]UkiKernelInfo, error) {
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get UKI files:\n%w", err)
@@ -49,7 +56,7 @@ func readUkiBaseLayouts(espDir string, buildDir string, forCreate bool) (map[str
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		layout, err := readUkiLayout(ukiFile, buildDir, forCreate)
+		layout, err := readUkiLayout(ukiFile, forUkiCreate)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
@@ -76,29 +83,27 @@ func readUkiBaseLayouts(espDir string, buildDir string, forCreate bool) (map[str
 
 // readUkiLayout reads how a UKI's command line is split across the main UKI and its addons, and the SHA-256 of each
 // other file in its addon directory.
-func readUkiLayout(ukiFile string, buildDir string, forCreate bool) (UkiLayout, error) {
-	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile, buildDir, forCreate)
+func readUkiLayout(ukiFile string, forUkiCreate bool) (UkiLayout, error) {
+	if forUkiCreate {
+		err := validateUkiForUkiCreate(ukiFile)
+		if err != nil {
+			return UkiLayout{}, fmt.Errorf("%w:\n%w", ErrFailedToValidateUkiForUkiCreate, err)
+		}
+	}
+
+	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile)
 	if err != nil {
 		return UkiLayout{}, err
 	}
 
 	layout := UkiLayout{MainCmdline: strings.TrimSpace(mainCmdline), Addons: addonCmdlines}
 
-	addonDir := ukiFile + ".extra.d"
-	entries, err := os.ReadDir(addonDir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return layout, nil
-	}
+	extraFiles, err := getUkiExtraFiles(ukiFile)
 	if err != nil {
-		return UkiLayout{}, fmt.Errorf("failed to read UKI addon directory (%s):\n%w", addonDir, err)
+		return UkiLayout{}, fmt.Errorf("failed to get UKI's extra files (%s):\n%w", ukiFile, err)
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".addon.efi") {
-			continue
-		}
-
-		filePath := filepath.Join(addonDir, entry.Name())
+	for _, filePath := range extraFiles {
 		hash, err := file.GenerateSHA256(filePath)
 		if err != nil {
 			return UkiLayout{}, fmt.Errorf("failed to hash UKI addon directory file (%s):\n%w", filePath, err)
@@ -107,10 +112,133 @@ func readUkiLayout(ukiFile string, buildDir string, forCreate bool) (UkiLayout, 
 		if layout.ExtraFiles == nil {
 			layout.ExtraFiles = map[string]string{}
 		}
-		layout.ExtraFiles[entry.Name()] = hash
+		layout.ExtraFiles[filepath.Base(filePath)] = hash
 	}
 
 	return layout, nil
+}
+
+func validateUkiForUkiCreate(ukiPath string) error {
+	err := validatePEForUkiCreate(ukiPath)
+	if err != nil {
+		return err
+	}
+
+	addonPaths, err := getUkiAddons(ukiPath)
+	if err != nil {
+		return fmt.Errorf("failed to get UKI addons (%s):\n%w", ukiPath, err)
+	}
+
+	for _, addonPath := range addonPaths {
+		err = validatePEForUkiCreate(addonPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validatePEForUkiCreate checks that a UKI PE file only contains sections that Image Customizer recognizes and can
+// reproduce when recreating the UKI.
+func validatePEForUkiCreate(ukiPath string) error {
+	supportedSectionNames := []string{
+		// Standard PE sections.
+		".text",
+		".data",
+		".rdata",
+		".reloc",
+
+		// Included in UKI stub.
+		".sdmagic",
+		".rodata",
+
+		// Explictly set by Image Customizer when calling ukify.
+		".linux",
+		".osrel",
+		".cmdline",
+		".initrd",
+
+		// Implictly populated by ukify.
+		".uname",
+		".sbat",
+
+		// Known UKI sections that Image Customizer doesn't support yet.
+		//".ucode",
+		//".splash",
+		//".dtb",
+		//".dtbauto",
+		//".efifw",
+		//".hwids",
+		//".pcrsig",
+		//".pcrpkey",
+		//".profile",
+	}
+
+	peFile, err := pe.Open(ukiPath)
+	if err != nil {
+		return fmt.Errorf("failed to open UKI file:\n%w", err)
+	}
+	defer peFile.Close()
+
+	for _, section := range peFile.Sections {
+		if !slices.Contains(supportedSectionNames, section.Name) {
+			return fmt.Errorf("%w (path='%s', sectionName='%s')", ErrUnsupportedUkiSection, ukiPath, section.Name)
+		}
+	}
+
+	return nil
+}
+
+// getUkiAddons returns all the addons of a UKI.
+func getUkiAddons(ukiPath string) ([]string, error) {
+	files, err := getUkiAllExtraDirFiles(ukiPath)
+	if err != nil {
+		return nil, err
+	}
+
+	files = sliceutils.FindMatches(files, func(path string) bool {
+		return strings.HasSuffix(filepath.Base(path), ".addon.efi")
+	})
+	return files, nil
+}
+
+// getUkiExtraFiles returns all the files in the UKI's *.extra.d directory that aren't an addon.
+func getUkiExtraFiles(ukiPath string) ([]string, error) {
+	files, err := getUkiAllExtraDirFiles(ukiPath)
+	if err != nil {
+		return nil, err
+	}
+
+	files = sliceutils.FindMatches(files, func(path string) bool {
+		return !strings.HasSuffix(filepath.Base(path), ".addon.efi")
+	})
+	return files, nil
+}
+
+func getUkiAllExtraDirFiles(ukiPath string) ([]string, error) {
+	addonDirPath := ukiPath + ".extra.d"
+
+	entries, err := os.ReadDir(addonDirPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		// No UKI extra directory. So, no extra files.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	files := []string(nil)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		entryPath := filepath.Join(addonDirPath, entry.Name())
+		files = append(files, entryPath)
+	}
+
+	return files, nil
 }
 
 // saveUkiExtraFiles copies the other files of a UKI's addon directory into the build dir, under the kernel's name.
@@ -173,7 +301,7 @@ func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo
 			continue
 		}
 
-		layout, err := readUkiLayout(ukiFile, buildDir, false /*forCreate*/)
+		layout, err := readUkiLayout(ukiFile, false /*forUkiCreate*/)
 		if err != nil {
 			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
