@@ -5,9 +5,11 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"debug/pe"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -28,6 +30,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 var (
@@ -139,7 +142,7 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 ) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
-	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forCreate*/)
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
 	if err != nil {
 		return err
 	}
@@ -710,7 +713,7 @@ func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, st
 
 	// Build main UKI
 	err = buildMainUki(kernel, info.Initramfs, layout.MainCmdline, osSubreleaseFullPath, stubPath, buildDir,
-		systemBootPartitionTmpDir, kernelVersion)
+		systemBootPartitionTmpDir, kernelVersion, "")
 	if err != nil {
 		return fmt.Errorf("failed to build main UKI:\n%w", err)
 	}
@@ -735,8 +738,10 @@ func buildUki(kernel string, info UkiKernelInfo, osSubreleaseFullPath string, st
 	return nil
 }
 
+// buildMainUki builds a UKI file.
+// Note: 'deviceTreePath' is only used by tests.
 func buildMainUki(kernel string, initramfs string, cmdline string, osSubreleaseFullPath string, stubPath string,
-	buildDir string, systemBootPartitionTmpDir string, kernelVersion string,
+	buildDir string, systemBootPartitionTmpDir string, kernelVersion string, deviceTreePath string,
 ) error {
 	mainUkiConfigPath := filepath.Join(buildDir, UkiBuildDir, fmt.Sprintf("ukify_main_%s.conf", kernelVersion))
 
@@ -773,6 +778,13 @@ func buildMainUki(kernel string, initramfs string, cmdline string, osSubreleaseF
 		_, err = section.NewKey("Cmdline", fmt.Sprintf("@%s", cmdlinePath))
 		if err != nil {
 			return fmt.Errorf("failed to add 'Cmdline' key to INI file:\n%w", err)
+		}
+	}
+
+	if deviceTreePath != "" {
+		_, err = section.NewKey("DeviceTree", deviceTreePath)
+		if err != nil {
+			return fmt.Errorf("failed to add 'DeviceTree' key to INI file:\n%w", err)
 		}
 	}
 
@@ -820,7 +832,7 @@ func buildUkiAddon(kernel string, addonFileName string, kernelArgs string, stubP
 	// Addon output path: <uki-name>.extra.d/<addon-file-name>
 	addonFullPath := filepath.Join(addonDirPath, addonFileName)
 
-	err = buildUkiAddonFile(addonFullPath, kernelArgs, stubPath)
+	err = buildUkiAddonFile(addonFullPath, kernelArgs, stubPath, "")
 	if err != nil {
 		return err
 	}
@@ -831,12 +843,16 @@ func buildUkiAddon(kernel string, addonFileName string, kernelArgs string, stubP
 }
 
 // buildUkiAddonFile builds a UKI addon that holds a kernel command line.
-func buildUkiAddonFile(addonFullPath string, kernelArgs string, stubPath string) error {
+// Note: 'deviceTreePath' is only used by tests.
+func buildUkiAddonFile(addonFullPath string, kernelArgs string, stubPath string, deviceTreePath string) error {
 	ukifyCmd := []string{
 		"build",
 		fmt.Sprintf("--cmdline=%s", kernelArgs),
 		fmt.Sprintf("--stub=%s", stubPath),
 		fmt.Sprintf("--output=%s", addonFullPath),
+	}
+	if deviceTreePath != "" {
+		ukifyCmd = append(ukifyCmd, fmt.Sprintf("--devicetree=%s", deviceTreePath))
 	}
 
 	err := shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
@@ -925,28 +941,93 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
 }
 
-func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {
-	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
-	if err != nil {
-		return fmt.Errorf("failed to create temp UKI copy:\n%w", err)
-	}
-	defer os.Remove(tempCopy.Name())
+func extractSectionFromUkiToFile(ukiPath string, sectionName string, outputPath string) error {
+	logger.Log.Debugf("Copying PE section %s from %s to %s", sectionName, ukiPath, outputPath)
 
-	input, err := os.ReadFile(ukiPath)
+	peFile, err := pe.Open(ukiPath)
 	if err != nil {
-		return fmt.Errorf("failed to read UKI file:\n%w", err)
+		return fmt.Errorf("failed to open UKI file:\n%w", err)
 	}
-	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
-		return fmt.Errorf("failed to write temp UKI file:\n%w", err)
+	defer peFile.Close()
+
+	section, err := findSinglePeFileSection(peFile, sectionName, false /*allowNotExists*/)
+	if err != nil {
+		return err
 	}
 
-	// Extract the section using objcopy on the temp copy
-	_, _, err = shell.Execute("objcopy", "--dump-section", sectionName+"="+outputPath, tempCopy.Name())
+	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("objcopy failed to extract section %s:\n%w", sectionName, err)
+		return fmt.Errorf("failed to open UKI section data output file:\n%w", err)
+	}
+	defer outputFile.Close()
+
+	dataSize := section.Size
+	if section.VirtualSize > 0 && section.VirtualSize < dataSize {
+		// PE section is padded.
+		dataSize = section.VirtualSize
+	}
+
+	_, err = io.CopyN(outputFile, section.Open(), int64(dataSize))
+	if err != nil {
+		return fmt.Errorf("failed to copy UKI section data:\n%w", err)
+	}
+
+	err = outputFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close UKI section data output file:\n%w", err)
 	}
 
 	return nil
+}
+
+func extractSectionFromUki(ukiPath string, sectionName string) ([]byte, bool, error) {
+	logger.Log.Debugf("Reading PE section %s from %s", sectionName, ukiPath)
+
+	peFile, err := pe.Open(ukiPath)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to open UKI file:\n%w", err)
+	}
+	defer peFile.Close()
+
+	section, err := findSinglePeFileSection(peFile, sectionName, true /*allowNotExists*/)
+	if err != nil {
+		return nil, false, err
+	}
+	if section == nil {
+		// Section not found.
+		return nil, false, nil
+	}
+
+	data, err := section.Data()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read UKI section %s:\n%w", sectionName, err)
+	}
+
+	if section.VirtualSize > 0 && section.VirtualSize < section.Size {
+		// PE section is padded.
+		data = data[:section.VirtualSize]
+	}
+
+	return data, true, nil
+}
+
+func findSinglePeFileSection(peFile *pe.File, sectionName string, allowNotExists bool) (*pe.Section, error) {
+	sections := sliceutils.FindMatches(peFile.Sections, func(section *pe.Section) bool {
+		return section.Name == sectionName
+	})
+	if len(sections) == 0 && allowNotExists {
+		return nil, nil
+	}
+	if len(sections) != 1 {
+		return nil, fmt.Errorf("expecting 1 UKI %s section but found %d", sectionName, len(sections))
+	}
+
+	section := sections[0]
+	if len(section.Relocs) > 0 {
+		return nil, fmt.Errorf("not expecting UKI section %s to have relocations", sectionName)
+	}
+
+	return section, nil
 }
 
 func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string, distroHandler DistroHandler) error {
@@ -977,14 +1058,12 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 
-	tempDir := filepath.Join(buildDir, "uki-extraction-temp")
-	err = os.MkdirAll(tempDir, 0o755)
-	if err != nil {
-		return fmt.Errorf("failed to create temp directory:\n%w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
 	for _, ukiFile := range ukiFiles {
+		err = validateUkiForUkiCreate(ukiFile)
+		if err != nil {
+			return err
+		}
+
 		kernelName, err := getKernelNameFromUki(ukiFile)
 		if err != nil {
 			return err
@@ -998,7 +1077,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		// Extract kernel from main UKI file
 		kernelPath := filepath.Join(bootDir, kernelName)
 		logger.Log.Infof("Extracting kernel from main UKI (%s) to (%s)", ukiFile, kernelPath)
-		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
+		err = extractSectionFromUkiToFile(ukiFile, ".linux", kernelPath)
 		if err != nil {
 			return fmt.Errorf("failed to extract kernel from UKI (%s):\n%w", ukiFile, err)
 		}
@@ -1007,7 +1086,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		initramfsPath := filepath.Join(bootDir, initramfsName)
 
 		logger.Log.Infof("Extracting initramfs from main UKI (%s) to (%s)", ukiFile, initramfsPath)
-		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
+		err = extractSectionFromUkiToFile(ukiFile, ".initrd", initramfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to extract initramfs from UKI (%s):\n%w", ukiFile, err)
 		}

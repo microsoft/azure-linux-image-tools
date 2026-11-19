@@ -214,7 +214,7 @@ func (d *aclDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *saf
 func (d *aclDistroHandler) FinalizeUkis(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
 	buildDir string,
 ) error {
-	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo, buildDir)
+	return aclUpdateSlotAddonTemplates(espDir, addonStubPath, kernelInfo)
 }
 
 func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

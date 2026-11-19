@@ -4,9 +4,14 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetFallbackUkiLayout(t *testing.T) {
@@ -263,4 +268,77 @@ func TestUkiUpdateLayoutKernelCommandLineArgs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateUkiForUkiCreate(t *testing.T) {
+	testCases := []struct {
+		Name                       string
+		IncludeDeviceTreeInMainUki bool
+		IncludeDeviceTreeInAddon   bool
+		ExpectedError              error
+	}{
+		{"Ok", false, false, nil},
+		{"BadAddon", false, true, ErrFailedToValidateUkiForUkiCreate},
+		{"BadUki", true, false, ErrFailedToValidateUkiForUkiCreate},
+		{"BadBoth", true, true, ErrFailedToValidateUkiForUkiCreate},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			stubPath, addonStubPath := checkSkipForUkiStubs(t)
+
+			testTempDir := t.TempDir()
+			buildDir := filepath.Join(testTempDir, "build")
+			espDir := filepath.Join(testTempDir, "esp")
+
+			kernel := "vmlinuz-6.6.157.1-1.azl3"
+			kernelVersion := "6.6.157.1-1.azl3"
+			initramfs := "initramfs.img"
+
+			ukiBuildDir := filepath.Join(buildDir, UkiBuildDir)
+			kernelPath := filepath.Join(ukiBuildDir, kernel)
+			initramfsPath := filepath.Join(ukiBuildDir, initramfs)
+			osReleasePath := filepath.Join(buildDir, "os-release")
+			ukiOutputDir := filepath.Join(espDir, UkiOutputDir)
+			ukiPath := filepath.Join(ukiOutputDir, fmt.Sprintf("%s.efi", kernel))
+			ukiExtraDir := ukiPath + ".extra.d"
+			ukiAddonPath := filepath.Join(ukiExtraDir, "test.addon.efi")
+			deviceTree := filepath.Join(buildDir, "devicetree")
+
+			require.NoError(t, os.MkdirAll(ukiBuildDir, os.ModePerm))
+			require.NoError(t, os.MkdirAll(ukiOutputDir, os.ModePerm))
+			require.NoError(t, os.MkdirAll(ukiExtraDir, os.ModePerm))
+
+			require.NoError(t, file.Copy(stubPath, kernelPath))
+			require.NoError(t, os.WriteFile(initramfsPath, []byte("initramfs"), os.ModePerm))
+			require.NoError(t, os.WriteFile(osReleasePath, []byte("ID=azurelinux\n"), os.ModePerm))
+			require.NoError(t, os.WriteFile(deviceTree, []byte(""), os.ModePerm))
+
+			mainUkiDeviceTree := ""
+			if testCase.IncludeDeviceTreeInMainUki {
+				mainUkiDeviceTree = deviceTree
+			}
+
+			addonDeviceTree := ""
+			if testCase.IncludeDeviceTreeInAddon {
+				addonDeviceTree = deviceTree
+			}
+
+			require.NoError(t, buildMainUki(kernel, initramfs, "console=tty0", osReleasePath, stubPath, buildDir,
+				espDir, kernelVersion, mainUkiDeviceTree))
+			require.NoError(t, buildUkiAddonFile(ukiAddonPath, "console=ttyS0", addonStubPath, addonDeviceTree))
+
+			ukiLayout, err := readUkiLayout(ukiPath)
+			assert.NoError(t, err)
+			assert.Equal(t, "console=tty0", ukiLayout.MainCmdline)
+			assert.Equal(t, "console=ttyS0", ukiLayout.Addons["test.addon.efi"])
+
+			err = validateUkiForUkiCreate(ukiPath)
+			if testCase.ExpectedError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, testCase.ExpectedError)
+			}
+		})
+	}
+
 }
