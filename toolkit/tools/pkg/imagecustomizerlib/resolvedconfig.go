@@ -61,9 +61,6 @@ type ResolvedConfig struct {
 	// Bootloader
 	BootLoader imagecustomizerapi.BootLoader
 
-	// OS Kernel command line
-	OsKernelCommandLine imagecustomizerapi.KernelCommandLine
-
 	// UKI
 	Uki *imagecustomizerapi.Uki
 

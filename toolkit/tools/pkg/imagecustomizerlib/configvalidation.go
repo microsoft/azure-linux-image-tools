@@ -231,7 +231,6 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
-	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
 	err = validateScriptsConfigChain(rc.ConfigChain, validateFiles)
 	if err != nil {
@@ -989,19 +988,6 @@ func mergeAdditionalFiles(configChain []*ConfigWithBasePath,
 		}
 	}
 	return merged
-}
-
-func resolveOsKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
-	mergedArgs := mergeKernelCommandLine(configChain, func(c *imagecustomizerapi.Config) []string {
-		if c.OS != nil {
-			return c.OS.KernelCommandLine.ExtraCommandLine
-		}
-		return nil
-	})
-
-	return imagecustomizerapi.KernelCommandLine{
-		ExtraCommandLine: mergedArgs,
-	}
 }
 
 // resolveIsoConfig builds a resolved Iso config by merging values from the config chain.

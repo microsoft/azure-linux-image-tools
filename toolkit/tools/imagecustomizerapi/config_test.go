@@ -1064,3 +1064,64 @@ func TestConfigIsValidEmptyOutputPackageManifestPath(t *testing.T) {
 	err := config.IsValid()
 	assert.ErrorContains(t, err, "'path' must be specified and non-empty")
 }
+
+func TestConfigIsValidUkiPassthroughOk(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{PreviewFeatureUki},
+		OS: &OS{
+			Uki: &Uki{
+				UkiModePassthrough,
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidUkiPassthroughNotOk(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{PreviewFeatureUki},
+		Storage: Storage{
+			ReinitializeVerity: ReinitializeVerityTypeAll,
+		},
+		OS: &OS{
+			Uki: &Uki{
+				UkiModePassthrough,
+			},
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+			SELinux: SELinux{
+				Mode: SELinuxModeDisabled,
+			},
+			KernelCommandLine: KernelCommandLine{
+				Replace: []KernelCmdlineReplace{
+					{
+						Remove: []string{"console"},
+					},
+				},
+				ExtraCommandLine: []string{"console=tty0"},
+			},
+			Overlays: &[]Overlay{
+				{
+					LowerDirs:  []string{"/"},
+					UpperDir:   "/upper_root",
+					WorkDir:    "/work_root",
+					MountPoint: "/mnt/root",
+				},
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.ErrorContains(t, err, "UKI passthrough mode is incompatible with the following configurations:\n")
+	assert.ErrorContains(t, err, "  - os.bootloader.resetType: hard-reset modifies bootloader configuration\n")
+	assert.ErrorContains(t, err, "  - os.selinux.mode: changes SELinux mode which modifies kernel command line embedded in UKI\n")
+	assert.ErrorContains(t, err, "  - os.kernelCommandLine.replace: modifies kernel command line embedded in UKI\n")
+	assert.ErrorContains(t, err, "  - os.kernelCommandLine.extraCommandLine: modifies kernel command line embedded in UKI\n")
+	assert.ErrorContains(t, err, "  - storage.reinitializeVerity: reinitializes verity which modifies initramfs and kernel cmdline\n")
+	assert.ErrorContains(t, err, "  - os.overlays: overlay configuration might trigger initramfs regeneration\n")
+	assert.ErrorContains(t, err, "Passthrough mode preserves existing UKIs without modification.\n")
+	assert.ErrorContains(t, err, "To make these changes, use mode: create to regenerate UKIs, or remove the incompatible configurations.")
+}

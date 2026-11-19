@@ -67,7 +67,8 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -82,7 +83,8 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil, ukiFilesChecksums)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info", "console=tty0", "console=ttyS0"}, nil,
+		ukiFilesChecksums)
 }
 
 func TestCustomizeImageUkiCreateNoBootloaderReset(t *testing.T) {
@@ -228,7 +230,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"},
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"},
 		[]string{"systemd.log_level=debug"}, nil)
 	if !ok {
 		return
@@ -245,8 +248,14 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 		return
 	}
 
+	absentCommandLine := []string{"rd.info", "console=tty0", "console=ttyS0"}
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		// AZL4 includes "console=ttyS0" in its default args.
+		absentCommandLine = []string{"rd.info", "console=tty0"}
+	}
+
 	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.debug"}, []string{"rd.info"}, nil)
+		[]string{"rd.debug"}, absentCommandLine, nil)
 	if !ok {
 		return
 	}
@@ -280,7 +289,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 
 	buildDir := filepath.Join(testTempDir, "build")
 
-	// Pass 0: build the single-kernel usr-verity UKI image that the later passes re-customize. Adds rd.info.
+	// Pass 0: build the single-kernel usr-verity UKI image that the later passes re-customize.
+	// Adds: rd.info console=tty0 console=ttyS0
 	outImageFilePath0 := filepath.Join(testTempDir, "image0.raw")
 	configFile0 := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile0, baseImage, outImageFilePath0, "raw",
@@ -289,7 +299,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		return
 	}
 
-	ukiFilesChecksums0, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath0, []string{"rd.info"}, nil, nil)
+	ukiFilesChecksums0, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath0,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -304,7 +315,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums1, addonFilesChecksums1, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
-		[]string{"rd.info", "systemd.log_level=debug"}, nil, nil)
+		[]string{"rd.info", "console=tty0", "console=ttyS0", "systemd.log_level=debug"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -316,7 +327,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 		t.Skip("Azure Linux 4.0 has no alternative kernel package to swap to, only other versions of 'kernel'")
 	}
 
-	// Pass 2: re-customize, swapping the kernel to kernel-npi and adding console=ttyAMA0,115200n8.
+	// Pass 2: re-customize, swapping the kernel to kernel-npi and replacing console args with console=ttyAMA0,115200n8.
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, verityReinitUsrUkiNoResetKernelSwapConfigFile(t, baseImageInfo))
 	repoFile := filepath.Join(testDir, "repos", "lsg-6.18.repo")
@@ -335,7 +346,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeMultiKernelThenKernelSwapHelper(t 
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"}, nil, nil)
+		[]string{"rd.info", "systemd.log_level=debug", "console=ttyAMA0,115200n8"},
+		nil, nil)
 	if !ok {
 		return
 	}
@@ -395,7 +407,8 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, []string{"rd.info"}, nil, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"}, nil, nil)
 	if !ok {
 		return
 	}
@@ -410,7 +423,8 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 		return
 	}
 
-	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, []string{"rd.info"}, nil,
+	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"}, nil,
 		ukiFilesChecksums)
 	if !ok {
 		return
@@ -509,13 +523,14 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 		return
 	}
 
-	ukiFilesChecksums1, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1, []string{"rd.info"}, nil, nil)
+	ukiFilesChecksums1, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath1,
+		[]string{"rd.info", "console=tty0", "console=ttyS0"}, nil, nil)
 	if !ok {
 		return
 	}
 
 	// Pass 2: re-customize that UKI image with 'os.uki.mode: create' and os.kernelCommandLine.extraCommandLine but
-	// doesn't hard-reset the bootloader. Preserves rd.info and adds console=ttyAMA0,115200n8.
+	// doesn't hard-reset the bootloader. Preserves rd.info and replaces console args with console=ttyAMA0,115200n8.
 	outImageFilePath2 := filepath.Join(testTempDir, "image.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki-noreset.yaml")
 	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath1, outImageFilePath2, "raw",
@@ -525,7 +540,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeCmdlineHelper(t *testing.T, baseIm
 	}
 
 	ukiFilesChecksums2, addonFilesChecksums2, ok := verifyUsrVerity(t, buildDir, outImageFilePath2,
-		[]string{"rd.info", "console=ttyAMA0,115200n8"}, nil, nil)
+		[]string{"rd.info", "rd.debug", "console=ttyAMA0,115200n8"}, nil, nil)
 	if !ok {
 		return
 	}
