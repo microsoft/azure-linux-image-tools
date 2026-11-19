@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -325,7 +326,9 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 	actualSystemdBoot := metadata.Bootloader.SystemdBoot
 	assert.Equal(t, expectedSystemdBoot != nil, actualSystemdBoot != nil)
 	if expectedSystemdBoot != nil && actualSystemdBoot != nil {
-		if assert.Equal(t, len(expectedSystemdBoot.Entries), len(actualSystemdBoot.Entries)) {
+		if assert.Equalf(t, len(expectedSystemdBoot.Entries), len(actualSystemdBoot.Entries),
+			"Unexpected COSI systemd-boot entries: %#v", actualSystemdBoot.Entries,
+		) {
 			for i := range expectedSystemdBoot.Entries {
 				expectedEntry := expectedSystemdBoot.Entries[i]
 				actualEntry := actualSystemdBoot.Entries[i]
@@ -335,6 +338,9 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 				assert.NotEqual(t, "", actualEntry.Path)
 				assert.NotEqual(t, "", actualEntry.Cmdline)
 				assert.NotEqual(t, "", actualEntry.Kernel)
+
+				assert.Truef(t, strings.HasPrefix(actualEntry.Path, expectedEntry.Path),
+					"%s does not contain prefix %s", strconv.Quote(actualEntry.Path), strconv.Quote(expectedEntry.Path))
 			}
 		}
 	}
@@ -803,4 +809,152 @@ func newTestCosiGptSections(partNums []int) []cosiapi.GptDiskRegion {
 	}
 
 	return gptRegions
+}
+
+func TestCustomizeImageCosiBlsEntriesEsp(t *testing.T) {
+	for _, baseImageInfo := range []testBaseImageInfo{testBaseImageAzl4CoreEfi} {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageCosiBlsEntriesEsp(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageCosiBlsEntriesEsp(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageCosiBlsEntriesEsp"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "systemd-boot-bls-esp-azl4.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.cosi")
+
+	// Customize image.
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "cosi",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Verify COSI file.
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
+			Size:       15 * diskutils.GiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2}),
+		},
+		Images: []cosiapi.FileSystem{
+			{
+				Image: cosiapi.ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: cosiapi.ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeRoot],
+			},
+		},
+		Bootloader: cosiapi.Bootloader{
+			Type: cosiapi.BootloaderTypeSystemdBoot,
+			SystemdBoot: &cosiapi.SystemDBoot{
+				Entries: []cosiapi.SystemDBootEntry{
+					{
+						Type: cosiapi.SystemDBootEntryTypeConfig,
+						Path: "/boot/efi/loader/entries/",
+					},
+				},
+			},
+		},
+		Compression: cosiapi.Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTmpDir, expectedCosiMetadata); !ok {
+		return
+	}
+}
+
+func TestCustomizeImageCosiBlsEntriesXbootldr(t *testing.T) {
+	for _, baseImageInfo := range []testBaseImageInfo{testBaseImageAzl4CoreEfi} {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageCosiBlsEntriesXbootldr(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageCosiBlsEntriesXbootldr(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageCosiBlsEntriesXbootldr"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "systemd-boot-bls-xbootldr-azl4.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.cosi")
+
+	// Customize image.
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "cosi",
+		baseImageInfo.PreviewFeatures)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Verify COSI file.
+	expectedCosiMetadata := cosiapi.MetadataJson{
+		Disk: cosiapi.Disk{
+			Size:       2150 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2, 3}),
+		},
+		Images: []cosiapi.FileSystem{
+			{
+				Image: cosiapi.ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: cosiapi.ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/boot",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeXbootldr],
+			},
+			{
+				Image: cosiapi.ImageFile{
+					Path: "images/image_3.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeRoot],
+			},
+		},
+		Bootloader: cosiapi.Bootloader{
+			Type: cosiapi.BootloaderTypeSystemdBoot,
+			SystemdBoot: &cosiapi.SystemDBoot{
+				Entries: []cosiapi.SystemDBootEntry{
+					{
+						Type: cosiapi.SystemDBootEntryTypeConfig,
+						Path: "/boot/loader/entries/",
+					},
+				},
+			},
+		},
+		Compression: cosiapi.Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTmpDir, expectedCosiMetadata); !ok {
+		return
+	}
 }
