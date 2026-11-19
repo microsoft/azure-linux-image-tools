@@ -43,7 +43,7 @@ type UkiLayout struct {
 
 // readUkiBaseLayouts reads the kernel command line and the layout of each UKI, and saves a copy of the other files in
 // each UKI's addon directory so that they can be put back with the rebuilt UKI.
-func readUkiBaseLayouts(espDir string, buildDir string, forUkiCreate bool) (map[string]UkiKernelInfo, error) {
+func readUkiBaseLayouts(espDir string, buildDir string) (map[string]UkiKernelInfo, error) {
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get UKI files:\n%w", err)
@@ -56,7 +56,7 @@ func readUkiBaseLayouts(espDir string, buildDir string, forUkiCreate bool) (map[
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		layout, err := readUkiLayout(ukiFile, forUkiCreate)
+		layout, err := readUkiLayout(ukiFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}
@@ -83,14 +83,7 @@ func readUkiBaseLayouts(espDir string, buildDir string, forUkiCreate bool) (map[
 
 // readUkiLayout reads how a UKI's command line is split across the main UKI and its addons, and the SHA-256 of each
 // other file in its addon directory.
-func readUkiLayout(ukiFile string, forUkiCreate bool) (UkiLayout, error) {
-	if forUkiCreate {
-		err := validateUkiForUkiCreate(ukiFile)
-		if err != nil {
-			return UkiLayout{}, fmt.Errorf("%w:\n%w", ErrFailedToValidateUkiForUkiCreate, err)
-		}
-	}
-
+func readUkiLayout(ukiFile string) (UkiLayout, error) {
 	mainCmdline, addonCmdlines, err := extractUkiCmdlineParts(ukiFile)
 	if err != nil {
 		return UkiLayout{}, err
@@ -118,8 +111,19 @@ func readUkiLayout(ukiFile string, forUkiCreate bool) (UkiLayout, error) {
 	return layout, nil
 }
 
+// validateUkiForUkiCreate checks that a UKI and its addons contains sections that Image Customizer recognizes and can
+// reproduce when recreating the UKI.
 func validateUkiForUkiCreate(ukiPath string) error {
-	err := validatePEForUkiCreate(ukiPath)
+	err := validateUkiForUkiCreateHelper(ukiPath)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrFailedToValidateUkiForUkiCreate, err)
+	}
+
+	return nil
+}
+
+func validateUkiForUkiCreateHelper(ukiPath string) error {
+	err := validatePEForUkiCreate(ukiPath, false)
 	if err != nil {
 		return err
 	}
@@ -130,7 +134,7 @@ func validateUkiForUkiCreate(ukiPath string) error {
 	}
 
 	for _, addonPath := range addonPaths {
-		err = validatePEForUkiCreate(addonPath)
+		err = validatePEForUkiCreate(addonPath, true)
 		if err != nil {
 			return err
 		}
@@ -141,7 +145,7 @@ func validateUkiForUkiCreate(ukiPath string) error {
 
 // validatePEForUkiCreate checks that a UKI PE file only contains sections that Image Customizer recognizes and can
 // reproduce when recreating the UKI.
-func validatePEForUkiCreate(ukiPath string) error {
+func validatePEForUkiCreate(ukiPath string, isAddon bool) error {
 	supportedSectionNames := []string{
 		// Standard PE sections.
 		".text",
@@ -160,8 +164,11 @@ func validatePEForUkiCreate(ukiPath string) error {
 		".initrd",
 
 		// Implictly populated by ukify.
-		".uname",
 		".sbat",
+
+		// Implictly populated by ukify for main UKI.
+		// Not supported for addons yet.
+		".uname",
 
 		// Known UKI sections that Image Customizer doesn't support yet.
 		//".ucode",
@@ -182,7 +189,7 @@ func validatePEForUkiCreate(ukiPath string) error {
 	defer peFile.Close()
 
 	for _, section := range peFile.Sections {
-		if !slices.Contains(supportedSectionNames, section.Name) {
+		if !slices.Contains(supportedSectionNames, section.Name) || (isAddon && section.Name == ".uname") {
 			return fmt.Errorf("%w (path='%s', sectionName='%s')", ErrUnsupportedUkiSection, ukiPath, section.Name)
 		}
 	}
@@ -301,7 +308,7 @@ func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo
 			continue
 		}
 
-		layout, err := readUkiLayout(ukiFile, false /*forUkiCreate*/)
+		layout, err := readUkiLayout(ukiFile)
 		if err != nil {
 			return fmt.Errorf("failed to read the layout of UKI (%s):\n%w", ukiFile, err)
 		}

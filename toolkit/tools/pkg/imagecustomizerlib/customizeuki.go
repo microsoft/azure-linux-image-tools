@@ -142,7 +142,7 @@ func saveUkiBaseCmdlineForCreate(buildDir string, imageChroot *safechroot.Chroot
 ) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
-	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir, true /*forUkiCreate*/)
+	kernelInfo, err := readUkiBaseLayouts(espDir, buildDir)
 	if err != nil {
 		return err
 	}
@@ -961,7 +961,13 @@ func extractSectionFromUkiToFile(ukiPath string, sectionName string, outputPath 
 	}
 	defer outputFile.Close()
 
-	_, err = io.Copy(outputFile, section.Open())
+	dataSize := section.Size
+	if section.VirtualSize > 0 && section.VirtualSize < dataSize {
+		// PE section is padded.
+		dataSize = section.VirtualSize
+	}
+
+	_, err = io.CopyN(outputFile, section.Open(), int64(dataSize))
 	if err != nil {
 		return fmt.Errorf("failed to copy UKI section data:\n%w", err)
 	}
@@ -995,6 +1001,11 @@ func extractSectionFromUki(ukiPath string, sectionName string) ([]byte, bool, er
 	data, err := section.Data()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to read UKI section %s:\n%w", sectionName, err)
+	}
+
+	if section.VirtualSize > 0 && section.VirtualSize < section.Size {
+		// PE section is padded.
+		data = data[:section.VirtualSize]
 	}
 
 	return data, true, nil
@@ -1048,6 +1059,11 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 
 	for _, ukiFile := range ukiFiles {
+		err = validateUkiForUkiCreate(ukiFile)
+		if err != nil {
+			return err
+		}
+
 		kernelName, err := getKernelNameFromUki(ukiFile)
 		if err != nil {
 			return err

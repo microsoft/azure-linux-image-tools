@@ -327,11 +327,14 @@ func TestValidateUkiForUkiCreate(t *testing.T) {
 				espDir, kernelVersion, mainUkiDeviceTree))
 			require.NoError(t, buildUkiAddonFile(ukiAddonPath, "console=ttyS0", addonStubPath, addonDeviceTree))
 
-			ukiLayout, err := readUkiLayout(ukiPath, true /*forUkiCreate*/)
+			ukiLayout, err := readUkiLayout(ukiPath)
+			assert.NoError(t, err)
+			assert.Equal(t, "console=tty0", ukiLayout.MainCmdline)
+			assert.Equal(t, "console=ttyS0", ukiLayout.Addons["test.addon.efi"])
+
+			err = validateUkiForUkiCreate(ukiPath)
 			if testCase.ExpectedError == nil {
 				assert.NoError(t, err)
-				assert.Equal(t, "console=tty0", ukiLayout.MainCmdline)
-				assert.Equal(t, "console=ttyS0", ukiLayout.Addons["test.addon.efi"])
 			} else {
 				assert.ErrorIs(t, err, testCase.ExpectedError)
 			}
