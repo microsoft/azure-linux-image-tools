@@ -146,6 +146,8 @@ func validateUkiForUkiCreateHelper(ukiPath string) error {
 // validatePEForUkiCreate checks that a UKI PE file only contains sections that Image Customizer recognizes and can
 // reproduce when recreating the UKI.
 func validatePEForUkiCreate(ukiPath string, isAddon bool) error {
+	logger.Log.Debugf("Validating UKI sections (path='%s', isAddon='%v')", ukiPath, isAddon)
+
 	supportedSectionNames := []string{
 		// Standard PE sections.
 		".text", ".data", ".rdata", ".reloc",
@@ -225,8 +227,11 @@ func getUkiExtraFiles(ukiPath string) ([]string, error) {
 
 func getUkiAllExtraDirFiles(ukiPath string) ([]string, error) {
 	addonDirPath := ukiPath + ".extra.d"
+	return getAllFilesInDir(addonDirPath)
+}
 
-	entries, err := os.ReadDir(addonDirPath)
+func getAllFilesInDir(dirPath string) ([]string, error) {
+	entries, err := os.ReadDir(dirPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		// No UKI extra directory. So, no extra files.
 		return nil, nil
@@ -241,7 +246,7 @@ func getUkiAllExtraDirFiles(ukiPath string) ([]string, error) {
 			continue
 		}
 
-		entryPath := filepath.Join(addonDirPath, entry.Name())
+		entryPath := filepath.Join(dirPath, entry.Name())
 		files = append(files, entryPath)
 	}
 
@@ -306,6 +311,11 @@ func checkUkiLayoutsUnchanged(espDir string, kernelInfo map[string]UkiKernelInfo
 		// A kernel installed during customization has no UKI of its own yet.
 		if info.BaseLayout == nil || !exists {
 			continue
+		}
+
+		err = validateUkiForUkiCreate(ukiFile)
+		if err != nil {
+			return err
 		}
 
 		layout, err := readUkiLayout(ukiFile)

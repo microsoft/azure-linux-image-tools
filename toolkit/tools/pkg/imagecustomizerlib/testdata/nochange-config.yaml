@@ -1,1 +1,16 @@
+previewFeatures:
+- reinitialize-verity
+- uki
+- package-manifest
+- preview-distro-version
+
+storage:
+  reinitializeVerity: all
+
 os:
+  uki:
+    mode: create
+
+  packages:
+    manifest:
+      mode: create

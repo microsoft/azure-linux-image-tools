@@ -4,17 +4,15 @@
 package imagecustomizerlib
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 var (
@@ -35,26 +33,33 @@ const (
 // copy of its rebuilt addon.
 func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
 ) error {
-	templateDir := filepath.Join(espDir, aclUkiAddonTemplatesDir)
-	entries, err := os.ReadDir(templateDir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
+	err := aclUpdateSlotAddonTemplatesHelper(espDir, addonStubPath, kernelInfo)
 	if err != nil {
-		return fmt.Errorf("%w:\nfailed to read directory (%s):\n%w", ErrAclUkiAddonTemplates, templateDir, err)
+		return fmt.Errorf("%w:\n%w", ErrAclUkiAddonTemplates, err)
 	}
 
+	return nil
+}
+
+func aclUpdateSlotAddonTemplatesHelper(espDir string, addonStubPath string, kernelInfo map[string]UkiKernelInfo,
+) error {
 	usrHash, err := aclGetUsrHash(kernelInfo)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrAclUkiAddonTemplates, err)
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".addon.efi") {
-			continue
-		}
+	templateDir := filepath.Join(espDir, aclUkiAddonTemplatesDir)
+	files, err := getAllFilesInDir(templateDir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory (%s):\n%w", templateDir, err)
+	}
 
-		err := aclUpdateSlotAddonTemplate(espDir, filepath.Join(templateDir, entry.Name()), usrHash, addonStubPath,
+	addons := sliceutils.FindMatches(files, func(path string) bool {
+		return strings.HasSuffix(filepath.Base(path), ".addon.efi")
+	})
+
+	for _, addonPath := range addons {
+		err := aclUpdateSlotAddonTemplate(espDir, addonPath, usrHash, addonStubPath,
 			kernelInfo)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrAclUkiAddonTemplates, err)
@@ -67,6 +72,13 @@ func aclUpdateSlotAddonTemplates(espDir string, addonStubPath string, kernelInfo
 func aclUpdateSlotAddonTemplate(espDir string, templatePath string, usrHash string, addonStubPath string,
 	kernelInfo map[string]UkiKernelInfo,
 ) error {
+	// Ensure UKI addon doesn't contain any unexpected sections.
+	err := validatePEForUkiCreate(templatePath, true /*isAddon*/)
+	if err != nil {
+		return err
+	}
+
+	// Extract cmdline from original addon.
 	templateCmdline, _, err := extractCmdlineFromSinglePE(templatePath)
 	if err != nil {
 		return fmt.Errorf("failed to read addon template (%s):\n%w", templatePath, err)
