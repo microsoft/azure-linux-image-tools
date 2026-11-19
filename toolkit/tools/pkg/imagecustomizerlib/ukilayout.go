@@ -148,38 +148,38 @@ func validateUkiForUkiCreateHelper(ukiPath string) error {
 func validatePEForUkiCreate(ukiPath string, isAddon bool) error {
 	supportedSectionNames := []string{
 		// Standard PE sections.
-		".text",
-		".data",
-		".rdata",
-		".reloc",
+		".text", ".data", ".rdata", ".reloc",
 
 		// Included in UKI stub.
-		".sdmagic",
-		".rodata",
+		".sdmagic", ".rodata",
 
 		// Explictly set by Image Customizer when calling ukify.
-		".linux",
-		".osrel",
-		".cmdline",
-		".initrd",
+		".linux", ".osrel", ".cmdline", ".initrd",
 
 		// Implictly populated by ukify.
-		".sbat",
-
-		// Implictly populated by ukify for main UKI.
-		// Not supported for addons yet.
-		".uname",
+		".sbat", ".uname",
 
 		// Known UKI sections that Image Customizer doesn't support yet.
-		//".ucode",
-		//".splash",
-		//".dtb",
-		//".dtbauto",
-		//".efifw",
-		//".hwids",
-		//".pcrsig",
-		//".pcrpkey",
-		//".profile",
+		//".ucode", ".splash", ".dtb", ".dtbauto", ".efifw", ".hwids", ".pcrsig", ".pcrpkey", ".profile"
+	}
+	if isAddon {
+		supportedSectionNames = []string{
+			// Standard PE sections.
+			".text", ".data", ".rdata", ".reloc",
+
+			// Included in UKI stub.
+			".sdmagic", ".rodata",
+
+			// Implictly populated by ukify.
+			".sbat",
+
+			// Explictly set by Image Customizer when calling ukify.
+			".cmdline",
+
+			// Known UKI sections that Image Customizer doesn't support yet in addons.
+			// ".linux", ".osrel", ".initrd", ".uname", ".ucode", ".splash", ".dtb", ".dtbauto", ".efifw", ".hwids",
+			// ".pcrsig", ".pcrpkey", ".profile"
+		}
 	}
 
 	peFile, err := pe.Open(ukiPath)
@@ -189,7 +189,7 @@ func validatePEForUkiCreate(ukiPath string, isAddon bool) error {
 	defer peFile.Close()
 
 	for _, section := range peFile.Sections {
-		if !slices.Contains(supportedSectionNames, section.Name) || (isAddon && section.Name == ".uname") {
+		if !slices.Contains(supportedSectionNames, section.Name) {
 			return fmt.Errorf("%w (path='%s', sectionName='%s')", ErrUnsupportedUkiSection, ukiPath, section.Name)
 		}
 	}
