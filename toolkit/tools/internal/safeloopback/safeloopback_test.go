@@ -146,3 +146,53 @@ func raiseBtrfsGeneration(t *testing.T, imagePath string) error {
 
 	return loopback.CleanClose()
 }
+
+// Only btrfs partitions are forgotten, so images that do not use btrfs are untouched.
+func TestBtrfsDevicesSelectsOnlyBtrfsPartitions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Short mode enabled")
+	}
+
+	if os.Geteuid() != 0 {
+		t.Skip("Test must be run as root because it uses loopback devices")
+	}
+
+	if _, err := exec.LookPath("mkfs.btrfs"); err != nil {
+		t.Skip("mkfs.btrfs not available")
+	}
+
+	diskPath := filepath.Join(tmpDir, "mixed.raw")
+	err := diskutils.CreateSparseDisk(diskPath, 500, 0o644)
+	require.NoError(t, err)
+
+	loopback, err := NewLoopback(diskPath)
+	require.NoError(t, err)
+	defer loopback.Close()
+
+	// vfat, btrfs, unformatted, btrfs.
+	sfdiskScript := "label: gpt\nunit: sectors\n\n" +
+		"size=40960, name=\"esp\"\n" +
+		"size=270336, name=\"usr-a\"\n" +
+		"size=40960, name=\"blank\"\n" +
+		"name=\"usr-b\"\n"
+	err = shell.NewExecBuilder("sfdisk", loopback.DevicePath()).Stdin(sfdiskScript).Execute()
+	require.NoError(t, err)
+
+	err = diskutils.RefreshPartitions(loopback.DevicePath())
+	require.NoError(t, err)
+
+	err = shell.NewExecBuilder("mkfs.vfat", "-F", "32", loopback.DevicePath()+"p1").Execute()
+	require.NoError(t, err)
+	err = shell.NewExecBuilder("mkfs.btrfs", "-q", loopback.DevicePath()+"p2").Execute()
+	require.NoError(t, err)
+	err = shell.NewExecBuilder("mkfs.btrfs", "-q", loopback.DevicePath()+"p4").Execute()
+	require.NoError(t, err)
+
+	devices, err := btrfsDevices(loopback.DevicePath())
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{loopback.DevicePath() + "p2", loopback.DevicePath() + "p4"}, devices)
+
+	err = loopback.CleanClose()
+	require.NoError(t, err)
+}

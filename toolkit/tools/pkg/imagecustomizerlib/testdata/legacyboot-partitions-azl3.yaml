@@ -1,0 +1,10 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: legacyboot-partitions-base.yaml
+
+os:
+  packages:
+    install:
+      - grub2-pc

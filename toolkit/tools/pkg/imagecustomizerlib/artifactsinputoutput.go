@@ -161,7 +161,10 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 					addonDestDir := filepath.Join(ukiOutputSubdir, addonDirName)
 
 					// Copy the entire addon directory with all its contents
-					err = file.CopyDir(addonSrcDir, addonDestDir, 0o755, 0o644, nil)
+					err = file.CopyDir(addonSrcDir, addonDestDir, file.CopyDirOptions{
+						NewDirPermissions:    0o755,
+						ChildFilePermissions: 0o644,
+					})
 					if err != nil {
 						return fmt.Errorf("failed to copy UKI addon directory (%s):\n%w", addonSrcDir, err)
 					}
@@ -492,37 +495,25 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	return nil
 }
 
-func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
-	toolsChroot *safechroot.Chroot,
+func prepareImageConversionData(ctx context.Context, buildDir string,
+	toolsChroot *safechroot.Chroot, osImageConnection *osImageConnection, distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
-	[]cosiapi.OsPackage, [randomization.UuidSize]byte, string, *cosiapi.Bootloader, []string, error,
+	[]cosiapi.OsPackage, [randomization.UuidSize]byte, string, *cosiapi.Bootloader, error,
 ) {
-	imageMountPoint := filepath.Join(buildDir, "imageroot")
-	if toolsChroot != nil {
-		imageMountPoint = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
+	osRelease, err := extractOSRelease(osImageConnection.imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 	}
 
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, distroHandler, err :=
-		connectToExistingImage(ctx, rawImageFile, buildDir, imageMountPoint, true, true, true, true, nil)
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, osImageConnection.imageConnection,
+		distroHandler, toolsChroot)
 	if err != nil {
-		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
-	}
-	defer imageConnection.Close()
-
-	osRelease, err := extractOSRelease(imageConnection)
-	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler, toolsChroot)
+	imageUuid, imageUuidStr, err := tryExtractImageUUID(osImageConnection.imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
-	}
-
-	imageUuid, imageUuidStr, err := tryExtractImageUUID(imageConnection)
-	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 	}
 
 	if imageUuidStr == "" {
@@ -530,17 +521,12 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		// So, generate a new UUID.
 		imageUuid, imageUuidStr, err = randomization.CreateUuid()
 		if err != nil {
-			return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
+			return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 		}
 	}
 
-	if err := imageConnection.CleanClose(); err != nil {
-		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionClose, err)
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
-	}
-
-	return partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr,
-		cosiBootMetadata, readonlyPartUuids, nil
+	return osImageConnection.partitionsLayout, osImageConnection.verityMetadata, osRelease, osPackages, imageUuid,
+		imageUuidStr, cosiBootMetadata, nil
 }
 
 func tryExtractImageUUID(imageConnection *imageconnection.ImageConnection) ([randomization.UuidSize]byte, string, error) {

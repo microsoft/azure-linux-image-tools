@@ -57,8 +57,8 @@ Specifies the artifacts that will be output after the image customization.
 
 Supported values:
 
-- `ukis` – UKI PE images (`vmlinuz-<version>.efi`) and their associated addon files
-  (`vmlinuz-<version>.efi.extra.d/vmlinuz-<version>.addon.efi`).
+- `ukis` – UKI PE images (`vmlinuz-<version>.efi`) and the files in their addon directories, if any
+  (`vmlinuz-<version>.efi.extra.d/`).
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `bootloader` – Bootloader executable (`grub<arch>.efi`).
   *Added in v1.3.*

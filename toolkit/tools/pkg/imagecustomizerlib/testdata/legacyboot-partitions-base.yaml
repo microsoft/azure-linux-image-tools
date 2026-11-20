@@ -1,0 +1,47 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    # Create an overly large disk to exercise the logic that ensures that during disk/partition resize, the
+    # disk size isn't shrunk.
+    maxSize: 4G
+    partitions:
+    - id: rootfs
+      label: root
+      size: 1G
+
+      # Note: It is recommended to place the BIOS GRUB boot partition at the start of the disk.
+      # This config is weird since it is used to test a resizeDisk edge case.
+    - id: bios-grub
+      type: bios-grub
+      label: BIOS boot
+      size: 1M
+
+    - id: home
+      label: home
+      size: 500M
+
+    - id: var
+      label: var
+      size: 1G
+
+  bootType: legacy
+
+  filesystems:
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+  - deviceId: home
+    type: ext4
+    mountPoint:
+      path: /home
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  bootloader:
+    resetType: hard-reset

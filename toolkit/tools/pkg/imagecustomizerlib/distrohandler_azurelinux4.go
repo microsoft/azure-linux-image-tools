@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -35,6 +36,9 @@ const (
 	systemdBootUnsignedPackageAzl4 = "systemd-boot-unsigned"
 
 	osEspGrubDirAzl4 = osEspDir + "/EFI/azurelinux"
+
+	purlNamespaceAzureLinux4 = purlNamespaceAzureLinux
+	rpmDatabasePathAzl4      = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
@@ -161,6 +165,11 @@ func (d *azureLinux4DistroHandler) GetAllPackagesFromChroot(imageChroot safechro
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
+func (d *azureLinux4DistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathAzl4, purlNamespaceAzureLinux)
+}
+
 func (d *azureLinux4DistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) (cosiapi.BootloaderType, error) {
@@ -238,12 +247,10 @@ func (d *azureLinux4DistroHandler) SetupEtcOverlay(ctx context.Context, imageChr
 	return nil, nil
 }
 
-func (d *azureLinux4DistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *azureLinux4DistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *azureLinux4DistroHandler) FinalizeUkis(espDir string, addonStubPath string,
+	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
 }
 
 func (d *azureLinux4DistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

@@ -27,6 +27,23 @@ func TestDiskIsValid(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDiskIsValidUnalignedMaxSize(t *testing.T) {
+	disk := &Disk{
+		PartitionTableType: PartitionTableTypeGpt,
+		MaxSize:            ptrutils.PtrTo(DiskSize(3 * diskutils.KiB)),
+		Partitions: []Partition{
+			{
+				Id:    "a",
+				Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+			},
+		},
+	}
+
+	err := disk.IsValid()
+	assert.ErrorContains(t, err, "invalid 'maxSize' value:\n")
+	assert.ErrorContains(t, err, "size (3 KiB) must be a multiple of 1 MiB")
+}
+
 func TestDiskIsValidWithEnd(t *testing.T) {
 	disk := &Disk{
 		PartitionTableType: PartitionTableTypeGpt,

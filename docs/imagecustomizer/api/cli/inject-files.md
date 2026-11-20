@@ -85,9 +85,11 @@ Added in v0.14.
 
 ## --cosi-compression-level=LEVEL
 
-Optional. Default: `9`
+Optional. Default: `9` for `cosi`, `22` for `baremetal-image`.
 
 The zstd compression level (1-22) for COSI partition images.
+
+Only affects `cosi` and `baremetal-image` output.
 
 Higher compression levels produce smaller files but take significantly longer to
 compress. Decompression speed is largely unaffected by the compression level.

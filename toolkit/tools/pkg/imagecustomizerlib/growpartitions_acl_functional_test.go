@@ -145,7 +145,7 @@ func readAclLayoutForTest(t *testing.T, imageFile string) (uint64, map[string]ui
 }
 
 func verifyAclUsrVerity(t *testing.T, buildDir string, imageFile string) {
-	imageConnection, _, verityMetadata, _, _, err := connectToExistingImage(t.Context(), imageFile, buildDir,
+	imageConnection, _, _, err := connectToExistingImage(t.Context(), imageFile, buildDir,
 		"imageroot-verity", false /*includeDefaultMounts*/, true, /*readonly*/
 		true /*readOnlyVerity*/, false /*ignoreOverlays*/, nil /*distroHandler*/)
 	if !assert.NoError(t, err, "connecting with read-only verity should succeed if /usr is sealed correctly") {
@@ -155,7 +155,7 @@ func verifyAclUsrVerity(t *testing.T, buildDir string, imageFile string) {
 
 	// There should be a /usr verity device.
 	hasUsr := false
-	for _, m := range verityMetadata {
+	for _, m := range imageConnection.verityMetadata {
 		if m.name == imagecustomizerapi.VerityUsrDeviceName {
 			hasUsr = true
 		}

@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +43,9 @@ const (
 	grubPcModulesPackageFedora = "grub2-pc-modules"
 
 	osEspGrubDirFedora = osEspDir + "/EFI/fedora"
+
+	purlNamespaceFedora   = string(targetos.Fedora)
+	rpmDatabasePathFedora = "/usr/lib/sysimage/rpm/rpmdb.sqlite"
 )
 
 var (
@@ -200,6 +204,11 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootRpm(imageChroot, toolsChroot)
 }
 
+func (d *fedoraDistroHandler) ListInstalledPackagesForSpdx(imageChroot safechroot.ChrootInterface,
+) ([]spdxmanifest.Package, error) {
+	return listInstalledPackagesRpm(imageChroot, rpmDatabasePathFedora, purlNamespaceFedora)
+}
+
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface,
 	toolsChroot *safechroot.Chroot,
 ) (cosiapi.BootloaderType, error) {
@@ -246,12 +255,10 @@ func (d *fedoraDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *
 	return nil, nil
 }
 
-func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
-	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
-}
-
-func (d *fedoraDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
-	return defaultGetUkiAddonSpecs(kernel, cmdline)
+func (d *fedoraDistroHandler) FinalizeUkis(espDir string, addonStubPath string,
+	kernelInfo map[string]UkiKernelInfo, buildDir string,
+) error {
+	return nil
 }
 
 func (d *fedoraDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

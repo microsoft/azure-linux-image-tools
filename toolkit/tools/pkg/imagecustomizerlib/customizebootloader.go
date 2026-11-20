@@ -42,7 +42,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 	default:
 		// Append the kernel command-line args to the image's existing boot config: the grub
 		// config for grub-based images, or the UKI cmdline (uki-kernel-info.json) for UKI
-		// images in create or modify mode.
+		// images in create mode.
 		err := AddKernelCommandLine(ctx, rc.BuildDirAbs, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)

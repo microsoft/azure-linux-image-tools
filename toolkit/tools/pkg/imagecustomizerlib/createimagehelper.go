@@ -16,7 +16,7 @@ import (
 )
 
 func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
-	distroHandler DistroHandler,
+	distroHandler DistroHandler, osImageConnection *osImageConnection,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
@@ -28,15 +28,17 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 
 	imageMountPoint := filepath.Join(toolsDir, toolsRootImageDir)
 
-	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
-		imageMountPoint, true, false, false, false, distroHandler)
+	_, err = osImageConnection.ConnectChroot(rc.BuildDirAbs, imageMountPoint, true, /*includeDefaultMounts*/
+		false /*readonly*/, false /*readOnlyVerity*/, distroHandler)
 	if err != nil {
 		return nil, "", err
 	}
-	defer imageConnection.Close()
+
+	imageConnection := osImageConnection.imageConnection
 
 	// Do the actual customizations.
-	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChrootOuter.Chroot(), partitionsLayout, distroHandler)
+	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChrootOuter.Chroot(),
+		osImageConnection.partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -51,7 +53,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
 	}
 
-	err = imageConnection.CleanClose()
+	err = osImageConnection.DisconnectChroot()
 	if err != nil {
 		return nil, "", err
 	}
@@ -61,7 +63,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", err
 	}
 
-	return partitionsLayout, osRelease, nil
+	return osImageConnection.partitionsLayout, osRelease, nil
 }
 
 func doOsCustomizationsCreate(
@@ -73,7 +75,7 @@ func doOsCustomizationsCreate(
 	distroHandler DistroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
-	buildTime := time.Now().Format(buildTimeFormat)
+	buildTime := time.Now()
 
 	// Override resolv.conf inside the image chroot so user scripts and RPM
 	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own

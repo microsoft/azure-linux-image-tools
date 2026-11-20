@@ -191,3 +191,48 @@ func TestPartitionIsValidTypeUuidInvalid(t *testing.T) {
 	err := partition.IsValid()
 	assert.ErrorContains(t, err, "partition type is unknown and is not a UUID (c12a7328-f81f-11d2-ba4b-00a0c93ec93)")
 }
+
+func TestPartitionIsValidUnalignedStart(t *testing.T) {
+	partition := Partition{
+		Id:    "a",
+		Start: ptrutils.PtrTo(DiskSize(1 * diskutils.KiB)),
+		Size: PartitionSize{
+			Type: PartitionSizeTypeExplicit,
+			Size: DiskSize(1 * diskutils.MiB),
+		},
+	}
+
+	err := partition.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'start' value:\n")
+	assert.ErrorContains(t, err, "size (1 KiB) must be a multiple of 1 MiB")
+}
+
+func TestPartitionIsValidUnalignedEnd(t *testing.T) {
+	partition := Partition{
+		Id:    "a",
+		Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+		End:   ptrutils.PtrTo(DiskSize(1025 * diskutils.KiB)),
+	}
+
+	err := partition.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'end' value:\n")
+	assert.ErrorContains(t, err, "size (1025 KiB) must be a multiple of 1 MiB")
+}
+
+func TestPartitionIsValidUnalignedSize(t *testing.T) {
+	partition := Partition{
+		Id:    "a",
+		Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+		Size: PartitionSize{
+			Type: PartitionSizeTypeExplicit,
+			Size: DiskSize(1 * diskutils.KiB),
+		},
+	}
+
+	err := partition.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'size' value:\n")
+	assert.ErrorContains(t, err, "size (1 KiB) must be a multiple of 1 MiB")
+}

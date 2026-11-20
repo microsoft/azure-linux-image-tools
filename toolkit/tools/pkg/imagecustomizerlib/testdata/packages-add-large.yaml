@@ -1,27 +1,11 @@
+previewFeatures:
+- resize-disk
+
 storage:
-  disks:
-  - partitionTableType: gpt
+  resizeDisk:
     partitions:
-    - id: esp
-      type: esp
-      size: 8M
-
-    - id: rootfs
-      size: 10G
-
-  bootType: efi
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      path: /boot/efi
-      options: umask=0077
-
-  - deviceId: rootfs
-    type: ext4
-    mountPoint:
-      path: /
+    - ref: last
+      freeSpace: 9G
 
 os:
   bootloader:

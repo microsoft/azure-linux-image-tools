@@ -11,10 +11,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 )
 
@@ -27,42 +25,20 @@ var (
 	ErrFilesystemTune2fs       = NewImageCustomizerError("Filesystem:Tune2fs", "failed to get filesystem info with tune2fs")
 )
 
-// shrinkFilesystemsHelper shrinks filesystems to minimize their size.
+// shrinkFilesystems shrinks filesystems to minimize their size.
 // isExternalImage indicates whether the image was created externally (not by IC). When true
 // (convert/inject-files subcommands), filesystems are only shrunk if they completely cover
 // their partition. When false (customize subcommand), filesystems are always shrunk since
 // IC controls the image creation.
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string,
+func shrinkFilesystems(ctx context.Context, osImageConnection *osImageConnection, readonlyPartUuids []string,
 	verityMetadata []verityDeviceMetadata, isExternalImage bool,
 ) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
-	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return nil, err
-	}
-	defer imageLoopback.Close()
-
-	// Shrink the filesystems and capture original sizes.
-	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids,
-		verityMetadata, isExternalImage)
-	if err != nil {
-		return nil, err
-	}
-
-	err = imageLoopback.CleanClose()
-	if err != nil {
-		return nil, err
-	}
-
-	return partitionOriginalSizes, nil
-}
-
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verityMetadata []verityDeviceMetadata,
-	isExternalImage bool,
-) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
+
+	imageLoopDevice := osImageConnection.Loopback().DevicePath()
 
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
@@ -141,7 +117,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verit
 
 		fileSystemSizeInSectors := mathutils.DivRoundUp(totalSizeInBytes, sectorSize)
 
-		err = resizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
+		err = diskutils.ResizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
 		if err != nil {
 			return nil, err
 		}
@@ -170,35 +146,6 @@ func shrinkExt4FileSystem(partitionDevice string, diskDevice string) (uint64, er
 	}
 
 	return fileSystemSizeInBytes, nil
-}
-
-func resizePartition(partitionDevice string, diskDevice string, newSizeInSectors uint64) error {
-	partitionNumber, err := getPartitionNum(partitionDevice)
-	if err != nil {
-		return err
-	}
-
-	// Resize the partition.
-	sfdiskScript := fmt.Sprintf("unit: sectors\nsize=%d", newSizeInSectors)
-
-	err = shell.NewExecBuilder("flock", "--timeout", "5", diskDevice, "sfdisk", "--lock=no",
-		"-N", strconv.Itoa(partitionNumber), diskDevice).
-		Stdin(sfdiskScript).
-		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
-		ErrorStderrLines(1).
-		Execute()
-	if err != nil {
-		return fmt.Errorf("failed to resize partition (%s) with sfdisk (and flock):\n%w", partitionDevice, err)
-	}
-
-	// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then
-	// recreated. So, wait for that to finish.
-	err = diskutils.RefreshPartitions(diskDevice)
-	if err != nil {
-		return fmt.Errorf("failed to wait for disk (%s) to update:\n%w", diskDevice, err)
-	}
-
-	return nil
 }
 
 // Get the filesystem size in bytes.

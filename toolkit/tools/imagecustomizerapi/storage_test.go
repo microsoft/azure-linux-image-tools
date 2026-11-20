@@ -227,28 +227,6 @@ func TestStorageIsValidBadBiosBootFsType(t *testing.T) {
 	assert.ErrorContains(t, err, "BIOS boot partition (bios) must not have a filesystem 'type'")
 }
 
-func TestStorageIsValidBadBiosBootStart(t *testing.T) {
-	storage := Storage{
-		Disks: []Disk{{
-			PartitionTableType: PartitionTableTypeGpt,
-			MaxSize:            ptrutils.PtrTo(DiskSize(2 * diskutils.GiB)),
-			Partitions: []Partition{
-				{
-					Id:    "bios",
-					Start: ptrutils.PtrTo(DiskSize(2 * diskutils.MiB)),
-					End:   nil,
-					Type:  PartitionTypeBiosGrub,
-				},
-			},
-		}},
-		BootType: BootTypeLegacy,
-	}
-
-	err := storage.IsValid()
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "BIOS boot partition must start at 1 MiB")
-}
-
 func TestStorageIsValidBadDeviceId(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
@@ -592,7 +570,49 @@ func TestStorageIsValidBothDisksAndResetUuid(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "cannot specify both 'resetPartitionsUuidsType' and 'disks'")
+	assert.ErrorContains(t, err, "can only specify one of 'disks', 'resetPartitionsUuidsType', and 'resizeDisk'")
+}
+
+func TestStorageIsValidBothDisksAndResizeDisk(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(4 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "rootfs",
+					Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootfs",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+		ResizeDisk: &ResizeDisk{},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "can only specify one of 'disks', 'resetPartitionsUuidsType', and 'resizeDisk'")
 }
 
 func TestStorageIsValid_DuplicateMountPointBetweenFilesystems_Fail(t *testing.T) {

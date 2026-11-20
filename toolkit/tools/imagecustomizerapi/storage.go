@@ -29,6 +29,7 @@ type Storage struct {
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 	ReinitializeVerity       ReinitializeVerityType   `yaml:"reinitializeVerity" json:"reinitializeVerity,omitempty"`
+	ResizeDisk               *ResizeDisk              `yaml:"resizeDisk" json:"resizeDisk,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`
@@ -105,13 +106,26 @@ func (s *Storage) IsValid() error {
 	}
 
 	hasResetUuids := s.ResetPartitionsUuidsType != ResetPartitionsUuidsTypeDefault
-	hasBootType := s.BootType != BootTypeNone
 	hasDisks := len(s.Disks) > 0
-	hasFileSystems := len(s.FileSystems) > 0
+	hasResizeDisk := s.ResizeDisk != nil
 
-	if hasResetUuids && hasDisks {
-		return fmt.Errorf("cannot specify both 'resetPartitionsUuidsType' and 'disks'")
+	count := 0
+	if hasResetUuids {
+		count += 1
 	}
+	if hasDisks {
+		count += 1
+	}
+	if hasResizeDisk {
+		count += 1
+	}
+
+	if count > 1 {
+		return fmt.Errorf("can only specify one of 'disks', 'resetPartitionsUuidsType', and 'resizeDisk'")
+	}
+
+	hasBootType := s.BootType != BootTypeNone
+	hasFileSystems := len(s.FileSystems) > 0
 
 	if !hasBootType && hasDisks {
 		return fmt.Errorf("must specify 'bootType' if 'disks' are specified")
@@ -313,6 +327,12 @@ func ValidateVerityMounts(verityDevices []Verity) error {
 
 func (s *Storage) CustomizePartitions() bool {
 	return len(s.Disks) > 0
+}
+
+func (s *Storage) CustomizeStorage() bool {
+	return s.CustomizePartitions() ||
+		s.ResetPartitionsUuidsType != ResetPartitionsUuidsTypeDefault ||
+		s.ResizeDisk != nil
 }
 
 func (s *Storage) buildDeviceMap() (map[string]any, map[string]int, error) {

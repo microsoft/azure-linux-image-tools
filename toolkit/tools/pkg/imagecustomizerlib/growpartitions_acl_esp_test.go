@@ -233,6 +233,14 @@ func TestGrowAclUsrWithHashPartitions(t *testing.T) {
 	parts, err := diskutils.GetDiskPartitions(loop.DevicePath())
 	require.NoError(t, err)
 
+	metadata := []verityDeviceMetadata{{
+		name:           imagecustomizerapi.VerityUsrDeviceName,
+		formatSettings: verityFormatSettings{dataSizeBytes: baseSizes[aclPartLabelUsrA]},
+	}}
+	require.NoError(t, overrideAclUsrVerityMetadata(loop.DevicePath(), metadata))
+	assert.Equal(t, uint64(grownUsrMiB*diskutils.MiB), metadata[0].formatSettings.dataSizeBytes)
+	assert.Zero(t, metadata[0].formatSettings.hashOffsetBytes)
+
 	for _, label := range []string{aclPartLabelHashA, aclPartLabelHashB} {
 		part, ok := partitionsByLabel(parts)[label]
 		require.True(t, ok, "grown %s not found", label)

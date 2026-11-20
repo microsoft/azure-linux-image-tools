@@ -1,0 +1,8 @@
+previewFeatures:
+  - package-manifest
+  - remove-package-manager
+os:
+  packages:
+    manifest:
+      mode: create
+    removePackageManager: true

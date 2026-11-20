@@ -41,7 +41,7 @@ hostonly="no"
 	// the total size of a collection of files is multiplied by the
 	// expansionSafetyFactor to estimate a disk size sufficient to hold those
 	// files.
-	expansionSafetyFactor = 1.5
+	expansionSafetyFactor = 2.0
 
 	// This folder is necessary to include in the initrd image so that the
 	// emergency shell can work correctly with the keyboard.
@@ -777,10 +777,16 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
-	_, err = CreateNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+	_, osImageConnection, err := createNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
 		installOSFunc)
 	if err != nil {
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
+	}
+	defer osImageConnection.Close()
+
+	err = osImageConnection.CleanClose()
+	if err != nil {
+		return err
 	}
 
 	if squashfsMount != nil {

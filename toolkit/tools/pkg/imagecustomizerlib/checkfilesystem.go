@@ -23,34 +23,14 @@ var (
 	ErrFilesystemFsckCheck      = NewImageCustomizerError("FilesystemCheck:Fsck", "failed to check filesystem with fsck")
 )
 
-func checkFileSystems(ctx context.Context, rawImageFile string) error {
+func checkFileSystems(ctx context.Context, osImageConnection *osImageConnection) error {
 	logger.Log.Infof("Checking for file system errors")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "check_filesystems")
 	defer span.End()
 
-	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
-	if err != nil {
-		return err
-	}
-	defer imageLoopback.Close()
-
-	err = checkFileSystemsHelper(imageLoopback.DevicePath())
-	if err != nil {
-		return err
-	}
-
-	err = imageLoopback.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func checkFileSystemsHelper(diskDevice string) error {
 	// Get partitions info
-	diskPartitions, err := diskutils.GetDiskPartitions(diskDevice)
+	diskPartitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return err
 	}
@@ -68,7 +48,7 @@ func checkFileSystemsHelper(diskDevice string) error {
 			continue
 		}
 
-		err = checkFileSystem(diskPartition.FileSystemType, diskPartition.Path)
+		err := checkFileSystem(diskPartition.FileSystemType, diskPartition.Path)
 		if err != nil {
 			errs = append(errs, err)
 		}

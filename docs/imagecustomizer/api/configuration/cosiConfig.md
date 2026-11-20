@@ -5,7 +5,8 @@ ancestor: Image Customizer
 
 # cosiConfig type
 
-Specifies the configuration options for the COSI output format.
+Specifies the configuration options for the `cosi` and `baremetal-image` output
+formats.
 
 Example:
 

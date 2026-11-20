@@ -59,8 +59,19 @@ const (
 	// (flatcar.oem.id) on the boot kernel command line.
 	PreviewFeatureAclOemId PreviewFeature = "acl-oem-id"
 
+	// PreviewFeatureResizeDisk enables support for specifying a tools directory.
+	PreviewFeatureResizeDisk PreviewFeature = "resize-disk"
+
 	// PreviewFeatureRemovePackageManager enables support for the '.os.packages.removePackageManager' API.
 	PreviewFeatureRemovePackageManager PreviewFeature = "remove-package-manager"
+
+	// PreviewFeaturePackageManifest enables support for the '.os.packages.manifest' and
+	// '.output.packageManifest' APIs.
+	PreviewFeaturePackageManifest PreviewFeature = "package-manifest"
+
+	// PreviewFeatureSymlinkMode enables the 'symlinkMode' API on '.os.additionalDirs[]' and
+	// 'additionalFiles[]'.
+	PreviewFeatureSymlinkMode PreviewFeature = "symlink-mode"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -69,7 +80,9 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureDistroVersion,
 		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureBtrfs,
 		PreviewFeatureCreate, PreviewFeatureUnsupportedDistroVersion, PreviewFeatureToolsDir,
-		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId, PreviewFeatureRemovePackageManager:
+		PreviewFeatureAclGrowPartitions, PreviewFeatureAclOemId,
+		PreviewFeatureRemovePackageManager, PreviewFeaturePackageManifest, PreviewFeatureSymlinkMode,
+		PreviewFeatureResizeDisk:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

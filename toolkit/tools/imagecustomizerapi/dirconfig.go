@@ -30,6 +30,11 @@ type DirConfig struct {
 	// Note: If this value is not specified in the config, the permissions for these directories will be set to 0755.
 	ChildFilePermissions *FilePermissions `yaml:"childFilePermissions" json:"childFilePermissions,omitempty"`
 
+	// Controls how symbolic links inside the source directory are handled. See the
+	// SymlinkMode values for the supported behaviors. Requires the 'symlink-mode'
+	// preview feature when set.
+	SymlinkMode SymlinkMode `yaml:"symlinkMode" json:"symlinkMode,omitempty"`
+
 	SHA256HashMap map[string]string `json:"sha256hashmap,omitempty"`
 }
 
@@ -71,6 +76,11 @@ func (d *DirConfig) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid childFilePermissions value:\n%w", err)
 		}
+	}
+
+	err = d.SymlinkMode.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid symlinkMode value:\n%w", err)
 	}
 
 	return nil

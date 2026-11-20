@@ -1,0 +1,10 @@
+previewFeatures:
+- resize-disk
+
+storage:
+  resizeDisk:
+    partitions:
+    - ref:
+        idType: part-label
+        id: rootfs
+      size: 50G

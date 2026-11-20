@@ -33,6 +33,22 @@ func (p *Partition) IsValid() error {
 		return err
 	}
 
+	if p.Start != nil {
+		if err := p.Start.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'start' value:\n%w", err)
+		}
+	}
+
+	if p.End != nil {
+		if err := p.End.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'end' value:\n%w", err)
+		}
+	}
+
+	if err := p.Size.IsValid(); err != nil {
+		return fmt.Errorf("invalid 'size' value:\n%w", err)
+	}
+
 	if !p.filled && p.End != nil && p.Size.Type != PartitionSizeTypeUnset {
 		return fmt.Errorf("cannot specify both end and size on partition (%s)", p.Id)
 	}

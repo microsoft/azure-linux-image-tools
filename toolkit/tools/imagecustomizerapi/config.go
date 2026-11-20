@@ -44,6 +44,9 @@ func (c *Config) IsValid() (err error) {
 		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
+		if err := validateAdditionalFilesSymlinkMode(c.Iso.AdditionalFiles, c.PreviewFeatures, "iso.additionalFiles"); err != nil {
+			return err
+		}
 	}
 
 	if c.Pxe != nil {
@@ -53,6 +56,9 @@ func (c *Config) IsValid() (err error) {
 		}
 		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
+		}
+		if err := validateAdditionalFilesSymlinkMode(c.Pxe.AdditionalFiles, c.PreviewFeatures, "pxe.additionalFiles"); err != nil {
+			return err
 		}
 	}
 
@@ -77,14 +83,6 @@ func (c *Config) IsValid() (err error) {
 					return err
 				}
 			}
-
-			// Validate modify mode compatibility
-			if c.OS.Uki.Mode == UkiModeModify {
-				err = c.validateUkiModifyMode()
-				if err != nil {
-					return err
-				}
-			}
 		}
 
 		if c.OS.Packages.SnapshotTime != "" && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {
@@ -94,6 +92,23 @@ func (c *Config) IsValid() (err error) {
 		if c.OS.Packages.RemovePackageManager != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureRemovePackageManager) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.removePackageManager'",
 				PreviewFeatureRemovePackageManager)
+		}
+
+		if c.OS.Packages.Manifest != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageManifest) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.packages.manifest'",
+				PreviewFeaturePackageManifest)
+		}
+
+		for i := range c.OS.AdditionalDirs {
+			if c.OS.AdditionalDirs[i].SymlinkMode != SymlinkModeUnspecified &&
+				!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureSymlinkMode) {
+				return fmt.Errorf("the '%s' preview feature must be enabled to use 'os.additionalDirs[].symlinkMode'",
+					PreviewFeatureSymlinkMode)
+			}
+		}
+
+		if err := validateAdditionalFilesSymlinkMode(c.OS.AdditionalFiles, c.PreviewFeatures, "os.additionalFiles"); err != nil {
+			return err
 		}
 	}
 
@@ -108,7 +123,7 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
-	if c.CustomizePartitions() && !hasResetBootLoader {
+	if c.Storage.CustomizePartitions() && !hasResetBootLoader {
 		return fmt.Errorf("'os.bootloader.resetType' must be specified if 'storage.disks' is specified")
 	}
 
@@ -131,6 +146,13 @@ func (c *Config) IsValid() (err error) {
 	if c.Output.SelinuxPolicyPath != "" {
 		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputSelinuxPolicy) {
 			return fmt.Errorf("the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+		}
+	}
+
+	if c.Output.PackageManifest != nil {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageManifest) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'output.packageManifest'",
+				PreviewFeaturePackageManifest)
 		}
 	}
 
@@ -195,48 +217,25 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if c.Storage.ResizeDisk != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureResizeDisk) {
+		return fmt.Errorf("the '%s' preview feature must be enabled to use .storage.resizeDisk",
+			PreviewFeatureResizeDisk)
+	}
+
 	return nil
 }
 
-func (c *Config) CustomizePartitions() bool {
-	return c.Storage.CustomizePartitions()
-}
-
-func (c *Config) validateUkiModifyMode() error {
-	var incompatibleConfigs []string
-
-	// Modify mode adds arguments without replacing existing ones. Hard-reset would replace
-	// the entire bootloader configuration, conflicting with modify mode's additive nature.
-	if c.OS != nil && c.OS.BootLoader.ResetType == ResetBootLoaderTypeHard {
-		incompatibleConfigs = append(incompatibleConfigs,
-			"os.bootloader.resetType: hard-reset requires mounting root partition which is incompatible with UKI modify mode")
-	}
-
-	// Adding new verity devices requires adding the systemd-verity dracut module to initramfs.
-	// Since modify mode cannot modify the initramfs (embedded in main UKI), this is blocked.
-	if len(c.Storage.Verity) > 0 {
-		incompatibleConfigs = append(incompatibleConfigs,
-			"storage.verity: adding new verity devices requires modifying initramfs to add drivers, which UKI modify mode cannot do")
-	}
-
-	// Overlays require adding the overlay driver to initramfs via enableOverlays().
-	// Since modify mode cannot modify the initramfs, overlays are incompatible.
-	if c.OS != nil && c.OS.Overlays != nil && len(*c.OS.Overlays) > 0 {
-		incompatibleConfigs = append(incompatibleConfigs,
-			"os.overlays: overlay filesystems require adding overlay driver to initramfs, which UKI modify mode cannot do")
-	}
-
-	if len(incompatibleConfigs) > 0 {
-		errorMsg := "UKI modify mode is incompatible with the following configurations:\n"
-		for _, cfg := range incompatibleConfigs {
-			errorMsg += fmt.Sprintf("  - %s\n", cfg)
+// validateAdditionalFilesSymlinkMode requires the 'symlink-mode' preview feature when
+// any additionalFiles entry sets 'symlinkMode'. apiPath names the config location
+// (e.g. "os.additionalFiles") for the error message.
+func validateAdditionalFilesSymlinkMode(files AdditionalFileList, previewFeatures []PreviewFeature, apiPath string) error {
+	for i := range files {
+		if files[i].SymlinkMode != SymlinkModeUnspecified &&
+			!sliceutils.ContainsValue(previewFeatures, PreviewFeatureSymlinkMode) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use '%s[].symlinkMode'",
+				PreviewFeatureSymlinkMode, apiPath)
 		}
-		errorMsg += "\nUKI modify mode only modifies the addon cmdline. Use mode: create to make changes requiring initramfs or kernel modification."
-		return fmt.Errorf("%s", errorMsg)
 	}
-
-	// Note: Kernel package modifications are validated at runtime by checking
-	// /boot for new kernel binaries after package operations.
 	return nil
 }
 

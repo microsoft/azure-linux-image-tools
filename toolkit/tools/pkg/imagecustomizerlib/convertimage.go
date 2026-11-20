@@ -151,19 +151,43 @@ func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawI
 	toolsChroot *safechroot.Chroot,
 ) error {
 	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
+		imageMountPoint := filepath.Join(buildDirAbs, "imageroot")
+		if toolsChroot != nil {
+			imageMountPoint = filepath.Join(toolsChroot.RootDir(), toolsRootImageDir)
+		}
+
+		osImageConnection, readonlyPartUuids, distroHandler, err :=
+			connectToExistingImage(ctx, rawImageFile, buildDirAbs, imageMountPoint, true, /*includeDefaultMounts*/
+				true /*readOnly*/, true /*readOnlyVerity*/, true /*ignoreOverlays*/, nil)
+		if err != nil {
+			err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
+			return err
+		}
+		defer osImageConnection.Close()
+
 		// Convert subcommand doesn't support preview features - pass empty slice
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, toolsChroot)
+			err := prepareImageConversionData(ctx, buildDirAbs, toolsChroot, osImageConnection, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrArtifactCosiImageInfoCollect, err)
 		}
 
+		err = osImageConnection.DisconnectChroot()
+		if err != nil {
+			return err
+		}
+
 		// For convert subcommand, we're dealing with arbitrary external images.
 		// Only shrink filesystems that completely cover their partition.
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids, nil,
+		partitionOriginalSizes, err := shrinkFilesystems(ctx, osImageConnection, readonlyPartUuids, nil,
 			true /*isExternalImage*/)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
+		}
+
+		err = osImageConnection.CleanClose()
+		if err != nil {
+			return err
 		}
 
 		compressionLevel := defaultCosiCompressionLevel(outputFormat)

@@ -16,7 +16,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"go.opentelemetry.io/otel"
@@ -32,17 +31,15 @@ var (
 	ErrPartitionUnsupportedFilesystem = NewImageCustomizerError("PartitionUUID:UnsupportedFilesystem", "unsupported filesystem for UUID reset")
 )
 
-func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir string) error {
+func resetPartitionsUuids(ctx context.Context, osImageConnection *osImageConnection, buildDir string,
+	distroHandler DistroHandler,
+) error {
 	logger.Log.Infof("Resetting partition UUIDs")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reset_partitions_uuids")
 	defer span.End()
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return err
-	}
-	defer loopback.Close()
+	loopback := osImageConnection.Loopback()
 
 	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
@@ -86,12 +83,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 	}
 
 	// Fix /etc/fstab file.
-	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir)
-	if err != nil {
-		return err
-	}
-
-	err = loopback.CleanClose()
+	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir, distroHandler, osImageConnection)
 	if err != nil {
 		return err
 	}
@@ -169,7 +161,7 @@ func resetPartitionUuid(device string, partNum int) (string, error) {
 }
 
 func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids []string, newPartUuids []string,
-	buildDir string,
+	buildDir string, distroHandler DistroHandler, osImageConnection *osImageConnection,
 ) error {
 	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
@@ -244,6 +236,21 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	if err != nil {
 		return err
 	}
+
+	// Refresh osImageConnection metadata.
+	partitions, err = diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
+	if err != nil {
+		return err
+	}
+
+	partitionsLayout, verityMetadata, _, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
+		false /*ignoreOverlays*/, rootfsPartition, rootfsPath, distroHandler)
+	if err != nil {
+		return fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+	}
+
+	osImageConnection.partitionsLayout = partitionsLayout
+	osImageConnection.verityMetadata = verityMetadata
 
 	return nil
 }

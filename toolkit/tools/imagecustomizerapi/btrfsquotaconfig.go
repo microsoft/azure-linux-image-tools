@@ -17,12 +17,24 @@ type BtrfsQuotaConfig struct {
 
 // IsValid validates the BtrfsQuotaConfig configuration.
 func (q *BtrfsQuotaConfig) IsValid() error {
-	if q.ReferencedLimit != nil && *q.ReferencedLimit <= 0 {
-		return fmt.Errorf("referencedLimit value (%d) must be a positive non-zero number", *q.ReferencedLimit)
+	if q.ReferencedLimit != nil {
+		if err := q.ReferencedLimit.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'referencedLimit' value:\n%w", err)
+		}
+
+		if *q.ReferencedLimit <= 0 {
+			return fmt.Errorf("referencedLimit value (%d) must be a positive non-zero number", *q.ReferencedLimit)
+		}
 	}
 
-	if q.ExclusiveLimit != nil && *q.ExclusiveLimit <= 0 {
-		return fmt.Errorf("exclusiveLimit value (%d) must be a positive non-zero number", *q.ExclusiveLimit)
+	if q.ExclusiveLimit != nil {
+		if err := q.ExclusiveLimit.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'exclusiveLimit' value:\n%w", err)
+		}
+
+		if *q.ExclusiveLimit <= 0 {
+			return fmt.Errorf("exclusiveLimit value (%d) must be a positive non-zero number", *q.ExclusiveLimit)
+		}
 	}
 
 	return nil

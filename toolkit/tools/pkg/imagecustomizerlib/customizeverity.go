@@ -16,12 +16,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
@@ -135,6 +133,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 			if entry.Target == verity.Mount.MountPath {
 				// Replace mount's source with verity device.
 				entry.Source = verityDevicePath(verity)
+				entry.PassNo = 0
 
 				// Update subvol= option if this is a BTRFS subvolume mount.
 				if verity.Mount.SubvolumePath != "" {
@@ -524,9 +523,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	return nil
 }
 
-func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, storage imagecustomizerapi.Storage,
-	partitionsLayout []fstabEntryPartNum, baseImageVerityMetadata []verityDeviceMetadata,
-) error {
+func validateVerityMountPaths(osImageConnection *osImageConnection, storage imagecustomizerapi.Storage) error {
 	if storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
 		// Either:
 		// - Verity is not being used OR
@@ -535,7 +532,10 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		return nil
 	}
 
-	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	baseImageVerityMetadata := osImageConnection.verityMetadata
+	partitionsLayout := osImageConnection.partitionsLayout
+
+	partitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return err
 	}
@@ -651,31 +651,20 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 	return partition, nil
 }
 
-func collectVerityMetadataFromImage(verity []imagecustomizerapi.Verity, imageFile string,
+func collectVerityMetadataFromImage(verity []imagecustomizerapi.Verity, osImageConnection *osImageConnection,
 	partIdToPartUuid map[string]string,
 ) ([]verityDeviceMetadata, error) {
 	if len(verity) <= 0 {
 		return nil, nil
 	}
 
-	imageLoopback, err := safeloopback.NewLoopback(imageFile)
-	if err != nil {
-		return nil, err
-	}
-	defer imageLoopback.Close()
-
 	// Get partition info
-	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopback.DevicePath())
+	diskPartitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return nil, err
 	}
 
 	verityMetadata, err := collectVerityMetadata(verity, diskPartitions, partIdToPartUuid)
-	if err != nil {
-		return nil, err
-	}
-
-	err = imageLoopback.CleanClose()
 	if err != nil {
 		return nil, err
 	}
@@ -734,29 +723,25 @@ func collectVerityMetadata(verity []imagecustomizerapi.Verity, diskPartitions []
 }
 
 func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConfig,
-	buildImageFile string, shrinkHashPartition bool,
+	osImageConnection *osImageConnection, shrinkHashPartition bool,
 	verityMetadata []verityDeviceMetadata, readonlyPartUuids []string,
-	partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
+	distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Provisioning verity")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "provision_verity")
 	defer span.End()
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
-	}
-	defer loopback.Close()
-
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskPartitions, err := diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 	if err != nil {
 		return err
 	}
 
-	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
+	devicePath := osImageConnection.Loopback().DevicePath()
+
+	sectorSize, _, err := diskutils.GetSectorSize(devicePath)
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, devicePath, err)
 	}
 
 	verityUpdated := false
@@ -780,7 +765,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 			}
 
 			// Format hash partition.
-			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
+			rootHash, err := verityFormat(devicePath, dataPartition.Path, hashPartition.Path,
 				shrinkHashPartition, sectorSize, metadata.name, metadata.formatSettings)
 			if err != nil {
 				return err
@@ -792,29 +777,25 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 	}
 
 	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
-	err = diskutils.RefreshPartitions(loopback.DevicePath())
+	err = diskutils.RefreshPartitions(devicePath)
 	if err != nil {
 		return err
 	}
 
 	if verityUpdated {
-		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+		diskPartitions, err = diskutils.GetDiskPartitions(osImageConnection.Loopback().DevicePath())
 		if err != nil {
 			return err
 		}
 
 		// Update kernel args.
-		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
+		// UKI create mode puts the verity args into the UKIs (not GRUB)
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout, distroHandler)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki,
+			osImageConnection.partitionsLayout, distroHandler)
 		if err != nil {
 			return err
 		}
-	}
-
-	err = loopback.CleanClose()
-	if err != nil {
-		return err
 	}
 
 	deviceNamesJson := getVerityNames(verityMetadata)
@@ -895,7 +876,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	if shrinkHashPartition && !formatSettings.IsInlineVerity() {
 		partitionSizeInSectors := mathutils.DivRoundUp(hashSizeInBytes, sectorSize)
 
-		err = resizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
+		err = diskutils.ResizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
 		if err != nil {
 			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}

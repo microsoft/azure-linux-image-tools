@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -129,8 +130,23 @@ func needPackageCleanup(config *imagecustomizerapi.OS) bool {
 	return needPackageSources(config) || len(config.Packages.Remove) > 0
 }
 
+func finalizePackageManagement(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot, buildTime time.Time, packageManifestMode imagecustomizerapi.PackageManifestMode,
+	removePackageManager bool,
+) error {
+	if removePackageManager {
+		err := removeOsPackageManager(ctx, distroHandler, imageChroot, toolsChroot, packageManifestMode, buildTime)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrRemovePackageManager, err)
+		}
+		return nil
+	}
+
+	return applyPackageManifestMode(ctx, distroHandler, imageChroot, packageManifestMode, buildTime)
+}
+
 func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot, packageManifestMode imagecustomizerapi.PackageManifestMode, buildTime time.Time,
 ) error {
 	var err error
 
@@ -142,6 +158,13 @@ func removeOsPackageManager(ctx context.Context, distroHandler DistroHandler, im
 	err = distroHandler.RemovePackageManagerTools(ctx, imageChroot, toolsChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrRemovePackageManagerPackages, err)
+	}
+
+	// Reads the package database to get the final state of the customized image, so must be called after packages
+	// associated with the package manager are removed, but before the package manager files are cleaned up.
+	err = applyPackageManifestMode(ctx, distroHandler, imageChroot, packageManifestMode, buildTime)
+	if err != nil {
+		return err
 	}
 
 	err = distroHandler.RemovePackageManagerFiles(ctx, imageChroot)

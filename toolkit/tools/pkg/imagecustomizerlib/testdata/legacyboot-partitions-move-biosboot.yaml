@@ -1,0 +1,12 @@
+previewFeatures:
+- resize-disk
+
+storage:
+  resizeDisk:
+    partitions:
+      # root is before the BIOS boot partition. So, resizing it will move the BIOS boot partition.
+      # This should report an error since the location of the BIOS boot partition is hardcoded inside in the MBR.
+    - ref:
+        idType: part-label
+        id: root
+      size: 2G
