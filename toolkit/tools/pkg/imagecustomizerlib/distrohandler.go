@@ -138,10 +138,6 @@ type DistroHandler interface {
 	// in parsed grubConfigLinuxArg format.
 	ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error)
 
-	// ReadNonRecoveryKernelCmdlines reads kernel command-line arguments from the boot configuration, excluding
-	// recovery entries, and returns only args whose name is in argNames.
-	ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error)
-
 	// UpdateBootConfigForVerity updates the boot configuration (grub.cfg or BLS entries) with verity
 	// kernel arguments. Each distro handler implements the appropriate strategy.
 	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,

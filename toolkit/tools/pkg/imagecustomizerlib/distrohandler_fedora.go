@@ -317,10 +317,6 @@ func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[strin
 	return readBLSOrGrubCfgKernelopts(bootDir)
 }
 
-func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
-}
-
 func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,

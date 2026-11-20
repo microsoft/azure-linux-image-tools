@@ -335,25 +335,6 @@ func compareKernelVersions(a, b string) int {
 	}
 }
 
-// readNonRecoveryKernelCmdlinesFromBLS reads the first non-recovery kernel's command-line
-// arguments from BLS entry files.
-func readNonRecoveryKernelCmdlinesFromBLS(bootDir string, argNames []string) (map[string]string, error) {
-	kernelToArgs, err := readKernelCmdlinesFromBLSEntries(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(kernelToArgs) > 1 {
-		return nil, fmt.Errorf("expected 1 non-recovery BLS entry, found %d", len(kernelToArgs))
-	}
-
-	for _, args := range kernelToArgs {
-		return filterKernelArgsByName(args, argNames), nil
-	}
-
-	return nil, fmt.Errorf("no non-recovery BLS entries found")
-}
-
 // updateBLSEntriesForVerity updates BLS entry options with verity kernel args.
 func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir string,
 	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,

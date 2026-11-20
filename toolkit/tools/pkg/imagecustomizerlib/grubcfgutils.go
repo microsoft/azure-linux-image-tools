@@ -155,15 +155,6 @@ func findLinuxOrInitrdLineAll(inputGrubCfgContent string, commandName string, al
 	return lines, nil
 }
 
-// FindLinuxLine finds the linux command within the grub config file.
-func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
-	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, false /*allowMultiple*/)
-	if err != nil {
-		return grub.Line{}, err
-	}
-	return lines[0], nil
-}
-
 // isGrubRecoveryMenuentryTitle reports whether the given grub.cfg `menuentry` title looks like a recovery-mode entry
 // emitted by grub-mkconfig (via /etc/grub.d/10_linux). Those entries hardcode the substring "recovery mode" in the
 // title.
@@ -398,18 +389,6 @@ func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, err
 	insertAtToken := insertAtTokens[0]
 	insertAt := insertAtToken.Loc.Start.Index
 	return insertAt, nil
-}
-
-// filterKernelArgsByName extracts arg name=value pairs from parsed kernel args,
-// keeping only those whose name is in the provided list.
-func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[string]string {
-	result := make(map[string]string)
-	for _, arg := range args {
-		if arg.Value != "" && sliceutils.ContainsValue(names, arg.Name) {
-			result[arg.Name] = arg.Value
-		}
-	}
-	return result
 }
 
 // ParseCommandLineArgs takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.
@@ -732,20 +711,6 @@ func getCommonSELinuxArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string,
 // Converts an SELinux mode into the list of required command-line args for that mode.
 func selinuxModeToArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
 	return getCommonSELinuxArgs(selinuxMode)
-}
-
-// Converts an SELinux mode into the list of command-line args for that mode, with addtional enforcing=0 for permissive mode.
-func selinuxModeToArgsWithPermissiveFlag(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
-	args, err := getCommonSELinuxArgs(selinuxMode)
-	if err != nil {
-		return nil, err
-	}
-
-	if selinuxMode == imagecustomizerapi.SELinuxModePermissive {
-		args = append(args, installutils.CmdlineSELinuxPermissiveArg)
-	}
-
-	return args, nil
 }
 
 // Update the SELinux kernel command-line args.

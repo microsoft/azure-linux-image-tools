@@ -15,7 +15,6 @@ MYPY=${VENV_BIN_DIR}/mypy
 TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
-OSMODIFIER_BIN=${TOOLS_BIN_DIR}/osmodifier
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
@@ -73,10 +72,6 @@ check-black:
 ${IMAGE_CUSTOMIZER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer
 
-.PHONY: ${OSMODIFIER_BIN}
-${OSMODIFIER_BIN}:
-	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
-
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
@@ -110,29 +105,5 @@ test-imagecustomizer:
 		-k "$(TEST_FILTER)" \
 		./vmtests/imagecustomizer
 
-.PHONY: test-osmodifier
-test-osmodifier:
-	${PYTEST} \
-		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--osmodifier-binary="${OSMODIFIER_BIN}" \
-		--logs-dir="${LOGS_DIR}" \
-		--input-image="${INPUT_IMAGE}" \
-		--distro-id="${DISTRO_ID}" \
-		--version-id="${VERSION_ID}" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=no \
-		--tb=short \
-		-vv \
-		--junitxml=$(OUT_DIR)/report.xml \
-		--log-file=$(OUT_DIR)/pytest.log \
-		--log-file-level=DEBUG \
-		-k "$(TEST_FILTER)" \
-		./vmtests/osmodifier
-
 .PHONY: run-imagecustomizer
 run-imagecustomizer: image-customizer-container test-imagecustomizer
-
-.PHONY: run-osmodifier
-run-osmodifier: ${OSMODIFIER_BIN} test-osmodifier
