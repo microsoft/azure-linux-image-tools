@@ -247,11 +247,6 @@ func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[s
 	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.FedoraGrubCfgRelPath)
 }
 
-func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
-	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
-}
-
 func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,

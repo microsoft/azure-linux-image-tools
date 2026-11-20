@@ -274,11 +274,6 @@ func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][
 	return nil, fs.ErrNotExist
 }
 
-func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	// See comment in ReadGrub2ConfigFile.
-	return nil, fs.ErrNotExist
-}
-
 func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,

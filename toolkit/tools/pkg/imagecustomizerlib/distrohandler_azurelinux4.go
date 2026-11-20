@@ -306,10 +306,6 @@ func (d *azureLinux4DistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[
 	return readBLSOrGrubCfgKernelopts(bootDir)
 }
 
-func (d *azureLinux4DistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
-}
-
 func (d *azureLinux4DistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,

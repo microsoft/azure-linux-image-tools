@@ -272,11 +272,6 @@ func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[strin
 	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.DebianGrubCfgRelPath)
 }
 
-func (d *ubuntuDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, installutils.DebianGrubCfgRelPath)
-	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
-}
-
 func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,

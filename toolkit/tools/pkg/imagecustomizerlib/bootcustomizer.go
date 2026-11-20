@@ -245,21 +245,6 @@ func (b *BootCustomizer) UpdateSELinuxCommandLine(selinuxMode imagecustomizerapi
 	return nil
 }
 
-// Update the image's SELinux kernel command-line args for OSModifier.
-func (b *BootCustomizer) UpdateSELinuxCommandLineForEMU(selinuxMode imagecustomizerapi.SELinuxMode) error {
-	newSELinuxArgs, err := selinuxModeToArgsWithPermissiveFlag(selinuxMode)
-	if err != nil {
-		return err
-	}
-
-	err = b.UpdateKernelCommandLineArgs(selinuxArgNames, newSELinuxArgs)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (b *BootCustomizer) UpdateKernelCommandLineArgs(argsToRemove []string, newArgs []string) error {
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
@@ -354,17 +339,6 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 		// UKI files are managed by UKI-specific customization logic, not through grub.
 		// Future: May need to update boot loader configuration when native UKI boot support is added.
 	}
-
-	return nil
-}
-
-func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
-	updatedGrubFileContent, err := updateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DEVICE", rootDevice)
-	if err != nil {
-		return err
-	}
-
-	b.defaultGrubFileContent = updatedGrubFileContent
 
 	return nil
 }

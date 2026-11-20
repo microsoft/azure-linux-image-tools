@@ -639,37 +639,6 @@ func readKernelCmdlinesFromGrubCfg(bootDir string, grubCfgRelPath string) (map[s
 	return formatKernelCmdlineFromLinuxLines(linuxLines)
 }
 
-// readNonRecoveryKernelCmdlinesFromGrubCfg reads the first non-recovery kernel's command-line
-// arguments from grub.cfg. This reproduces the original osmodifier behavior for non-BLS distros.
-func readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath string, argNames []string) (map[string]string, error) {
-	grubCfgContent, err := file.Read(grubCfgPath)
-	if err != nil {
-		return nil, err
-	}
-
-	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
-	if err != nil {
-		return nil, err
-	}
-	grubLines := grub.SplitTokensIntoLines(grubTokens)
-
-	lines := FindNonRecoveryLinuxLines(grubLines)
-	if len(lines) == 0 {
-		return nil, fmt.Errorf("no non-recovery linux lines found in grub.cfg")
-	}
-
-	if len(lines) != 1 {
-		return nil, fmt.Errorf("expected 1 non-recovery linux line, found %d", len(lines))
-	}
-
-	args, err := ParseCommandLineArgs(lines[0].Tokens)
-	if err != nil {
-		return nil, err
-	}
-
-	return filterKernelArgsByName(args, argNames), nil
-}
-
 // grubKernelArgsToStringMap converts a kernel-to-args mapping from the parsed grubConfigLinuxArg format to a simple
 // kernel-to-cmdline-string format. Normalizes kernel paths and filters out args with variable expansions.
 func grubKernelArgsToStringMap(kernelToArgs map[string][]grubConfigLinuxArg) map[string]string {
