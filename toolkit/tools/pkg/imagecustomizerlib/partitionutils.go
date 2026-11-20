@@ -540,6 +540,7 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 
 func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []diskutils.PartitionInfo,
 	readonly bool, readOnlyVerity bool, distroHandler DistroHandler, buildDir string, includeDefaultMounts bool,
+	rootMountPoint string,
 ) ([]*safechroot.MountPoint, []string, []string, error) {
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
@@ -604,7 +605,8 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 			mountPoints = append(mountPoints, mountPoint)
 
 			if setReadOnly && distroHandler.RootMissingMountDirectories() {
-				mountPoint, tempDir, err := createMountsDirOverlay(buildDir, includeDefaultMounts, layout)
+				mountPoint, tempDir, err := createMountsDirOverlay(buildDir, includeDefaultMounts, layout,
+					rootMountPoint)
 				if err != nil {
 					return nil, nil, nil, err
 				}
@@ -634,6 +636,7 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 }
 
 func createMountsDirOverlay(buildDir string, includeDefaultMounts bool, layout []fstabEntryPartNum,
+	rootMountPoint string,
 ) (*safechroot.MountPoint, string, error) {
 	// The Azure Container Linux image doesn't create empty directories for some of the standard Linux
 	// mounts (e.g. /dev) or even its own mounts (e.g. /oem). So, when mounting as read-only, we have to
@@ -676,7 +679,7 @@ func createMountsDirOverlay(buildDir string, includeDefaultMounts bool, layout [
 
 	// Overlay the ACL root on top of the special directories directory.
 	mountPoint := safechroot.NewPreDefaultsMountPoint("overlay", "/", "overlay", unix.MS_RDONLY,
-		fmt.Sprintf("lowerdir=%s:/", mountDirsDir))
+		fmt.Sprintf("lowerdir=%s:%s", rootMountPoint, mountDirsDir))
 
 	ok = true
 	return mountPoint, mountDirsDir, nil

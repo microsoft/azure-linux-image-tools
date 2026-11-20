@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -892,7 +893,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	// Note: When inline verity is used, the partition will have already been shrunk to the correct size during the
 	// partition shrinking phase.
 	if shrinkHashPartition && !formatSettings.IsInlineVerity() {
-		partitionSizeInSectors := convertBytesToSectors(hashSizeInBytes, sectorSize)
+		partitionSizeInSectors := mathutils.DivRoundUp(hashSizeInBytes, sectorSize)
 
 		err = resizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
 		if err != nil {

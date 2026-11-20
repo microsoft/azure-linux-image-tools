@@ -194,8 +194,18 @@ func (d *ubuntuDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomize
 	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
+func (d *ubuntuDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
+	return nil, nil
+}
+
 func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *ubuntuDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 
 func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

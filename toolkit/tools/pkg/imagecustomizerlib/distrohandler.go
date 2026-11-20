@@ -92,11 +92,23 @@ type DistroHandler interface {
 	// the mode is already applied via the kernel command line in that case.
 	UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface) error
 
+	// SetupEtcOverlay assembles the distro's runtime /etc overlay over the image's /etc for the
+	// duration of OS customization, so that in-chroot code (e.g. package manager scriptlets, user
+	// scripts, service enablement) sees the same merged /etc the booted OS sees.
+	SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+		reinitializeVerity imagecustomizerapi.ReinitializeVerityType) (*AclEtcOverlay, error)
+
 	// ExtractUkiAddonCmdline returns the current kernel command line from the
 	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,
 	// distros that support a first-run addon-creation flow (e.g. ACL) return an
 	// empty string; all other distros return an error.
 	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
+
+	// GetUkiAddonSpecs returns the cmdline addon files to write for a kernel in UKI
+	// create mode. Most distros emit a single addon holding the full command
+	// line; distros with a first-boot addon contract (e.g. ACL) split the
+	// command line across multiple addons.
+	GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error)
 
 	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
 	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only

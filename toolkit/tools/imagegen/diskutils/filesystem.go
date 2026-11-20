@@ -408,13 +408,13 @@ var (
 	// The maximum version of mkfs.btrfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.btrfs default enabling new features.
 	// Ref: https://btrfs.readthedocs.io/en/latest/CHANGES.html
-	maxMkfsBtrfsVersion = version.Version{7, 0, 0}
+	maxMkfsBtrfsVersion = version.Version{7, 1}
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
 	// Note: If you want to update this value and want to know if there are any new features that need to be accounted
 	// for, then check the /usr/share/xfsprogs/mkfs/lts_*.conf files on your build host.
-	maxMkfsXfsVersion = version.Version{7, 0}
+	maxMkfsXfsVersion = version.Version{7, 1}
 
 	// The minimum supported kernel version. This helps avoid versions complexity for features that are old and therefore
 	// basically universal.

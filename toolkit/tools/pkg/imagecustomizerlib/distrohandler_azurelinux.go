@@ -151,8 +151,18 @@ func (d *azureLinuxDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecusto
 	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
+func (d *azureLinuxDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
+	return nil, nil
+}
+
 func (d *azureLinuxDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *azureLinuxDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 
 func (d *azureLinuxDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {

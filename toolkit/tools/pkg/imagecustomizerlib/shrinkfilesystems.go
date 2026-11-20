@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/mathutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
@@ -138,7 +139,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verit
 			return nil, err
 		}
 
-		fileSystemSizeInSectors := convertBytesToSectors(totalSizeInBytes, sectorSize)
+		fileSystemSizeInSectors := mathutils.DivRoundUp(totalSizeInBytes, sectorSize)
 
 		err = resizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
 		if err != nil {
@@ -245,16 +246,6 @@ func getExt4FileSystemSizeInBytes(resize2fsStdout string, resize2fsStderr string
 	return filesystemSizeInBytes, nil
 }
 
-func convertBytesToSectors(sizeInBytes uint64, sectorSizeInBytes uint64) uint64 {
-	sizeInSectors := sizeInBytes / sectorSizeInBytes
-	rem := sizeInBytes % sectorSizeInBytes
-	if rem != 0 {
-		sizeInSectors += 1
-	}
-
-	return sizeInSectors
-}
-
 // extFilesystemCoversPartition checks if an ext2/ext3/ext4 filesystem completely covers the partition.
 func extFilesystemCoversPartition(partitionDevice string, partitionSizeInBytes uint64) (bool, error) {
 	filesystemSizeInBytes, err := getExtFilesystemSize(partitionDevice)
@@ -323,12 +314,8 @@ func addVeritySuffixSize(fileSystemSizeInBytes uint64, verityMetadata []verityDe
 	}
 
 	// Calculate the size of the verity footer.
-
-	dataBlocks := fileSystemSizeInBytes / uint64(metadata.formatSettings.dataBlockSizeBytes)
-	if fileSystemSizeInBytes%uint64(metadata.formatSettings.dataBlockSizeBytes) != 0 {
-		// Round up data size to nearest verity data block.
-		dataBlocks += 1
-	}
+	// Round up data size to nearest verity data block.
+	dataBlocks := mathutils.DivRoundUp(fileSystemSizeInBytes, uint64(metadata.formatSettings.dataBlockSizeBytes))
 
 	veritySizeInBytes, err := verityutils.CalculateHashSizeInBytes(dataBlocks,
 		uint32(metadata.formatSettings.hashBlockSizeBytes), metadata.formatSettings.hashAlgorithm)

@@ -59,11 +59,34 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	espFiles := verifyAndSignOutputtedArtifacts(t, baseImageInfo, outputArtifactsDir, false)
 
+	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
+
+	// Add extra file to config.
+	var config imagecustomizerapi.InjectFilesConfig
+	err = imagecustomizerapi.UnmarshalYamlFile(injectConfigPath, &config)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	aFilePath := filepath.Join(testDir, "files/a.txt")
+	config.InjectFiles = append(config.InjectFiles, imagecustomizerapi.InjectArtifactMetadata{
+		Partition: imagecustomizerapi.InjectFilePartition{
+			MountIdType: imagecustomizerapi.MountIdentifierTypePartLabel,
+			Id:          "EFI System Partition",
+		},
+		Source:      aFilePath,
+		Destination: "/a.txt",
+	})
+
+	err = imagecustomizerapi.MarshalYamlFile(injectConfigPath, &config)
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	// Use new buildDir to ensure the buildDir is created if it doesn't exist.
 	buildDirInject := filepath.Join(buildDir, "inject")
 
 	// Inject artifacts into a fresh copy of the raw image
-	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 	options := InjectFilesOptions{
 		BuildDir:       buildDirInject,
 		InputImageFile: outImageFilePath,
@@ -101,6 +124,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	defer imageConnection.Close()
 
 	verifyInjectedFiles(t, filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi"), espFiles)
+	verifyFileContentsSame(t, aFilePath, filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi/a.txt"))
 }
 
 // artifactsOutputConfigFile returns the artifacts-output test config file appropriate for the

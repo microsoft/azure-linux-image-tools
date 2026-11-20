@@ -9,6 +9,7 @@ storage:
     - id: esp
       type: esp
       size: 100M
+      label: EFI System Partition
 
     - id: boot
       size: 1G

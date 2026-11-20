@@ -240,8 +240,18 @@ func (d *fedoraDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomize
 	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
+func (d *fedoraDistroHandler) SetupEtcOverlay(ctx context.Context, imageChroot *safechroot.Chroot,
+	reinitializeVerity imagecustomizerapi.ReinitializeVerityType,
+) (*AclEtcOverlay, error) {
+	return nil, nil
+}
+
 func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *fedoraDistroHandler) GetUkiAddonSpecs(kernel string, cmdline string) ([]UkiAddonSpec, error) {
+	return defaultGetUkiAddonSpecs(kernel, cmdline)
 }
 
 func (d *fedoraDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
