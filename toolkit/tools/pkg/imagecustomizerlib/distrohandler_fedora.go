@@ -168,8 +168,8 @@ func (d *fedoraDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
-) error {
-	return managePackagesRpm(
+) (bool, error) {
+	return false, managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager,
 	)

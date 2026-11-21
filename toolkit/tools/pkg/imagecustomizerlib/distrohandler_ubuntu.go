@@ -126,8 +126,8 @@ func (d *ubuntuDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error 
 func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
-) error {
-	return managePackagesDeb(ctx, config, imageChroot)
+) (bool, error) {
+	return false, managePackagesDeb(ctx, config, imageChroot)
 }
 
 func (d *ubuntuDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,

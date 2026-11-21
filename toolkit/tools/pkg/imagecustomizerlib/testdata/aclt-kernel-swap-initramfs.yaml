@@ -1,0 +1,21 @@
+previewFeatures:
+- reinitialize-verity
+- uki
+- package-manifest
+
+storage:
+  reinitializeVerity: all
+
+os:
+  packages:
+    manifest:
+      mode: create
+
+    remove:
+    - kernel
+
+    install:
+    - kernel-hwe
+
+  uki:
+    mode: create

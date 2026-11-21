@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/cosiapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -99,10 +101,53 @@ func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
-) error {
-	return managePackagesRpm(
+) (bool, error) {
+	err := managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
+	if err != nil {
+		return false, err
+	}
+
+	initramfsInvalidated, err := hasKernelMissingInitramfs(imageChroot.RootDir())
+	if err != nil {
+		return false, err
+	}
+
+	return initramfsInvalidated, nil
+}
+
+func hasKernelMissingInitramfs(rootDir string) (bool, error) {
+	bootDir := filepath.Join(rootDir, "boot")
+	entries, err := os.ReadDir(bootDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to read boot directory (%s):\n%w", bootDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), vmLinuzPrefix) {
+			continue
+		}
+
+		kernelVersion, err := getKernelVersion(entry.Name())
+		if err != nil {
+			return false, err
+		}
+
+		initramfsPath := filepath.Join(bootDir, fmt.Sprintf("initramfs-%s.img", kernelVersion))
+		exists, err := file.PathExists(initramfsPath)
+		if err != nil {
+			return false, fmt.Errorf("failed to check initramfs existence (%s):\n%w", initramfsPath, err)
+		}
+
+		if !exists {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (d *aclDistroHandler) RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot,
