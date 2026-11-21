@@ -1391,3 +1391,58 @@ func checkSkipForUkiStubs(t *testing.T) (string, string) {
 
 	return stubPath, addonStubPath
 }
+
+func TestCustomizeImageAcltKernelSwapInitramfs(t *testing.T) {
+	baseImageInfo := testBaseImageAclt3
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	for _, command := range []string{"ukify", "objcopy"} {
+		exists, err := file.CommandExists(command)
+		require.NoError(t, err)
+		if !exists {
+			t.Skipf("The '%s' command is not available", command)
+		}
+	}
+
+	toolsDir := testutils.GetDownloadedToolsDir(t, testutilsDir, baseImageDistroAzureLinux, baseImageVersionAzl3)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageAclKernelSwapInitramfs")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "aclt-kernel-swap-initramfs.yaml")
+	previewFeatures := append([]imagecustomizerapi.PreviewFeature{
+		imagecustomizerapi.PreviewFeatureToolsDir,
+	}, baseImageInfo.PreviewFeatures...)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeRaw,
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
+		ToolsDir:             toolsDir,
+	})
+	require.NoError(t, err)
+
+	// Inspect the UKI persisted in the output image, not the intermediate build files.
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	require.NoError(t, err)
+	defer imageConnection.Close()
+
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "boot")
+	ukiFiles, err := getUkiFiles(espPath)
+	require.NoError(t, err)
+	require.Len(t, ukiFiles, 1, "kernel swap should leave exactly one main UKI")
+
+	initramfsPath := filepath.Join(testTempDir, "initramfs.img")
+	err = extractSectionFromUkiWithObjcopy(ukiFiles[0], ".initrd", initramfsPath, testTempDir)
+	require.NoError(t, err)
+	initramfsInfo, err := os.Stat(initramfsPath)
+	require.NoError(t, err, "the resulting UKI must contain an embedded initramfs")
+	assert.Positive(t, initramfsInfo.Size(), "the embedded initramfs must not be empty")
+
+	assert.NoError(t, imageConnection.CleanClose())
+}

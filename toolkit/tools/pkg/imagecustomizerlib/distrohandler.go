@@ -47,7 +47,7 @@ type DistroHandler interface {
 	// Package management operations
 	ManagePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
-		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
+		snapshotTime imagecustomizerapi.PackageSnapshotTime) (bool, error)
 
 	// Removes the package management tools.
 	RemovePackageManagerTools(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error

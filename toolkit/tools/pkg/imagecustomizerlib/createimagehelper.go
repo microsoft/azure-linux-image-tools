@@ -91,7 +91,7 @@ func doOsCustomizationsCreate(
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
+		_, err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {

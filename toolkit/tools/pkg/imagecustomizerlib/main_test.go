@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -32,6 +33,9 @@ const (
 	// Azure Linux variants
 	baseImageAzureLinuxVariantCoreEfi = "core-efi"
 
+	// Azure Container Linux (ACL) variants
+	baseImageVariantAclt = "aclt"
+
 	// Ubuntu variants
 	baseImageVariantUbuntuAzureCloud = "azure-cloud"
 
@@ -44,6 +48,7 @@ const (
 	paramBaseImageAzl2CoreEfi          = "base-image-core-efi-azl2"
 	paramBaseImageAzl3CoreEfi          = "base-image-core-efi-azl3"
 	paramBaseImageAzl4CoreEfi          = "base-image-core-efi-azl4"
+	paramBaseImageAclt3                = "base-image-aclt3"
 	paramBaseImageUbuntu2204AzureCloud = "base-image-azure-cloud-ubuntu2204"
 	paramBaseImageUbuntu2404AzureCloud = "base-image-azure-cloud-ubuntu2404"
 	paramLogLevel                      = "log-level"
@@ -103,6 +108,34 @@ var (
 		},
 	}
 
+	aclMountPoints = []testutils.MountPoint{
+		{
+			PartitionNum:   7,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot",
+			FileSystemType: "vfat",
+			Flags:          unix.MS_RDONLY,
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/usr",
+			FileSystemType: "btrfs",
+			Flags:          unix.MS_RDONLY,
+			Verity: &testutils.VerityMount{
+				HashPartitionNum: 3,
+			},
+		},
+		{
+			PartitionNum:   6,
+			Path:           "/oem",
+			FileSystemType: "btrfs",
+		},
+	}
+
 	testImageAzl2 = testImageInfo{
 		ImageName:    "AzureLinux2",
 		Distro:       baseImageDistroAzureLinux,
@@ -121,6 +154,16 @@ var (
 		ImageName:    "AzureLinux4",
 		Distro:       baseImageDistroAzureLinux,
 		Version:      baseImageVersionAzl4,
+		DefaultShell: defaultShellAzureLinux,
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureDistroVersion,
+		},
+	}
+
+	testImageAcl3 = testImageInfo{
+		ImageName:    "AzureContainerLinux3",
+		Distro:       string(targetos.AzureContainerLinux),
+		Version:      baseImageVersionAzl3,
 		DefaultShell: defaultShellAzureLinux,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureDistroVersion,
@@ -177,6 +220,16 @@ var (
 		LastPartNum:   2,
 	}
 
+	testBaseImageAclt3 = testBaseImageInfo{
+		testImageInfo: testImageAcl3,
+		Name:          "AzureContainerLinuxTemplate3",
+		ParamName:     paramBaseImageAclt3,
+		Variant:       baseImageVariantAclt,
+		Param:         baseImageAclt3,
+		MountPoints:   aclMountPoints,
+		LastPartNum:   7,
+	}
+
 	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
 		testImageInfo: testImageUbuntu2204,
 		Name:          "Ubuntu2204AzureCloud",
@@ -225,6 +278,7 @@ var (
 	baseImageCoreEfiAzl2          = flag.String(paramBaseImageAzl2CoreEfi, "", "An Azure Linux 2.0 core-efi image to use as a base image.")
 	baseImageCoreEfiAzl3          = flag.String(paramBaseImageAzl3CoreEfi, "", "An Azure Linux 3.0 core-efi image to use as a base image.")
 	baseImageCoreEfiAzl4          = flag.String(paramBaseImageAzl4CoreEfi, "", "An Azure Linux 4.0 core-efi image to use as a base image.")
+	baseImageAclt3                = flag.String(paramBaseImageAclt3, "", "An Azure Container Linux Template (ACL-T) 3.0 image to use as a base image.")
 	baseImageUbuntuAzureCloud2204 = flag.String(paramBaseImageUbuntu2204AzureCloud, "", "An Ubuntu 22.04 Azure cloud image to use as a base image.")
 	baseImageUbuntuAzureCloud2404 = flag.String(paramBaseImageUbuntu2404AzureCloud, "", "An Ubuntu 24.04 Azure cloud image to use as a base image.")
 	logLevel                      = flag.String(paramLogLevel, "info", "The log level (error, warning, info, debug, or trace)")

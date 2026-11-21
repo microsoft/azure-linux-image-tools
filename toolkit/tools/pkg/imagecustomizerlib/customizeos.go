@@ -88,18 +88,21 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, osImageConnecti
 		}
 	}
 
+	packagesInvalidatedInitramfs := false
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
+		invalidatedInitramfs, err := addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
 			return err
 		}
+
+		packagesInvalidatedInitramfs = packagesInvalidatedInitramfs || invalidatedInitramfs
 	}
 
 	// Passthrough mode preserves the entire UKI, including the kernel and initramfs.
@@ -197,7 +200,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, osImageConnecti
 		return err
 	}
 
-	if partitionsCustomized || overlayUpdated || verityUpdated {
+	if partitionsCustomized || overlayUpdated || verityUpdated || packagesInvalidatedInitramfs {
 		err = distroHandler.RegenerateInitramfs(ctx, imageChroot)
 		if err != nil {
 			return err

@@ -41,7 +41,7 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, distroHandler DistroHandler,
 	snapshotTime imagecustomizerapi.PackageSnapshotTime,
-) error {
+) (bool, error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
 
