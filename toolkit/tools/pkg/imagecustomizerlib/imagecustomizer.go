@@ -98,10 +98,6 @@ const (
 	OtelTracerName = "imagecustomizerlib"
 )
 
-// Version specifies the version of the Azure Linux Image Customizer tool.
-// The value of this string is inserted during compilation via a linker flag.
-var ToolVersion = ""
-
 type imageMetadata struct {
 	verityMetadata []verityDeviceMetadata
 

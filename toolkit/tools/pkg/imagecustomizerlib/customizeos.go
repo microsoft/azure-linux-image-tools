@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion"
 )
 
 const (
@@ -159,13 +160,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, osImageConnecti
 		}
 	}
 
-	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr)
+	err = addCustomizerRelease(ctx, imageChroot.RootDir(), toolversion.ToolVersion, buildTime, rc.ImageUuidStr)
 	if err != nil {
 		return err
 	}
 
 	if rc.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, ToolVersion, buildTime, rc)
+		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, toolversion.ToolVersion, buildTime, rc)
 		if err != nil {
 			return err
 		}

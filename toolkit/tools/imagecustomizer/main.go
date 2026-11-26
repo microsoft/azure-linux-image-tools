@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/telemetry"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
@@ -96,7 +97,7 @@ func main() {
 		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesCreate(), ",") + ",",
 		"imageformatconvert": strings.Join(imagecustomizerapi.SupportedImageFormatTypesConvert(), ",") + ",",
 		"validateresources":  strings.Join(imagecustomizerapi.SupportedValidateResourceTypes(), ",") + ",",
-		"version":            imagecustomizerlib.ToolVersion,
+		"version":            toolversion.ToolVersion,
 	}
 	maps.Copy(vars, exekong.KongVars)
 
@@ -118,7 +119,7 @@ func main() {
 
 func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 	// initialize OpenTelemetry tracer
-	err := telemetry.InitTelemetry(cli.DisableTelemetry, imagecustomizerlib.ToolVersion)
+	err := telemetry.InitTelemetry(cli.DisableTelemetry, toolversion.ToolVersion)
 	if err != nil {
 		logger.Log.Warnf("Failed to initialize telemetry setup: %v", err)
 	}

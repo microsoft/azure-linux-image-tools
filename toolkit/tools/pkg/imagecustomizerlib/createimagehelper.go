@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion"
 )
 
 func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
@@ -103,7 +104,7 @@ func doOsCustomizationsCreate(
 		return err
 	}
 
-	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), toolversion.ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
 		return err
 	}
 

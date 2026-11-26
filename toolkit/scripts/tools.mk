@@ -32,6 +32,7 @@ endif
 go_tool_list = \
 	imagecustomizer \
 	osmodifier \
+	telemetrycollector
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
 go_tool_targets = $(foreach target,$(go_tool_list),$(TOOL_BINS_DIR)/$(target))
@@ -59,6 +60,8 @@ $(tool): $(call shell_real_build_only, find $(TOOLS_DIR)/$(notdir $(tool))/ -typ
 endef
 $(foreach tool,$(go_tool_targets),$(eval $(go_util_rule)))
 
+$(go-telemetrycollector): $(TOOLS_DIR)/telemetrycollector/config.yaml
+
 .PHONY: go-tools clean-go-tools go-tidy-all go-test-coverage
 ##help:target:go-tools=Preps all go tools.
 go-tools: $(go_tool_targets)
@@ -69,7 +72,7 @@ clean-go-tools:
 	rm -rf $(BUILD_DIR)/tools
 
 go_ldflags := \
-	-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib.ToolVersion=$(image_customizer_full_version)
+	-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion.ToolVersion=$(image_customizer_full_version)
 
 # Conditionally include license-scan dependency based on SKIP_LICENSE_SCAN flag
 ifeq ($(SKIP_LICENSE_SCAN),y)

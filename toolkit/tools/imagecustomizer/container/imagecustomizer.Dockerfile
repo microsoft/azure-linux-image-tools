@@ -13,16 +13,8 @@ RUN tdnf update -y && \
    tdnf install -y qemu-img rpm coreutils util-linux systemd systemd-udev openssl \
       sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
       xfsprogs btrfs-progs zstd veritysetup grub2 grub2-pc systemd-ukify binutils lsof \
-      python3 python3-pip tar pigz && \
+      tar pigz && \
    tdnf clean all
-
-# Create virtual environment and install Python dependencies for telemetry
-RUN python3 -m venv /usr/lib/imagecustomizer/telemetry-venv
-COPY telemetry-requirements.txt /usr/lib/imagecustomizer/telemetry-requirements.txt
-RUN \
-   --mount=type=secret,id=pip_cfg,target=/usr/lib/imagecustomizer/telemetry-venv/pip.conf \
-   /usr/lib/imagecustomizer/telemetry-venv/bin/pip install --no-cache-dir -r /usr/lib/imagecustomizer/telemetry-requirements.txt
-RUN rm -rf /usr/lib/imagecustomizer/telemetry-requirements.txt
 
 # Copy all necessary files
 COPY usr /usr

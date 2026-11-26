@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion"
 	"github.com/stretchr/testify/assert"
 	"go.yaml.in/yaml/v3"
 )
@@ -76,7 +77,7 @@ func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 func verifyImageHistoryFile(t *testing.T, expectedEntries int, config imagecustomizerapi.Config, rootPath string,
 ) (allHistory []ImageHistory) {
-	return verifyHistoryFile(t, expectedEntries, "", ToolVersion, "", config,
+	return verifyHistoryFile(t, expectedEntries, "", toolversion.ToolVersion, "", config,
 		filepath.Join(rootPath, customizerLoggingDir, historyFileName))
 }
 

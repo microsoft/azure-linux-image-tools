@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/spdxmanifest"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/toolversion"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -144,10 +145,7 @@ func createPackageManifest(ctx context.Context, distroHandler DistroHandler, ima
 		VersionInfo: versionInfo,
 		Created:     buildTime.UTC().Format(buildTimeFormatUtc),
 	}
-	metadata.ToolVersion = ToolVersion
-	if metadata.ToolVersion == "" {
-		metadata.ToolVersion = "dev"
-	}
+	metadata.ToolVersion = toolversion.ToolVersion
 
 	manifest, err := spdxmanifest.Build(metadata, packages)
 	if err != nil {

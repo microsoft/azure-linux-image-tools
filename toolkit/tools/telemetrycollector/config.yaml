@@ -1,0 +1,25 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+
+processors:
+  normalize_arrays: {}
+
+exporters:
+  azure_monitor:
+    connection_string: ${env:AZURE_MONITOR_CONNECTION_STRING}
+    spaneventsenabled: true
+    maxbatchinterval: 1s
+    shutdown_timeout: 5s
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [normalize_arrays]
+      exporters: [azure_monitor]

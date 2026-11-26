@@ -72,8 +72,7 @@ trap 'cleanUp' ERR
 exeFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
 licensesDir="$enlistmentRoot/toolkit/out/LICENSES"
 
-telemetryScript="$enlistmentRoot/toolkit/scripts/telemetry_hopper/telemetry_hopper.py"
-telemetryRequirements="$enlistmentRoot/toolkit/scripts/telemetry_hopper/requirements.txt"
+telemetryCollector="$enlistmentRoot/toolkit/out/tools/telemetrycollector"
 entrypointScript="$scriptDir/entrypoint.sh"
 
 stagingBinDir="${containerStagingFolder}/usr/bin"
@@ -89,10 +88,8 @@ mkdir -p "${stagingLicensesDir}"
 
 cp "$exeFile" "${stagingBinDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
-cp "$telemetryScript" "${stagingLibDir}"
+cp "$telemetryCollector" "${stagingLibDir}"
 cp "$entrypointScript" "${stagingLibDir}"
-
-cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
@@ -106,35 +103,10 @@ fi
     find . -type f | sort
 )
 
-pipCfgPath="$buildDir/pip.cfg"
-rm -rf "$pipCfgPath"
-
-PIP_CFG_ARG=""
-if [ -n "$PIP_INDEX_URL" ] || [ -n "$PIP_EXTRA_INDEX_URL" ]; then
-    cat >> "$pipCfgPath" << EOF
-[global]
-EOF
-
-    if [ -n "$PIP_INDEX_URL" ]; then
-        cat >> "$pipCfgPath" << EOF
-index-url = $PIP_INDEX_URL
-EOF
-    fi
-    
-    if [ -n "$PIP_EXTRA_INDEX_URL" ]; then
-        cat >> "$pipCfgPath" << EOF
-extra-index-url = $PIP_EXTRA_INDEX_URL
-EOF
-    fi
-
-    PIP_CFG_ARG="--secret id=pip_cfg,type=file,src=$pipCfgPath"
-fi
-
 # build the container
 docker build \
     --build-arg "BASE_IMAGE=$baseImage" \
     --build-arg "AZ_MON_CONN_STR=$azMonitorString" \
-    $PIP_CFG_ARG \
     --file "$dockerFile" \
     --tag "$containerTag" \
     "$containerStagingFolder"
